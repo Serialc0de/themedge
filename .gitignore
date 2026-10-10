@@ -1,0 +1,45 @@
+# ===== ENV =====
+.env
+.env.*
+!.env.example
+
+# ===== DEPENDENCIES =====
+node_modules/
+vendor/
+
+# ===== BUILD =====
+.next/
+out/
+build/
+dist/
+
+# ===== LARAVEL =====
+api/.env
+api/.env.backup
+api/.env.production
+api/auth.json
+api/*.sqlite
+api/*.sqlite-journal
+api/storage/logs/*
+api/storage/framework/cache/data/*
+api/storage/framework/sessions/*
+api/storage/framework/views/*
+api/bootstrap/cache/*
+api/public/storage
+
+# ===== NEXT.JS =====
+web/.env
+web/.env.local
+web/.env.production.local
+
+# ===== IDE =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===== BACKUP =====
+*.bak
+*.backup
+*.old
+*.log

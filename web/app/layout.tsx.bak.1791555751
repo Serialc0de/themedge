@@ -1,0 +1,43 @@
+import type { Metadata } from "next";
+import { Playfair_Display, Inter } from "next/font/google";
+import "./globals.css";
+
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  title: "Themedge — Le notizie che contano",
+  description: "Giornale online indipendente. Notizie, analisi e approfondimenti.",
+  metadataBase: new URL("https://themedge.com"),
+  openGraph: {
+    title: "Themedge",
+    description: "Le notizie che contano",
+    url: "https://themedge.com",
+    siteName: "Themedge",
+    locale: "it_IT",
+    type: "website",
+  },
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="it" className={`${playfair.variable} ${inter.variable}`}>
+      <body className="min-h-full flex flex-col font-sans antialiased">
+        {children}
+      </body>
+    </html>
+  );
+}
