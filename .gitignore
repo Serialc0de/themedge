@@ -43,3 +43,11 @@ Thumbs.db
 *.backup
 *.old
 *.log
+
+# ===== BACKUP FILES =====
+*.bak
+*.bak.*
+*.backup
+*.old
+*.test
+*.orig
