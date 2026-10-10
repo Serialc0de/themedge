@@ -46,24 +46,25 @@ jobs:
 
       - name: Create storage directories
         run: |
-          mkdir -p storage/framework/views
+          mkdir -p storage/app/public
           mkdir -p storage/framework/cache/data
           mkdir -p storage/framework/sessions
           mkdir -p storage/framework/testing
+          mkdir -p storage/framework/views
           mkdir -p storage/logs
           mkdir -p bootstrap/cache
+          chmod -R 777 storage bootstrap/cache
 
       - name: Copy .env
         run: php -r "file_exists('.env') || copy('.env.example', '.env');"
 
       - name: Install Composer dependencies
-        run: composer install --no-progress --prefer-dist --optimize-autoloader
+        run: composer install --no-progress --prefer-dist --optimize-autoloader --no-scripts
 
-      - name: Generate key
-        run: php artisan key:generate
-
-      - name: Directory permissions
-        run: chmod -R 777 storage bootstrap/cache
+      - name: Post-install scripts
+        run: |
+          php artisan package:discover --ansi
+          php artisan key:generate
 
       - name: Run tests
         env:
