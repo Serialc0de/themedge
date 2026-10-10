@@ -19,6 +19,13 @@ updates:
     labels:
       - "dependencies"
       - "javascript"
+    ignore:
+      # ESLint 10 non è supportato da eslint-config-next@16
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 non è ancora supportato dallo stack Next.js 16
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
