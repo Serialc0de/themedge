@@ -3,22 +3,25 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 class Category extends Model
 {
-    use SoftDeletes;
+    use LogsActivity;
 
     protected $fillable = [
-        'name', 'slug', 'description', 'parent_id',
-        'color', 'image', 'order', 'is_active',
+        'name',
+        'slug',
+        'description',
+        'color',
+        'parent_id',
+        'order',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
         'order' => 'integer',
     ];
 
@@ -33,7 +36,22 @@ class Category extends Model
         });
     }
 
-    public function parent(): BelongsTo
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['name', 'slug', 'description', 'color'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $eventName) => "Categoria {$eventName}: {$this->name}")
+            ->useLogName('category');
+    }
+
+    public function articles(): HasMany
+    {
+        return $this->hasMany(Article::class);
+    }
+
+    public function parent()
     {
         return $this->belongsTo(Category::class, 'parent_id');
     }
@@ -41,11 +59,6 @@ class Category extends Model
     public function children(): HasMany
     {
         return $this->hasMany(Category::class, 'parent_id');
-    }
-
-    public function articles(): HasMany
-    {
-        return $this->hasMany(Article::class);
     }
 
     public function getRouteKeyName(): string

@@ -1,53 +1,73 @@
-# ===== ENV =====
-.env
-.env.*
-!.env.example
-
-# ===== DEPENDENCIES =====
-node_modules/
-vendor/
-
-# ===== BUILD =====
-.next/
-out/
-build/
-dist/
-
-# ===== LARAVEL =====
-api/.env
-api/.env.backup
-api/.env.production
-api/auth.json
-api/*.sqlite
-api/*.sqlite-journal
-api/storage/logs/*
-!api/storage/logs/.gitkeep
-api/storage/framework/cache/data/*
-!api/storage/framework/cache/data/.gitkeep
-api/storage/framework/sessions/*
-!api/storage/framework/sessions/.gitkeep
-api/storage/framework/views/*
-!api/storage/framework/views/.gitkeep
-api/storage/framework/testing/*
-!api/storage/framework/testing/.gitkeep
-api/public/storage
-
-# ===== NEXT.JS =====
-web/.env
-web/.env.local
-web/.env.production.local
-
-# ===== IDE =====
-.idea/
-.vscode/
+# === GLOBAL ===
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+*~
 
-# ===== BACKUP =====
+# === ENV & SECRETS ===
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# === PHP / LARAVEL (api/) ===
+api/vendor/
+api/node_modules/
+api/storage/*.key
+api/storage/logs/*.log
+api/storage/framework/cache/data/*
+api/storage/framework/sessions/*
+api/storage/framework/views/*
+api/storage/framework/testing/*
+api/storage/app/public/*
+!api/storage/app/public/.gitkeep
+api/bootstrap/cache/*.php
+api/public/storage
+api/public/hot
+api/.phpunit.result.cache
+
+# Backup e temporanei
 *.bak
 *.bak.*
-*.backup
-*.old
-*.log
-*.test
+*.generated
 *.orig
+
+# === NODE / NEXT.JS (web/) ===
+web/node_modules/
+web/.next/
+web/out/
+web/build/
+web/.env
+web/.env.local
+web/.env.*.local
+web/.vercel
+web/.turbo
+web/npm-debug.log*
+web/yarn-debug.log*
+web/yarn-error.log*
+web/pnpm-debug.log*
+web/coverage/
+
+# === IDE ===
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.phpstorm.meta.php
+_ide_helper.php
+_ide_helper_models.php
+
+# === OS ===
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# === EXCEPTIONS ===
+!api/storage/app/public/.gitkeep
+!api/storage/framework/cache/data/.gitkeep
+!api/storage/framework/sessions/.gitkeep
+!api/storage/framework/views/.gitkeep
+!api/storage/framework/testing/.gitkeep
+!api/storage/logs/.gitkeep

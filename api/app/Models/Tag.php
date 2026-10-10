@@ -5,10 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 class Tag extends Model
 {
-    protected $fillable = ['name', 'slug', 'description', 'color', 'usage_count'];
+    use LogsActivity;
+
+    protected $fillable = [
+        'name',
+        'slug',
+    ];
 
     protected static function boot()
     {
@@ -19,6 +26,16 @@ class Tag extends Model
                 $tag->slug = Str::slug($tag->name);
             }
         });
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['name', 'slug'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $eventName) => "Tag {$eventName}: {$this->name}")
+            ->useLogName('tag');
     }
 
     public function articles(): BelongsToMany

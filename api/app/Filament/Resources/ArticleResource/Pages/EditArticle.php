@@ -13,7 +13,15 @@ class EditArticle extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            Actions\Action::make('preview')
+                ->label('Anteprima frontend')
+                ->icon('heroicon-o-arrow-top-right-on-square')
+                ->color('info')
+                ->url(fn () => config('app.public_site_url', 'https://themedge.com') . '/articolo/' . $this->record->slug)
+                ->openUrlInNewTab()
+                ->visible(fn () => $this->record->status === 'published'),
+
+            Actions\DeleteAction::make()->label('Elimina'),
         ];
     }
 }

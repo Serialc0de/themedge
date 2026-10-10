@@ -12,10 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Fidati di tutti i proxy (Nginx → PHP-FPM)
         $middleware->trustProxies(at: '*');
-        
-        // Rileva automaticamente HTTPS dietro proxy
         $middleware->trustProxies(
             at: '*',
             headers: \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR |
@@ -24,13 +21,14 @@ return Application::configure(basePath: dirname(__DIR__))
                      \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO |
                      \Illuminate\Http\Request::HEADER_X_FORWARDED_AWS_ELB
         );
-        
-        // Escludi my-profile e livewire dal CSRF (Breezy + Livewire)
         $middleware->validateCsrfTokens(except: [
             'livewire/*',
             'admin/my-profile',
             'admin/my-profile/*',
         ]);
+
+        // Redirect middleware (globale)
+        $middleware->append(\App\Http\Middleware\HandleRedirects::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
