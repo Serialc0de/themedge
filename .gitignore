@@ -21,10 +21,15 @@ api/auth.json
 api/*.sqlite
 api/*.sqlite-journal
 api/storage/logs/*
+!api/storage/logs/.gitkeep
 api/storage/framework/cache/data/*
+!api/storage/framework/cache/data/.gitkeep
 api/storage/framework/sessions/*
+!api/storage/framework/sessions/.gitkeep
 api/storage/framework/views/*
-api/bootstrap/cache/*
+!api/storage/framework/views/.gitkeep
+api/storage/framework/testing/*
+!api/storage/framework/testing/.gitkeep
 api/public/storage
 
 # ===== NEXT.JS =====
@@ -40,22 +45,9 @@ Thumbs.db
 
 # ===== BACKUP =====
 *.bak
+*.bak.*
 *.backup
 *.old
 *.log
-
-# ===== BACKUP FILES =====
-*.bak
-*.bak.*
-*.backup
-*.old
-*.test
-*.orig
-
-# ===== BACKUP FILES =====
-*.bak
-*.bak.*
-*.backup
-*.old
 *.test
 *.orig
