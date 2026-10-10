@@ -51,3 +51,11 @@ Thumbs.db
 *.old
 *.test
 *.orig
+
+# ===== BACKUP FILES =====
+*.bak
+*.bak.*
+*.backup
+*.old
+*.test
+*.orig
