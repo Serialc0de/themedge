@@ -175,7 +175,7 @@ class ArticleResource extends Resource
                 ]),
 
             Forms\Components\Section::make('SEO & Anteprima')
-                ->description('Controlla come apparirà il tuo articolo sui motori di ricerca')
+                ->description('Controlla come apparirà il tuo articolo sui motori di ricerca e sui social')
                 ->columns(2)
                 ->collapsed()
                 ->schema([
@@ -195,6 +195,37 @@ class ArticleResource extends Resource
                         ->label('')
                         ->columnSpanFull()
                         ->content(fn (Forms\Get $get) => view('filament.forms.components.seo-check', ['get' => $get])),
+
+                                       Forms\Components\Placeholder::make('og_preview')
+                        ->label('')
+                        ->columnSpanFull()
+                        ->content(fn (Forms\Get $get) => view('filament.forms.components.og-preview', ['get' => $get])),
+
+                    Forms\Components\Placeholder::make('seo_score')
+                        ->label('')
+                        ->columnSpanFull()
+                        ->content(function (Forms\Get $get, ?Article $record) {
+                            if (! $record) {
+                                return view('filament.forms.components.seo-score', [
+                                    'score' => null,
+                                    'grade' => 'unknown',
+                                    'checks' => [],
+                                ]);
+                            }
+
+                            // Aggiorna il record con i valori correnti del form
+                            $record->fill([
+                                'title' => $get('title'),
+                                'slug' => $get('slug'),
+                                'excerpt' => $get('excerpt'),
+                                'content' => $get('content'),
+                                'featured_image' => $get('featured_image'),
+                                'meta_title' => $get('meta_title'),
+                                'meta_description' => $get('meta_description'),
+                            ]);
+
+                            return view('filament.forms.components.seo-score', $record->seo_score);
+                        }),
                 ]),
 
             Forms\Components\Section::make('Opzioni avanzate')
@@ -275,13 +306,27 @@ class ArticleResource extends Resource
                     ->placeholder('—')
                     ->toggleable(),
 
-                Tables\Columns\TextColumn::make('views')
+                                Tables\Columns\TextColumn::make('views')
                     ->label('Views')
                     ->numeric()
                     ->sortable()
                     ->badge()
                     ->color('gray')
                     ->alignCenter()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('seo_score')
+                    ->label('SEO')
+                    ->getStateUsing(fn (Article $record) => $record->seo_score['score'] . '/100')
+                    ->badge()
+                    ->color(fn (Article $record) => match ($record->seo_score['grade']) {
+                        'excellent' => 'success',
+                        'good' => 'info',
+                        'fair' => 'warning',
+                        default => 'danger',
+                    })
+                    ->alignCenter()
+                    ->sortable(false)
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('updated_at')
