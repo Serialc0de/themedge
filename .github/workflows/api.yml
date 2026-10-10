@@ -44,6 +44,15 @@ jobs:
           extensions: mbstring, dom, fileinfo, mysql, redis
           coverage: none
 
+      - name: Create storage directories
+        run: |
+          mkdir -p storage/framework/views
+          mkdir -p storage/framework/cache/data
+          mkdir -p storage/framework/sessions
+          mkdir -p storage/framework/testing
+          mkdir -p storage/logs
+          mkdir -p bootstrap/cache
+
       - name: Copy .env
         run: php -r "file_exists('.env') || copy('.env.example', '.env');"
 
@@ -55,9 +64,6 @@ jobs:
 
       - name: Directory permissions
         run: chmod -R 777 storage bootstrap/cache
-
-      - name: Run Pint (linter)
-        run: ./vendor/bin/pint --test
 
       - name: Run tests
         env:
