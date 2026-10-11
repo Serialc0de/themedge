@@ -82,6 +82,9 @@ Route::prefix('reader')->group(function () {
 // ============================================================
 // Highlights
 // ============================================================
+// Highlights: config pubblica (no auth, no throttle pesante)
+Route::get('/highlights/config', [\App\Http\Controllers\Api\HighlightController::class, 'config']);
+
 Route::middleware('throttle:120,1')->group(function () {
     // Lista pubblici (o miei se X-Reader-Token)
     Route::get('/articles/{slug}/highlights', [\App\Http\Controllers\Api\HighlightController::class, 'forArticle']);

@@ -6,6 +6,7 @@ import { ReaderProvider } from '@/lib/reader';
 import { HighlightsProvider } from '@/lib/highlight';
 import { HighlightLayer } from '@/components/article/HighlightLayer';
 import { HighlightMenu } from '@/components/article/HighlightMenu';
+import { useToast } from '@/lib/toast';
 
 type Props = {
   articleId: number;
@@ -13,16 +14,6 @@ type Props = {
   content: string;
 };
 
-/**
- * Wrapper client che orchestra:
- *  - ReaderProvider (identità anonima)
- *  - HighlightsProvider (CRUD highlight per articolo)
- *  - ArticleBody (rendering HTML)
- *  - HighlightLayer (SVG overlay)
- *  - HighlightMenu (popup selezione)
- *
- * Gestisce anche il "click su highlight esistente" tramite uno state condiviso.
- */
 export function ArticleReader({ articleId, articleSlug, content }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -39,10 +30,6 @@ export function ArticleReader({ articleId, articleSlug, content }: Props) {
   );
 }
 
-/**
- * Componente interno che ha accesso al context HighlightsProvider
- * e può quindi collegare la callback di click a HighlightMenu.
- */
 function ArticleReaderInner({
   containerRef,
   articleId,
@@ -52,13 +39,14 @@ function ArticleReaderInner({
   articleId: number;
   content: string;
 }) {
-  // Stato per il click su highlight esistente: salviamo solo l'ID + coordinate
-  // (l'oggetto highlight viene risolto live dal context, così si aggiorna)
   const [clickedHighlightId, setClickedHighlightId] = useState<{
     id: number;
     x: number;
     y: number;
   } | null>(null);
+
+  const toast = useToast();
+  const orphansNotifiedRef = useRef<Set<number>>(new Set());
 
   const handleHighlightClick = useCallback(
     (highlight: any, x: number, y: number) => {
@@ -67,12 +55,25 @@ function ArticleReaderInner({
     []
   );
 
+  const handleOrphanDetected = useCallback(
+    (id: number) => {
+      if (orphansNotifiedRef.current.has(id)) return;
+      orphansNotifiedRef.current.add(id);
+      toast.warning(
+        'Highlight orfano',
+        "Il testo evidenziato non è più presente nell'articolo (forse modificato)."
+      );
+    },
+    [toast]
+  );
+
   return (
     <div ref={containerRef} className="relative">
       <ArticleBody html={content} />
       <HighlightLayer
         containerRef={containerRef}
         onHighlightClick={handleHighlightClick}
+        onOrphanDetected={handleOrphanDetected}
       />
       <HighlightMenu
         containerRef={containerRef}

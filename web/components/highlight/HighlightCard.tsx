@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { HighlightWithArticle } from '@/lib/use-my-highlights';
 import type { HighlightColor } from '@/lib/highlight';
 import { HighlightReactions, type ReactionEmoji } from '@/components/article/HighlightReactions';
+import { HighlightOrphanNotice } from '@/components/article/HighlightOrphanNotice';
 
 // ============================================================
 // COLOR STYLES
@@ -117,6 +118,21 @@ export function HighlightCard({ highlight, onDelete, onEditNote, onReact, onUnre
             <time className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
               {createdDate}
             </time>
+          </div>
+        )}
+
+        {/* Banner orfano (se applicabile) */}
+        {highlight.orphan && (
+          <div className="mb-3">
+            <HighlightOrphanNotice
+              variant="banner"
+              articleHref={
+                highlight.article?.slug
+                  ? `/articolo/${highlight.article.slug}`
+                  : undefined
+              }
+              onDelete={() => onDelete(highlight.id)}
+            />
           </div>
         )}
 

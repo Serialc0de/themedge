@@ -32,6 +32,8 @@ type Props = {
     clickX: number,
     clickY: number
   ) => void;
+  /** Callback quando un highlight risulta orfano (testo non trovato) */
+  onOrphanDetected?: (highlightId: number) => void;
 };
 
 // ============================================================
@@ -41,8 +43,8 @@ type Props = {
 function useHighlightRects(
   containerRef: React.RefObject<HTMLElement | null>,
   highlights: any[]
-): Rect[] {
-  const [rects, setRects] = useState<Rect[]>([]);
+): { rects: Rect[]; orphans: number[] } {
+  const [data, setData] = useState<{ rects: Rect[]; orphans: number[] }>({ rects: [], orphans: [] });
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -55,7 +57,8 @@ function useHighlightRects(
       if (cancelled) return;
       const containerBox = container.getBoundingClientRect();
 
-      const next: Rect[] = [];
+      const nextRects: Rect[] = [];
+      const nextOrphans: number[] = [];
 
       for (const h of highlights) {
         const anchor: AnchorData = {
@@ -67,12 +70,15 @@ function useHighlightRects(
         };
 
         const result = findHighlightRange(container, anchor);
-        if (result.status !== 'found') continue;
+        if (result.status !== 'found') {
+          nextOrphans.push(h.id);
+          continue;
+        }
 
         const clientRects = Array.from(result.range.getClientRects());
         for (const cr of clientRects) {
           if (cr.width === 0 || cr.height === 0) continue;
-          next.push({
+          nextRects.push({
             id: h.id,
             x: cr.left - containerBox.left + container.scrollLeft,
             y: cr.top - containerBox.top + container.scrollTop,
@@ -86,7 +92,7 @@ function useHighlightRects(
         }
       }
 
-      setRects(next);
+      setData({ rects: nextRects, orphans: nextOrphans });
     };
 
     const schedule = () => {
@@ -129,16 +135,22 @@ function useHighlightRects(
     };
   }, [containerRef, highlights]);
 
-  return rects;
+  return data;
 }
 
 // ============================================================
 // COMPONENT
 // ============================================================
 
-export function HighlightLayer({ containerRef, onHighlightClick }: Props) {
+export function HighlightLayer({ containerRef, onHighlightClick, onOrphanDetected }: Props) {
   const all = useAllHighlights();
-  const rects = useHighlightRects(containerRef, all);
+  const { rects, orphans } = useHighlightRects(containerRef, all);
+
+  // Notifica orfani (una volta per ID)
+  useEffect(() => {
+    if (!onOrphanDetected || orphans.length === 0) return;
+    for (const id of orphans) onOrphanDetected(id);
+  }, [orphans, onOrphanDetected]);
 
   // Se non ci sono highlight, non renderizzare nulla
   if (rects.length === 0) return null;

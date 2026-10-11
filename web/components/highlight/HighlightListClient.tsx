@@ -28,7 +28,7 @@ type ArticleGroup = {
 // ============================================================
 
 export function HighlightListClient() {
-  const { highlights, isLoading, error, refresh, remove, react, unreact } = useMyHighlights();
+  const { highlights, isLoading, error, refresh, remove, react, unreact, markOrphan } = useMyHighlights();
   const toast = useToast();
   const { token } = useReader();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());

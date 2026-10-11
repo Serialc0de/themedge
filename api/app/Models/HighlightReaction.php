@@ -17,7 +17,19 @@ class HighlightReaction extends Model
         'reader_id',
     ];
 
-    public const ALLOWED_EMOJIS = ['👍', '❤️', '🤔', '🔥', '👏'];
+    /**
+     * Fallback se config non è caricata.
+     */
+    public const FALLBACK_EMOJIS = ['👍', '❤️', '🤔', '🔥', '👏'];
+
+    /**
+     * Emoji supportate (da config).
+     */
+    public static function allowedEmojis(): array
+    {
+        $emojis = config('highlights.emojis', self::FALLBACK_EMOJIS);
+        return is_array($emojis) && !empty($emojis) ? $emojis : self::FALLBACK_EMOJIS;
+    }
 
     public function highlight(): BelongsTo
     {

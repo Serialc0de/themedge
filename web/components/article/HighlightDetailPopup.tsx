@@ -22,7 +22,7 @@ type Props = {
   onUnreact: (id: number, emoji: string) => Promise<boolean>;
   onUpdate?: (
     id: number,
-    patch: { note?: string; color?: HighlightColor }
+    patch: { note?: string; color?: HighlightColor; is_public?: boolean }
   ) => Promise<boolean>;
   onDelete?: (id: number) => Promise<boolean>;
 };
@@ -81,6 +81,8 @@ export function HighlightDetailPopup({
   const [pos, setPos] = useState(() => computePosition(clickX, clickY, 180));
   const [noteMode, setNoteMode] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isPublic, setIsPublic] = useState(highlight.is_public);
+  const [togglingPublic, setTogglingPublic] = useState(false);
 
   // Misura altezza reale + riposiziona
   useEffect(() => {
@@ -131,6 +133,19 @@ export function HighlightDetailPopup({
     }
   };
 
+  const handleTogglePublic = async () => {
+    if (!onUpdate || togglingPublic) return;
+    const next = !isPublic;
+    setIsPublic(next);
+    setTogglingPublic(true);
+    const ok = await onUpdate(highlight.id, { is_public: next });
+    setTogglingPublic(false);
+    if (!ok) {
+      // rollback
+      setIsPublic(!next);
+    }
+  };
+
   const handleSaveNote = async (note: string) => {
     if (!onUpdate) return;
     const ok = await onUpdate(highlight.id, { note: note.trim() });
@@ -172,6 +187,30 @@ export function HighlightDetailPopup({
           &ldquo;{highlight.text_fragment.slice(0, 140)}
           {highlight.text_fragment.length > 140 ? '…' : ''}&rdquo;
         </div>
+
+        {/* Badge "X persone" (solo se pubblico) */}
+        {highlight.is_public && (highlight.reactions_count ?? 0) > 0 && (
+          <div className="mt-2 flex items-center gap-1.5 text-[11px] text-white/60">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-3 w-3"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+            <span>
+              {highlight.reactions_count}{' '}
+              {highlight.reactions_count === 1 ? 'persona ha' : 'persone hanno'}{' '}
+              reagito
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Nota esistente (visibile) */}
@@ -206,6 +245,66 @@ export function HighlightDetailPopup({
               variant="compact"
             />
           </div>
+
+          {/* Riga privacy (solo se è mio) */}
+          {highlight.is_mine && onUpdate && (
+            <div className="flex items-center justify-between border-t border-white/10 px-3 py-2">
+              <div className="flex items-center gap-2 text-xs text-white/80">
+                {isPublic ? (
+                  <>
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-3.5 w-3.5 text-blue-300"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"
+                      />
+                    </svg>
+                    <span>Visibile a tutti</span>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-3.5 w-3.5 text-white/60"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                    <span>Solo tu</span>
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isPublic}
+                aria-label={isPublic ? 'Rendi privato' : 'Rendi pubblico'}
+                onClick={handleTogglePublic}
+                disabled={togglingPublic}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition disabled:opacity-50 ${
+                  isPublic ? 'bg-blue-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition ${
+                    isPublic ? 'translate-x-4' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
 
           {/* Azioni (solo se è mio) */}
           {highlight.is_mine && (onUpdate || onDelete) && (

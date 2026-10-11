@@ -12,7 +12,10 @@ type Props = {
   highlight: HighlightWithArticle | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: number, patch: { color?: HighlightColor; note?: string }) => Promise<boolean>;
+  onSave: (
+    id: number,
+    patch: { color?: HighlightColor; note?: string; is_public?: boolean }
+  ) => Promise<boolean>;
 };
 
 // ============================================================
@@ -32,6 +35,7 @@ const COLORS: Array<{ value: HighlightColor; label: string; bg: string; ring: st
 export function HighlightEditModal({ highlight, isOpen, onClose, onSave }: Props) {
   const [note, setNote] = useState('');
   const [color, setColor] = useState<HighlightColor>('yellow');
+  const [isPublic, setIsPublic] = useState(false);
   const [saving, setSaving] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -40,6 +44,7 @@ export function HighlightEditModal({ highlight, isOpen, onClose, onSave }: Props
     if (highlight) {
       setNote(highlight.note ?? '');
       setColor((highlight.color ?? 'yellow') as HighlightColor);
+      setIsPublic(highlight.is_public ?? false);
     }
   }, [highlight]);
 
@@ -73,6 +78,7 @@ export function HighlightEditModal({ highlight, isOpen, onClose, onSave }: Props
     const ok = await onSave(highlight.id, {
       color,
       note: note.trim(),
+      is_public: isPublic,
     });
     setSaving(false);
     if (ok) onClose();
@@ -175,6 +181,41 @@ export function HighlightEditModal({ highlight, isOpen, onClose, onSave }: Props
             />
             <div className="mt-1 text-right text-xs tabular-nums text-gray-400">
               {note.length} / 2000
+            </div>
+          </div>
+
+          {/* Privacy */}
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              Visibilità
+            </label>
+            <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {isPublic ? 'Visibile a tutti' : 'Solo tu'}
+                </p>
+                <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {isPublic
+                    ? 'Il tuo highlight sarà visibile agli altri lettori'
+                    : 'Il tuo highlight è privato e visibile solo a te'}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isPublic}
+                aria-label={isPublic ? 'Rendi privato' : 'Rendi pubblico'}
+                onClick={() => setIsPublic(!isPublic)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition ${
+                  isPublic ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                    isPublic ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
             </div>
           </div>
         </div>

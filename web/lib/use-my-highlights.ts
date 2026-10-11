@@ -17,6 +17,8 @@ const API_BASE =
 
 export type HighlightWithArticle = Highlight & {
   article?: { id: number; title: string; slug: string };
+  /** Calcolato client-side: se il testo non è più presente nell'articolo */
+  orphan?: boolean;
 };
 
 export type UseMyHighlightsValue = {
@@ -27,6 +29,7 @@ export type UseMyHighlightsValue = {
   remove: (id: number) => Promise<boolean>;
   react: (id: number, emoji: string) => Promise<boolean>;
   unreact: (id: number, emoji: string) => Promise<boolean>;
+  markOrphan: (id: number) => void;
 };
 
 // ============================================================
@@ -182,5 +185,20 @@ export function useMyHighlights(): UseMyHighlightsValue {
     [token, refresh]
   );
 
-  return { highlights, isLoading, error, refresh, remove, react, unreact };
+  const markOrphan = useCallback((id: number) => {
+    setHighlights((prev) =>
+      prev.map((h) => (h.id === id ? { ...h, orphan: true } : h))
+    );
+  }, []);
+
+  return {
+    highlights,
+    isLoading,
+    error,
+    refresh,
+    remove,
+    react,
+    unreact,
+    markOrphan,
+  };
 }
