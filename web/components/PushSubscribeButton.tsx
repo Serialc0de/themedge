@@ -17,7 +17,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-type Status = 'unsupported' | 'default' | 'granted' | 'denied' | 'loading' | 'subscribed';
+type Status = 'unsupported' | 'ios-needs-install' | 'default' | 'granted' | 'denied' | 'loading' | 'subscribed';
 
 interface Props {
   variant?: 'button' | 'banner' | 'compact';
@@ -34,6 +34,17 @@ export default function PushSubscribeButton({ variant = 'button' }: Props) {
 
   async function checkStatus() {
     if (typeof window === 'undefined') return;
+
+    // Rileva iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || (navigator as any).standalone === true;
+
+    // iOS: push supportate solo se app installata (standalone) e iOS 16.4+
+    if (isIOS && !isStandalone) {
+      setStatus('ios-needs-install');
+      return;
+    }
 
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setStatus('unsupported');
@@ -161,71 +172,137 @@ export default function PushSubscribeButton({ variant = 'button' }: Props) {
     }
   }
 
-  if (status === 'unsupported') {
+  // ==== STATO: LOADING (check iniziale) ====
+  if (status === 'loading') {
+    if (variant === 'compact') return null;
     return null;
   }
 
-  if (status === 'denied') {
-    if (variant === 'compact') return null;
+  // ==== STATO: iOS senza installazione ====
+  if (status === 'ios-needs-install') {
+    if (variant === 'compact') {
+      return (
+        <a
+          href="#ios-instructions"
+          className="text-xs text-blue-600 hover:underline"
+          title="Su iOS, aggiungi Themedge alla schermata Home"
+        >
+          📱 Attiva su iOS
+        </a>
+      );
+    }
 
     return (
-      <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-300 dark:border-yellow-700 text-xs text-yellow-800 dark:text-yellow-200">
-        🔕 Le notifiche sono state bloccate. Riattivale dalle impostazioni del browser.
+      <div id="ios-instructions" className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-300 dark:border-blue-700 rounded">
+        <p className="text-sm font-bold text-blue-800 dark:text-blue-200 mb-2">
+          📱 Attivare le notifiche su iPhone / iPad
+        </p>
+        <ol className="text-xs text-blue-700 dark:text-blue-300 space-y-1 list-decimal list-inside">
+          <li>Apri questo sito in <strong>Safari</strong> (non Chrome)</li>
+          <li>Tap sull'icona <strong>Condividi</strong> (quadrato con freccia)</li>
+          <li>Scorri e tocca <strong>"Aggiungi a schermata Home"</strong></li>
+          <li>Apri Themedge dall'<strong>icona sulla Home</strong></li>
+          <li>Torna qui e attiva le notifiche</li>
+        </ol>
+        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 italic">
+          Richiede iOS 16.4 o superiore.
+        </p>
       </div>
     );
   }
 
+  // ==== STATO: non supportato ====
+  if (status === 'unsupported') {
+    if (variant === 'compact') return null;
+    return null;
+  }
+
+  // ==== STATO: permesso negato ====
+  if (status === 'denied') {
+    if (variant === 'compact') return null;
+
+    return (
+      <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-300 dark:border-yellow-700 rounded text-xs text-yellow-800 dark:text-yellow-200">
+        <p className="font-bold mb-1">🔕 Notifiche bloccate</p>
+        <p>Le notifiche sono state bloccate dal browser. Riattivale dalle impostazioni del sito.</p>
+        <p className="mt-2 text-yellow-700 dark:text-yellow-300 italic">
+          Chrome: lucchetto nella barra indirizzi → Notifiche → Consenti
+        </p>
+      </div>
+    );
+  }
+
+  // ==== STATO: già iscritto ====
   if (status === 'subscribed') {
     if (variant === 'compact') {
       return (
         <button
           onClick={unsubscribe}
           disabled={isLoading}
-          className="text-xs text-gray-500 hover:text-red-700 transition disabled:opacity-50"
+          className="text-xs text-green-700 dark:text-green-500 hover:text-red-700 dark:hover:text-red-500 transition disabled:opacity-50 flex items-center gap-1"
+          title="Clicca per disattivare"
         >
-          🔔 Notifiche attive · Disattiva
+          ✅ Notifiche attive
         </button>
       );
     }
 
     if (variant === 'banner') {
       return (
-        <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950/20 border border-green-300 dark:border-green-700">
-          <span className="text-2xl">✅</span>
+        <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950/20 border border-green-300 dark:border-green-700 rounded">
+          <span className="text-2xl flex-shrink-0">✅</span>
           <div className="flex-1">
             <p className="text-sm font-bold text-green-800 dark:text-green-200">
               Notifiche attive
             </p>
             <p className="text-xs text-green-700 dark:text-green-300">
-              Riceverai gli aggiornamenti in tempo reale.
+              Riceverai breaking news e aggiornamenti in tempo reale.
             </p>
           </div>
           <button
             onClick={unsubscribe}
             disabled={isLoading}
-            className="text-xs text-gray-500 hover:text-red-700 transition disabled:opacity-50"
+            className="flex-shrink-0 text-xs text-gray-500 hover:text-red-700 transition disabled:opacity-50"
           >
-            Disattiva
+            {isLoading ? '...' : 'Disattiva'}
           </button>
         </div>
       );
     }
 
     return (
+      <div className="flex items-center gap-3">
+        <button
+          onClick={unsubscribe}
+          disabled={isLoading}
+          className="inline-flex items-center gap-2 bg-green-700 text-white px-4 py-2 text-xs uppercase tracking-widest font-bold hover:bg-green-800 transition disabled:opacity-50"
+        >
+          ✅ Notifiche attive
+        </button>
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          Clicca per disattivare
+        </span>
+      </div>
+    );
+  }
+
+  // ==== STATO: default (non iscritto) ====
+  if (variant === 'compact') {
+    return (
       <button
-        onClick={unsubscribe}
+        onClick={subscribe}
         disabled={isLoading}
-        className="inline-flex items-center gap-2 bg-green-700 text-white px-4 py-2 text-xs uppercase tracking-widest font-bold hover:bg-green-800 transition disabled:opacity-50"
+        className="text-xs text-gray-500 hover:text-red-700 transition disabled:opacity-50 flex items-center gap-1"
       >
-        ✅ Notifiche attive
+        {isLoading ? '⏳ Attivazione...' : '🔔 Attiva notifiche'}
       </button>
     );
   }
 
   if (variant === 'banner') {
     return (
-      <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-300 dark:border-red-700">
-        <span className="text-2xl">🔔</span>
+      <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-300 dark:border-red-700 rounded">
+        <span className="text-2xl flex-shrink-0">🔔</span>
         <div className="flex-1">
           <p className="text-sm font-bold text-red-800 dark:text-red-200">
             Attiva le notifiche
@@ -234,7 +311,7 @@ export default function PushSubscribeButton({ variant = 'button' }: Props) {
             Ricevi breaking news e aggiornamenti live direttamente nel browser.
           </p>
           {error && (
-            <p className="text-xs text-red-600 mt-1">⚠️ {error}</p>
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">⚠️ {error}</p>
           )}
         </div>
         <button
@@ -248,18 +325,7 @@ export default function PushSubscribeButton({ variant = 'button' }: Props) {
     );
   }
 
-  if (variant === 'compact') {
-    return (
-      <button
-        onClick={subscribe}
-        disabled={isLoading}
-        className="text-xs text-gray-500 hover:text-red-700 transition disabled:opacity-50"
-      >
-        {isLoading ? '⏳' : '🔔'} Attiva notifiche
-      </button>
-    );
-  }
-
+  // variant === 'button'
   return (
     <div className="space-y-2">
       <button
