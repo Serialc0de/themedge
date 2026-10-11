@@ -177,10 +177,29 @@ class Article extends Model implements HasMedia
 
     protected function policyFromSettings(array $settings): HighlightPolicy
     {
+        // Normalizza i valori: le stringhe "true"/"false" diventano booleani
+        $normalized = [];
+        foreach ($settings as $key => $value) {
+            if (is_string($value)) {
+                $lower = strtolower(trim($value));
+                if ($lower === 'true') {
+                    $normalized[$key] = true;
+                } elseif ($lower === 'false') {
+                    $normalized[$key] = false;
+                } elseif (is_numeric($value)) {
+                    $normalized[$key] = str_contains($value, '.') ? (float) $value : (int) $value;
+                } else {
+                    $normalized[$key] = $value;
+                }
+            } else {
+                $normalized[$key] = $value;
+            }
+        }
+
         return new HighlightPolicy([
             'name' => '_inline',
             'label' => 'Override articolo',
-            'settings' => array_merge(HighlightPolicy::defaultSettings(), $settings),
+            'settings' => array_merge(HighlightPolicy::defaultSettings(), $normalized),
         ]);
     }
 

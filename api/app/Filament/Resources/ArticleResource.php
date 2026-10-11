@@ -316,6 +316,42 @@ class ArticleResource extends Resource
                         }),
                 ]),
 
+            Forms\Components\Section::make('🎯 Highlight Policy')
+                ->description('Controlla come gli utenti possono evidenziare il testo di questo articolo.')
+                ->columns(2)
+                ->visible(fn () => Auth::user()->hasRole(['super_admin', 'editor', 'author']))
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Select::make('highlight_policy_id')
+                        ->label('Policy')
+                        ->relationship('highlightPolicy', 'label')
+                        ->searchable()
+                        ->preload()
+                        ->placeholder('Eredita da categoria/autore')
+                        ->helperText("Se non specificata, eredita la policy dalla categoria o dall'autore.")
+                        ->columnSpanFull(),
+
+                    Forms\Components\KeyValue::make('highlight_settings')
+                        ->label('Override granulari (JSON)')
+                        ->keyLabel('Chiave')
+                        ->valueLabel('Valore')
+                        ->addActionLabel('Aggiungi override')
+                        ->reorderable()
+                        ->helperText('Es. enabled, false / allow_public, false. Vuoto = eredita dalla policy.')
+                        ->columnSpanFull(),
+
+                    Forms\Components\DateTimePicker::make('highlight_until')
+                        ->label('Disattiva fino a')
+                        ->seconds(false)
+                        ->helperText('Se valorizzato nel futuro, gli highlight sono temporaneamente disattivati.')
+                        ->columnSpan(1),
+
+                    Forms\Components\Toggle::make('highlight_locked')
+                        ->label('Lock policy')
+                        ->helperText('Se attivo, gli autori non possono modificare la policy.')
+                        ->columnSpan(1),
+                ]),
+
             Forms\Components\Section::make('Opzioni avanzate')
                 ->collapsed()
                 ->schema([

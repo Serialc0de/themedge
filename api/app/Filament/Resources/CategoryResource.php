@@ -55,6 +55,14 @@ class CategoryResource extends Resource
                         Forms\Components\ColorPicker::make('color')
                             ->label('Colore')
                             ->default('#3b82f6'),
+                        Forms\Components\Select::make('highlight_policy_id')
+                            ->label('Policy Highlight')
+                            ->relationship('highlightPolicy', 'label')
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Nessuna — eredita dal default')
+                            ->helperText('Policy di default per tutti gli articoli di questa categoria.')
+                            ->columnSpanFull(),
                         Forms\Components\FileUpload::make('image')
                             ->label('Immagine')
                             ->image()

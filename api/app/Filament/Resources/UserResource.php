@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
 
@@ -116,6 +117,21 @@ class UserResource extends Resource
                         ->default(0)
                         ->helperText('Numero più basso = appare prima'),
     ]),
+
+            Forms\Components\Section::make('🎯 Highlight Policy')
+                ->description('Policy di default per articoli scritti da questo autore.')
+                ->columns(1)
+                ->visible(fn () => Auth::user()?->hasRole(['super_admin', 'editor']) ?? false)
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Select::make('highlight_policy_id')
+                        ->label('Policy Highlight')
+                        ->relationship('highlightPolicy', 'label')
+                        ->searchable()
+                        ->preload()
+                        ->placeholder('Nessuna — eredita dal default')
+                        ->helperText('Se impostata, gli articoli di questo autore useranno questa policy come default.'),
+                ]),
         ]);
     }
 

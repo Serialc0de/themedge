@@ -77,4 +77,10 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     {
         return $this->belongsTo(EditorialRole::class);
     }
+
+    public function highlightPolicy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\HighlightPolicy::class, 'highlight_policy_id');
+    }
+
 }

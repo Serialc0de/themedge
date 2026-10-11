@@ -65,4 +65,10 @@ class Category extends Model
     {
         return 'slug';
     }
+
+    public function highlightPolicy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\HighlightPolicy::class, 'highlight_policy_id');
+    }
+
 }
