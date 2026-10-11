@@ -175,3 +175,50 @@ a { transition: color 0.2s ease; }
   text-decoration-thickness: 2px;
   text-underline-offset: 4px;
 }
+
+/* ============================================================
+   BREAKING NEWS ANIMATIONS
+   ============================================================ */
+
+@keyframes breaking-pulse {
+  0%, 100% {
+    background-color: #b91c1c;
+  }
+  50% {
+    background-color: #dc2626;
+  }
+}
+
+@keyframes breaking-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.breaking-pulse {
+  animation: breaking-pulse 1.2s ease-in-out infinite;
+}
+
+.breaking-blink {
+  animation: breaking-blink 1.5s ease-in-out infinite;
+}
+
+/* ============================================================
+   BREAKING NEWS ANIMATIONS
+   ============================================================ */
+
+@keyframes breaking-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+.breaking-blink {
+  animation: breaking-blink 1.2s ease-in-out infinite;
+}

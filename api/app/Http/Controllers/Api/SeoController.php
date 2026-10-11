@@ -17,6 +17,7 @@ class SeoController extends Controller
             'google_analytics_id', 'plausible_domain', 'umami_website_id',
             'google_site_verification', 'bing_site_verification', 'yandex_verification',
             'robots_index', 'robots_follow', 'robots_max_image_preview',
+            'breaking_show_badge', 'breaking_badge_all',
         ];
 
         $settings = [];

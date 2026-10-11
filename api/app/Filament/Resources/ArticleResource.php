@@ -160,30 +160,6 @@ class ArticleResource extends Resource
                         ->helperText('Appare nella hero della homepage'),
                 ]),
 
-            Forms\Components\Section::make('🚨 Breaking News')
-                ->description('Notizia urgente che apparirà in un banner in cima a tutte le pagine')
-                ->columns(2)
-                ->visible(fn () => Auth::user()->hasRole(['super_admin', 'editor']))
-                ->collapsed()
-                ->schema([
-                    Forms\Components\Toggle::make('is_breaking')
-                        ->label('Attiva Breaking News')
-                        ->helperText('Mostra il banner rosso lampeggiante in cima al sito')
-                        ->reactive(),
-
-                    Forms\Components\TextInput::make('breaking_priority')
-                        ->label('Priorità')
-                        ->numeric()
-                        ->default(0)
-                        ->helperText('Numero più alto = più importante'),
-
-                    Forms\Components\DateTimePicker::make('breaking_expires_at')
-                        ->label('Scade il')
-                        ->seconds(false)
-                        ->helperText('Dopo questa data la breaking news scompare automaticamente')
-                        ->columnSpanFull(),
-                ]),
-
             Forms\Components\Section::make('Pubblicazione')
                 ->columns(2)
                 ->visible(fn () => Auth::user()->hasRole(['super_admin', 'editor']))
@@ -197,6 +173,59 @@ class ArticleResource extends Resource
                         ->label('Programmato per')
                         ->seconds(false)
                         ->helperText('Compila per programmare la pubblicazione automatica'),
+                ]),
+
+            Forms\Components\Section::make('🚨 Breaking News')
+                ->description('Notizia urgente che apparirà in un banner')
+                ->columns(2)
+                ->visible(fn () => Auth::user()->hasRole(['super_admin', 'editor']))
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Toggle::make('is_breaking')
+                        ->label('Attiva Breaking News')
+                        ->helperText('Mostra il banner in cima al sito')
+                        ->reactive()
+                        ->live(),
+
+                    Forms\Components\Select::make('breaking_type')
+                        ->label('Tipo')
+                        ->options([
+                            'flash' => '⚡ Flash — 1 ora (urgente)',
+                            'breaking' => '🚨 Breaking — 24 ore (importante)',
+                            'developing' => '🔵 Developing — 72 ore (in sviluppo)',
+                        ])
+                        ->default('breaking')
+                        ->visible(fn (Forms\Get $get) => (bool) $get('is_breaking'))
+                        ->live(),
+
+                    Forms\Components\DateTimePicker::make('breaking_expires_at')
+                        ->label('Scade il')
+                        ->seconds(false)
+                        ->helperText('Lascia vuoto per default in base al tipo')
+                        ->visible(fn (Forms\Get $get) => (bool) $get('is_breaking')),
+
+                    Forms\Components\TextInput::make('breaking_priority')
+                        ->label('Priorità')
+                        ->numeric()
+                        ->default(0)
+                        ->helperText('Numero più alto = più importante')
+                        ->visible(fn (Forms\Get $get) => (bool) $get('is_breaking')),
+
+                    Forms\Components\ColorPicker::make('breaking_bg_color')
+                        ->label('Colore sfondo (override)')
+                        ->helperText('Lascia vuoto per usare il colore globale')
+                        ->visible(fn (Forms\Get $get) => (bool) $get('is_breaking')),
+
+                    Forms\Components\ColorPicker::make('breaking_text_color')
+                        ->label('Colore testo (override)')
+                        ->helperText('Lascia vuoto per usare il colore globale')
+                        ->visible(fn (Forms\Get $get) => (bool) $get('is_breaking')),
+
+                    Forms\Components\Toggle::make('breaking_show_badge')
+                        ->label('Mostra badge ULTIM\'ORA sulle card')
+                        ->default(true)
+                        ->visible(fn (Forms\Get $get) => (bool) $get('is_breaking'))
+                        ->columnSpanFull(),
                 ]),
 
             Forms\Components\Section::make('SEO & Anteprima')
@@ -219,36 +248,70 @@ class ArticleResource extends Resource
                     Forms\Components\Placeholder::make('seo_check')
                         ->label('')
                         ->columnSpanFull()
-                        ->content(fn (Forms\Get $get) => view('filament.forms.components.seo-check', ['get' => $get])),
+                        ->content(function (Forms\Get $get) {
+                            try {
+                                return view('filament.forms.components.seo-check', ['get' => $get]);
+                            } catch (\Throwable $e) {
+                                \Log::warning('SEO check blade error: ' . $e->getMessage());
+                                return new \Illuminate\Support\HtmlString(
+                                    '<p style="color:#999;font-size:12px;padding:8px;">Anteprima SEO non disponibile</p>'
+                                );
+                            }
+                        }),
 
                     Forms\Components\Placeholder::make('og_preview')
                         ->label('')
                         ->columnSpanFull()
-                        ->content(fn (Forms\Get $get) => view('filament.forms.components.og-preview', ['get' => $get])),
+                        ->content(function (Forms\Get $get) {
+                            try {
+                                return view('filament.forms.components.og-preview', ['get' => $get]);
+                            } catch (\Throwable $e) {
+                                \Log::warning('OG preview blade error: ' . $e->getMessage());
+                                return new \Illuminate\Support\HtmlString(
+                                    '<p style="color:#999;font-size:12px;padding:8px;">Anteprima social non disponibile</p>'
+                                );
+                            }
+                        }),
 
                     Forms\Components\Placeholder::make('seo_score')
                         ->label('')
                         ->columnSpanFull()
                         ->content(function (Forms\Get $get, ?Article $record) {
-                            if (! $record) {
-                                return view('filament.forms.components.seo-score', [
-                                    'score' => null,
-                                    'grade' => 'unknown',
-                                    'checks' => [],
+                            try {
+                                if (! $record) {
+                                    return new \Illuminate\Support\HtmlString(
+                                        '<p style="color:#999;font-size:12px;padding:8px;">Salva l\'articolo per vedere il punteggio SEO</p>'
+                                    );
+                                }
+
+                                $record->fill([
+                                    'title' => $get('title') ?: $record->title,
+                                    'slug' => $get('slug') ?: $record->slug,
+                                    'excerpt' => $get('excerpt') ?: $record->excerpt,
+                                    'content' => $get('content') ?: $record->content,
+                                    'meta_title' => $get('meta_title') ?: $record->meta_title,
+                                    'meta_description' => $get('meta_description') ?: $record->meta_description,
                                 ]);
+
+                                $seoScore = $record->seo_score;
+
+                                if (! is_array($seoScore)) {
+                                    return new \Illuminate\Support\HtmlString(
+                                        '<p style="color:#999;font-size:12px;padding:8px;">Punteggio SEO non calcolabile</p>'
+                                    );
+                                }
+
+                                return view('filament.forms.components.seo-score', [
+                                    'score' => $seoScore['score'] ?? 0,
+                                    'grade' => $seoScore['grade'] ?? 'unknown',
+                                    'checks' => $seoScore['checks'] ?? [],
+                                ]);
+                            } catch (\Throwable $e) {
+                                \Log::warning('SEO score blade error: ' . $e->getMessage());
+                                return new \Illuminate\Support\HtmlString(
+                                    '<p style="color:#999;font-size:12px;padding:8px;">Punteggio SEO non disponibile</p>'
+                                );
                             }
-
-                            $record->fill([
-                                'title' => $get('title'),
-                                'slug' => $get('slug'),
-                                'excerpt' => $get('excerpt'),
-                                'content' => $get('content'),
-                                'featured_image' => $get('featured_image'),
-                                'meta_title' => $get('meta_title'),
-                                'meta_description' => $get('meta_description'),
-                            ]);
-
-                            return view('filament.forms.components.seo-score', $record->seo_score);
                         }),
                 ]),
 
@@ -322,13 +385,15 @@ class ArticleResource extends Resource
                     ->boolean()
                     ->alignCenter()
                     ->toggleable(),
-		Tables\Columns\IconColumn::make('is_breaking')
+
+                Tables\Columns\IconColumn::make('is_breaking')
                     ->label('🚨')
                     ->boolean()
                     ->alignCenter()
                     ->color(fn (bool $state): string => $state ? 'danger' : 'gray')
                     ->tooltip('Breaking News')
                     ->toggleable(),
+
                 Tables\Columns\TextColumn::make('published_at')
                     ->label('Pubblicato')
                     ->dateTime('d/m/Y H:i')
@@ -395,6 +460,11 @@ class ArticleResource extends Resource
                     ->query(fn (Builder $query) => $query->where('is_featured', true))
                     ->toggle(),
 
+                Tables\Filters\Filter::make('is_breaking')
+                    ->label('Solo breaking news')
+                    ->query(fn (Builder $query) => $query->breaking())
+                    ->toggle(),
+
                 Tables\Filters\Filter::make('mine')
                     ->label('Solo i miei')
                     ->query(fn (Builder $query) => $query->where('author_id', Auth::id()))
@@ -412,6 +482,7 @@ class ArticleResource extends Resource
 
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\EditAction::make()->label('Modifica'),
+
                     Tables\Actions\Action::make('toggle_breaking')
                         ->label(fn (Article $record) => $record->is_breaking ? 'Disattiva Breaking' : 'Attiva Breaking')
                         ->icon(fn (Article $record) => $record->is_breaking ? 'heroicon-o-bell-slash' : 'heroicon-o-bell-alert')
@@ -419,8 +490,8 @@ class ArticleResource extends Resource
                         ->requiresConfirmation()
                         ->modalHeading(fn (Article $record) => $record->is_breaking ? 'Disattivare Breaking News?' : 'Attivare Breaking News?')
                         ->modalDescription(fn (Article $record) => $record->is_breaking
-                            ? 'Il banner rosso smetterà di apparire.'
-                            : 'Il banner rosso lampeggiante apparirà in cima al sito per tutti i lettori.')
+                            ? 'Il banner smetterà di apparire.'
+                            : 'Il banner apparirà in cima al sito per tutti i lettori.')
                         ->visible(fn () => Auth::user()->hasRole(['super_admin', 'editor']))
                         ->action(function (Article $record) {
                             if ($record->is_breaking) {
@@ -430,15 +501,26 @@ class ArticleResource extends Resource
                                     ->success()
                                     ->send();
                             } else {
+                                // Imposta tipo di default se nullo
+                                $type = $record->breaking_type ?? 'breaking';
+                                $hours = match ($type) {
+                                    'flash' => 1,
+                                    'breaking' => 24,
+                                    'developing' => 72,
+                                    default => 24,
+                                };
+
                                 $record->update([
                                     'is_breaking' => true,
-                                    'breaking_expires_at' => now()->addHours(24),
+                                    'breaking_type' => $type,
+                                    'breaking_expires_at' => $record->breaking_expires_at ?? now()->addHours($hours),
                                     'status' => 'published',
                                     'published_at' => $record->published_at ?? now(),
                                 ]);
+
                                 Notification::make()
                                     ->title('🚨 Breaking News attivata')
-                                    ->body('Il banner apparirà in cima al sito.')
+                                    ->body('Il banner apparirà in cima al sito per ' . $hours . ' ore.')
                                     ->success()
                                     ->send();
                             }

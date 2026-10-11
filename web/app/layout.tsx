@@ -58,16 +58,32 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+function getDefaultBreakingConfig() {
+  return {
+    display_mode: 'global',
+    pages: {},
+    style: 'pulse_red',
+    bg_color: '',
+    text_color: '',
+    show_badge: true,
+    badge_all: false,
+    auto_refresh: true,
+    refresh_interval: 60,
+    dismissible: true,
+    dismiss_hours: 4,
+  };
+}
+
 async function getBreakingNews() {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
     const res = await fetch(`${apiUrl}/breaking-news`, {
       next: { revalidate: 30 },
     });
-    if (!res.ok) return { data: [], count: 0 };
+    if (!res.ok) return { data: [], count: 0, config: getDefaultBreakingConfig() };
     return res.json();
   } catch {
-    return { data: [], count: 0 };
+    return { data: [], count: 0, config: getDefaultBreakingConfig() };
   }
 }
 
@@ -94,7 +110,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <SeoHead settings={seoSettings} />
       </head>
       <body className="min-h-full flex flex-col font-sans antialiased bg-white dark:bg-gray-950 dark:text-gray-100 transition-colors">
-        <BreakingBanner items={breakingNews.data} />
+        <BreakingBanner
+          items={breakingNews.data}
+          config={breakingNews.config || getDefaultBreakingConfig()}
+        />
 
         <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
           <div className="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">
