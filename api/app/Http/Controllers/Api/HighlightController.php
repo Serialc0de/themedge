@@ -44,6 +44,28 @@ class HighlightController extends Controller
                 : ['nullable', 'boolean', 'in:0,false,0.0'],
         ]);
 
+        // Verifica policy articolo
+        $article = Article::findOrFail($data['article_id']);
+        if (!$article->highlightsAllowed()) {
+            return response()->json([
+                'error' => 'Highlight non abilitati per questo articolo',
+                'policy' => $article->resolveHighlightPolicy()->name,
+            ], 403);
+        }
+
+        // Verifica se può essere pubblico
+        if (!empty($data['is_public']) && !$article->highlightsCanBePublic()) {
+            $data['is_public'] = false;
+        }
+
+        // Verifica lunghezza massima policy
+        $maxLen = $article->highlightsMaxFragmentLength();
+        if ($maxLen > 0 && mb_strlen($data['text_fragment']) > $maxLen) {
+            return response()->json([
+                'error' => "Il testo evidenziato supera il limite di {$maxLen} caratteri per questo articolo",
+            ], 422);
+        }
+
         // Evita duplicati: stesso reader, stesso articolo, stessa posizione
         $existing = ReaderHighlight::where('reader_id', $reader->id)
             ->where('article_id', $data['article_id'])
@@ -172,10 +194,31 @@ class HighlightController extends Controller
         }
 
         $reader = ReaderController::resolveReader($request);
+        $policy = $article->resolveHighlightPolicy();
+
+        // Se highlight disabilitati per questo articolo, ritorna solo i miei
+        if (!$article->highlightsAllowed()) {
+            if (!$reader) {
+                return HighlightResource::collection(collect());
+            }
+            $highlights = ReaderHighlight::forArticle($article->id)
+                ->byReader($reader->id)
+                ->with('reactions.reader:id,token')
+                ->orderBy('start_offset')
+                ->limit(500)
+                ->get();
+            return HighlightResource::collection($highlights);
+        }
 
         $query = ReaderHighlight::forArticle($article->id);
 
-        if ($reader) {
+        // Se policy non permette pubblici, mostra solo i miei
+        if (!$policy->allow_public) {
+            if (!$reader) {
+                return HighlightResource::collection(collect());
+            }
+            $query->where('reader_id', $reader->id);
+        } elseif ($reader) {
             $query->where(function ($q) use ($reader) {
                 $q->where('is_public', true)
                   ->orWhere('reader_id', $reader->id);
@@ -280,6 +323,14 @@ class HighlightController extends Controller
             return response()->json(['error' => 'Highlight non trovato'], 404);
         }
 
+        // Verifica policy articolo per reactions
+        $article = Article::find($highlight->article_id);
+        if ($article && !$article->highlightsCanReact()) {
+            return response()->json([
+                'error' => 'Reazioni non abilitate per questo articolo',
+            ], 403);
+        }
+
         $reaction = HighlightReaction::firstOrCreate([
             'highlight_id' => $highlight->id,
             'reader_id' => $reader->id,
@@ -303,7 +354,7 @@ class HighlightController extends Controller
      */
     public function config(Request $request)
     {
-        return response()->json([
+        $base = [
             'enabled' => (bool) config('highlights.enabled', true),
             'privacy' => [
                 'default_public' => (bool) config('highlights.privacy.default_public', false),
@@ -317,7 +368,18 @@ class HighlightController extends Controller
             'colors' => config('highlights.colors', []),
             'emojis' => HighlightReaction::allowedEmojis(),
             'features' => config('highlights.features', []),
-        ]);
+        ];
+
+        // Se viene passato uno slug, ritorna la policy effettiva per quell'articolo
+        $slug = $request->query('slug');
+        if ($slug) {
+            $article = Article::where('slug', $slug)->first();
+            if ($article) {
+                $base['article_policy'] = $article->highlightConfig();
+            }
+        }
+
+        return response()->json($base);
     }
 
     /**

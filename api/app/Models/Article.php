@@ -29,6 +29,7 @@ class Article extends Model implements HasMedia
         'is_breaking', 'breaking_expires_at', 'breaking_priority',
         'breaking_type', 'breaking_bg_color', 'breaking_text_color', 'breaking_show_badge',
         'content_raw',
+        'highlight_policy_id', 'highlight_settings', 'highlight_until', 'highlight_locked',
     ];
 
     protected $casts = [
@@ -45,6 +46,9 @@ class Article extends Model implements HasMedia
         'breaking_expires_at' => 'datetime',
         'breaking_priority' => 'integer',
         'breaking_show_badge' => 'boolean',
+        'highlight_settings' => 'array',
+        'highlight_until' => 'datetime',
+        'highlight_locked' => 'boolean',
     ];
 
     // ============================================================
@@ -86,6 +90,175 @@ class Article extends Model implements HasMedia
                 $article->content = $sanitizer->sanitize($article->content);
             }
         });
+    }
+
+    // ============================================================
+    // HIGHLIGHT POLICY
+    // ============================================================
+    public function highlightPolicy(): BelongsTo
+    {
+        return $this->belongsTo(HighlightPolicy::class, 'highlight_policy_id');
+    }
+
+    /**
+     * Risolve la policy effettiva per questo articolo.
+     * Ordine di priorità:
+     *   1. Kill switch globale (config)
+     *   2. highlight_settings JSON (override diretto)
+     *   3. highlight_policy_id specifico articolo
+     *   4. Ereditarietà da tag/categoria/autore (vince priority più alta)
+     *   5. Policy di default "full"
+     */
+    public function resolveHighlightPolicy(): HighlightPolicy
+    {
+        // 1. Kill switch globale
+        if (!config('highlights.enabled', true)) {
+            return HighlightPolicy::where('name', 'disabled')->first()
+                ?? $this->defaultPolicy();
+        }
+
+        // 2. Override JSON diretto su articolo
+        if (!empty($this->highlight_settings) && is_array($this->highlight_settings)) {
+            return $this->policyFromSettings($this->highlight_settings);
+        }
+
+        // 3. Policy esplicita articolo
+        if ($this->highlight_policy_id && $this->highlightPolicy) {
+            return $this->highlightPolicy;
+        }
+
+        // 4. Ereditarietà da tag/categoria/autore
+        $candidates = collect();
+
+        if ($this->relationLoaded('category') || $this->category) {
+            if ($this->category?->highlight_policy_id) {
+                $candidates->push($this->category->highlight_policy_id);
+            }
+        }
+
+        if ($this->relationLoaded('author') || $this->author) {
+            if ($this->author?->highlight_policy_id) {
+                $candidates->push($this->author->highlight_policy_id);
+            }
+        }
+
+        if ($this->relationLoaded('tags') || $this->tags()->exists()) {
+            foreach ($this->tags()->whereNotNull('highlight_policy_id')->pluck('highlight_policy_id') as $pid) {
+                $candidates->push($pid);
+            }
+        }
+
+        if ($candidates->isNotEmpty()) {
+            $policy = HighlightPolicy::whereIn('id', $candidates->unique())
+                ->orderByDesc('priority')
+                ->first();
+            if ($policy) {
+                return $policy;
+            }
+        }
+
+        // 5. Default
+        return $this->defaultPolicy();
+    }
+
+    protected function defaultPolicy(): HighlightPolicy
+    {
+        static $cache = null;
+        if ($cache === null) {
+            $cache = HighlightPolicy::where('name', 'full')->first()
+                ?? new HighlightPolicy([
+                    'name' => 'full',
+                    'label' => 'Completo',
+                    'settings' => HighlightPolicy::defaultSettings(),
+                ]);
+        }
+        return $cache;
+    }
+
+    protected function policyFromSettings(array $settings): HighlightPolicy
+    {
+        return new HighlightPolicy([
+            'name' => '_inline',
+            'label' => 'Override articolo',
+            'settings' => array_merge(HighlightPolicy::defaultSettings(), $settings),
+        ]);
+    }
+
+    /**
+     * Scadenza temporale: se highlight_until è nel futuro, gli highlight sono bloccati.
+     */
+    public function getHighlightsTemporarilyDisabledAttribute(): bool
+    {
+        return $this->highlight_until && $this->highlight_until->isFuture();
+    }
+
+    /**
+     * Highlight sono permessi su questo articolo?
+     */
+    public function highlightsAllowed(): bool
+    {
+        if ($this->highlights_temporarily_disabled) {
+            return false;
+        }
+        return $this->resolveHighlightPolicy()->enabled;
+    }
+
+    public function highlightsCanBePublic(): bool
+    {
+        return $this->highlightsAllowed() && $this->resolveHighlightPolicy()->allow_public;
+    }
+
+    public function highlightsCanReact(): bool
+    {
+        return $this->highlightsAllowed() && $this->resolveHighlightPolicy()->allow_reactions;
+    }
+
+    public function highlightsCanNote(): bool
+    {
+        return $this->highlightsAllowed() && $this->resolveHighlightPolicy()->allow_notes;
+    }
+
+    public function highlightsCanHeatmap(): bool
+    {
+        return $this->highlightsAllowed() && $this->resolveHighlightPolicy()->allow_heatmap;
+    }
+
+    public function highlightsMaxFragmentLength(): int
+    {
+        return $this->resolveHighlightPolicy()->max_fragment_length;
+    }
+
+    public function highlightsRateLimit(): int
+    {
+        return $this->resolveHighlightPolicy()->rate_limit_per_day;
+    }
+
+    /**
+     * Config completa per API.
+     */
+    public function highlightConfig(): array
+    {
+        $policy = $this->resolveHighlightPolicy();
+        $source = $this->highlightPolicySource();
+
+        return array_merge($policy->toConfigArray(), [
+            'source' => $source,
+            'policy_name' => $policy->name,
+            'policy_label' => $policy->label,
+            'expires_at' => $this->highlight_until?->toIso8601String(),
+            'temporarily_disabled' => $this->highlights_temporarily_disabled,
+        ]);
+    }
+
+    protected function highlightPolicySource(): string
+    {
+        if (!config('highlights.enabled', true)) return 'global_disabled';
+        if (!empty($this->highlight_settings)) return 'article_settings';
+        if ($this->highlight_policy_id) return 'article_policy';
+        if ($this->category?->highlight_policy_id) return 'category';
+        if ($this->author?->highlight_policy_id) return 'author';
+        if ($this->tags()->whereNotNull('highlight_policy_id')->exists()) return 'tag';
+        return 'default';
     }
 
     // ============================================================
