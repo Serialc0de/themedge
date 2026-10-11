@@ -233,6 +233,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                   <li><Link href="/segnala" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Segnala</Link></li>
                   <li><Link href="/contatti" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Contatti</Link></li>
                   <li><Link href="/privacy" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Privacy</Link></li>
+                  <li><Link href="/privacy/dati-personali" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">I tuoi dati</Link></li>
                   <li><Link href="/rss" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">RSS</Link></li>
                 </ul>
               </div>

@@ -77,6 +77,10 @@ Route::middleware('throttle:60,1')->group(function () {
 Route::prefix('reader')->group(function () {
     Route::post('/register', [\App\Http\Controllers\Api\ReaderController::class, 'register']);
     Route::get('/me', [\App\Http\Controllers\Api\ReaderController::class, 'me']);
+
+    // GDPR
+    Route::get('/me/export', [\App\Http\Controllers\Api\ReaderPrivacyController::class, 'export']);
+    Route::delete('/me', [\App\Http\Controllers\Api\ReaderPrivacyController::class, 'delete']);
 });
 
 // ============================================================
