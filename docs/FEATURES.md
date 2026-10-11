@@ -164,3 +164,54 @@ Documentazione completa di tutte le feature avanzate.
 - ADMIN_PANEL.md — guida pannello admin
 - PHP_FPM.md — regola PHP-FPM
 - TROUBLESHOOTING.md — problemi noti
+---
+## Sistema Embed
+
+### Provider supportati
+
+| Provider | Tipo | Server-side | Client-side |
+|----------|------|-------------|-------------|
+| YouTube | iframe no-cookie | si | Click-to-load |
+| Vimeo | iframe | si | Click-to-load |
+| Spotify | iframe | si | Auto |
+| Twitter / X | blockquote + widgets.js | no | Lazy |
+| Instagram | blockquote + embed.js | no | Lazy |
+| TikTok | blockquote + embed.js | no | Lazy |
+| Generic | iframe | si | Auto |
+
+### Admin - Inserisci embed
+
+1. Vai su /admin/articles
+2. Clicca l'icona Inserisci embed su un articolo
+3. Incolla URL (esempio: https://www.youtube.com/watch?v=...)
+4. Clicca Genera HTML
+5. Copia l'HTML e incollalo nel RichEditor dell'articolo
+
+### API oEmbed
+
+Risolvi URL: https://api.themedge.com/api/oembed?url=...
+Lista provider: https://api.themedge.com/api/oembed/providers
+
+### Sicurezza
+
+- Doppia sanitizzazione: input (Laravel) + output (Next.js)
+- XSS: script, onerror, onclick, javascript rimosso
+- SSRF: iframe verso 192.168.x, 10.x, localhost, 127.0.0.1 rimossi
+- Allow-list: iframe verso host non-whitelisted rimossi
+- HTTPS forzato su tutti gli URL
+
+### Comando resanitize
+
+php artisan articles:resanitize --dry-run
+php artisan articles:resanitize --force
+php artisan articles:resanitize --id=42 --force
+
+### Configurazione
+
+api/config/embeds.php:
+- enabled: attiva/disattiva feature
+- cache.ttl: TTL cache oEmbed (default 24h)
+- rate_limit.max_attempts: rate limit (default 60/min)
+- providers.*: pattern URL + iframe host
+- sanitize.allowed_tags: tag HTML permessi
+- sanitize.blocked_iframe_hosts: host iframe bloccati
