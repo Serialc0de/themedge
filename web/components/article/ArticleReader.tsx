@@ -12,6 +12,7 @@ import { ArticleSources } from '@/components/article/ArticleSources';
 import { CuratedReads } from '@/components/article/CuratedReads';
 import { SaveButton } from '@/components/article/SaveButton';
 import { AudioPlayerClient } from '@/components/article/AudioPlayerClient';
+import { ShareButtons } from '@/components/article/ShareButtons';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
 
@@ -116,6 +117,11 @@ function ArticleReaderInner({
 
       <CuratedReads articleSlug={articleSlug} />
 
+      <ShareButtons
+        url={`https://themedge.com/articolo/${articleSlug}`}
+        title={article.title}
+      />
+
         {/* Badge informativo */}
         {(hlConfig.isTemporarilyDisabled || hlConfig.policyName === 'disabled') && (
           <div className="mt-6 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
@@ -170,6 +176,11 @@ function ArticleReaderInner({
       <ArticleSources articleSlug={articleSlug} />
 
       <CuratedReads articleSlug={articleSlug} />
+
+      <ShareButtons
+        url={`https://themedge.com/articolo/${articleSlug}`}
+        title={article.title}
+      />
 
       <HighlightHeatmap articleSlug={articleSlug} />
       <HighlightMenu
