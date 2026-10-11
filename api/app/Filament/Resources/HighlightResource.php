@@ -30,24 +30,17 @@ class HighlightResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Contenuto')
+            Forms\Components\Section::make('Contenuto (sola lettura)')
                 ->columns(2)
                 ->schema([
-                    Forms\Components\Select::make('article_id')
+                    Forms\Components\TextInput::make('article.title')
                         ->label('Articolo')
-                        ->relationship('article', 'title')
-                        ->searchable()
-                        ->preload()
-                        ->disabled()
-                        ->dehydrated(),
+                        ->disabled(),
 
-                    Forms\Components\Select::make('reader_id')
+                    Forms\Components\TextInput::make('reader.display_name')
                         ->label('Reader')
-                        ->relationship('reader', 'display_name')
-                        ->searchable()
-                        ->preload()
                         ->disabled()
-                        ->dehydrated(),
+                        ->placeholder('Anonimo'),
 
                     Forms\Components\Textarea::make('text_fragment')
                         ->label('Testo evidenziato')
@@ -62,33 +55,24 @@ class HighlightResource extends Resource
                     Forms\Components\Select::make('color')
                         ->label('Colore')
                         ->options([
-                            'yellow' => '🟡 Giallo',
-                            'green' => '🟢 Verde',
-                            'pink' => '🩷 Rosa',
+                            'yellow' => 'Giallo',
+                            'green' => 'Verde',
+                            'pink' => 'Rosa',
                         ])
                         ->default('yellow'),
 
                     Forms\Components\Toggle::make('is_public')
                         ->label('Pubblico')
-                        ->helperText('Se disattivato, visibile solo all\'autore'),
+                        ->helperText('Se disattivato, visibile solo all autore'),
 
                     Forms\Components\Textarea::make('note')
                         ->label('Nota personale')
                         ->rows(2)
                         ->disabled()
                         ->columnSpanFull(),
-
-                    Forms\Components\TextInput::make('reactions_count')
-                        ->label('Reazioni')
-                        ->disabled()
-                        ->numeric(),
                 ]),
         ]);
     }
-
-    // ============================================================
-    // TABLE
-    // ============================================================
 
     public static function table(Table $table): Table
     {

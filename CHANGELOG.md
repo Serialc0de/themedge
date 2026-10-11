@@ -258,3 +258,47 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - Moderazione highlight per-articolo/policy in roadmap (sessione 4)
 
 ---
+
+---
+
+## [2026-10-11d] — Sessione 5: Highlight Livello 3 al 100%
+
+### Aggiunto — Condivisione come immagine
+- `ShareHighlightCard.tsx`: modal con card 1:1 catturabile
+- Design Editorial fisso (indipendente da dark/light mode)
+- Download PNG 2x + Web Share API nativo + copia testo
+- Dipendenza: `html-to-image`
+
+### Aggiunto — Heatmap articolo
+- `HighlightHeatmap.tsx`: barre proporzionali (20 bucket)
+- Top 3 frasi più evidenziate con ranking
+- Contatori lettori unici + highlight pubblici
+- Soglia minima 3 highlight per evitare dati inutili
+
+### Aggiunto — Admin moderazione
+- `HighlightResource` (`/admin/highlights`):
+  * Tabella paginata + filtri (pubblico, colore, note, reazioni, data)
+  * Azioni: Modifica, Nascondi, Ban reader, Elimina
+  * Bulk: Rendi privati, Elimina multipli
+- `HighlightStatsOverviewWidget`: KPI totali/pubblici/note/reazioni
+
+### Aggiunto — GDPR
+- `GET /api/reader/me/export`: JSON con tutti i dati (Art. 15/20)
+- `DELETE /api/reader/me`: cancella tutto (Art. 17)
+- Pagina `/privacy/dati-personali` con bottoni export/delete
+- Link "I tuoi dati" nel footer
+
+### Modificato — Reazioni immutabili
+- Migration: unique constraint su `(highlight_id, reader_id)`
+- `HighlightReaction::react()`: immutabile, ritorna null se già reagito
+- `HighlightController::react()`: 409 se già reagito
+- `HighlightController::unreact()`: 405 (immutabile)
+- `HighlightReactions.tsx`: emoji disabilitate dopo la prima reazione
+- Toast "Hai già reagito" su tentativi di modifica
+
+### Fix
+- `HighlightResource`: form semplificato (TextInput vs Select relationship)
+- Rimosso `columnFullWidth()` inesistente in Filament 3
+- Fix unique constraint dopo cambio reazioni
+
+---

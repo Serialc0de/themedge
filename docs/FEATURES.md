@@ -275,3 +275,44 @@ Gli utenti possono **evidenziare frasi** degli articoli, aggiungere note persona
 - Default privato (opt-in pubblico)
 - Toggle "Solo tu" / "Visibile a tutti"
 - GDPR-safe: nessun dato personale pubblico
+
+---
+
+## 🖍️ Sistema Highlight — Livello 3 completo
+
+### Feature utente
+| Feature | Stato |
+|---------|-------|
+| Selezione testo → popup | ✅ |
+| 3 colori (giallo, verde, rosa) | ✅ |
+| Note personali | ✅ |
+| Toggle privato/pubblico | ✅ |
+| Reazioni emoji (una per reader, immutabile) | ✅ |
+| Badge "X persone hanno reagito" | ✅ |
+| Pagina `/highlight` personale | ✅ |
+| Heatmap articolo con top fragments | ✅ |
+| Condivisione come immagine PNG | ✅ |
+| Web Share API nativo | ✅ |
+
+### Feature amministrative
+| Feature | Stato |
+|---------|-------|
+| Filament Resource `/admin/highlights` | ✅ |
+| Moderazione (nascondi, ban reader) | ✅ |
+| Widget KPI highlights | ✅ |
+| Filtri (colore, note, reazioni, data) | ✅ |
+| Bulk actions | ✅ |
+| Policy editoriali a 3 livelli | ✅ |
+
+### GDPR
+| Feature | Stato |
+|---------|-------|
+| Export dati (Art. 15/20) | ✅ |
+| Delete account (Art. 17) | ✅ |
+| Pagina `/privacy/dati-personali` | ✅ |
+
+### Regole
+- **Una reazione per reader, immutabile**: non si può cambiare né rimuovere
+- **Contatore = persone uniche**: "4 reazioni = 4 persone"
+- **Privacy default: privato** — opt-in per pubblico
+- **Policy a 3 livelli**: articolo > categoria > autore > default
