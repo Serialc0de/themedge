@@ -70,3 +70,30 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('/oembed', [\App\Http\Controllers\Api\OEmbedController::class, 'resolve']);
     Route::get('/oembed/providers', [\App\Http\Controllers\Api\OEmbedController::class, 'providers']);
 });
+
+// ============================================================
+// Reader (account anonimo device-based)
+// ============================================================
+Route::prefix('reader')->group(function () {
+    Route::post('/register', [\App\Http\Controllers\Api\ReaderController::class, 'register']);
+    Route::get('/me', [\App\Http\Controllers\Api\ReaderController::class, 'me']);
+});
+
+// ============================================================
+// Highlights
+// ============================================================
+Route::middleware('throttle:120,1')->group(function () {
+    // Lista pubblici (o miei se X-Reader-Token)
+    Route::get('/articles/{slug}/highlights', [\App\Http\Controllers\Api\HighlightController::class, 'forArticle']);
+    Route::get('/articles/{slug}/highlights/stats', [\App\Http\Controllers\Api\HighlightController::class, 'stats']);
+
+    // Richiedono token
+    Route::post('/highlights', [\App\Http\Controllers\Api\HighlightController::class, 'store']);
+    Route::get('/highlights/mine', [\App\Http\Controllers\Api\HighlightController::class, 'mine']);
+    Route::patch('/highlights/{id}', [\App\Http\Controllers\Api\HighlightController::class, 'update']);
+    Route::delete('/highlights/{id}', [\App\Http\Controllers\Api\HighlightController::class, 'destroy']);
+
+    // Reazioni
+    Route::post('/highlights/{id}/react', [\App\Http\Controllers\Api\HighlightController::class, 'react']);
+    Route::delete('/highlights/{id}/react', [\App\Http\Controllers\Api\HighlightController::class, 'unreact']);
+});
