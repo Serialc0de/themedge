@@ -245,7 +245,21 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           )}
 
           {/* Contenuto */}
-          <ArticleReader articleId={article.id} articleSlug={article.slug} content={article.content || ''} />
+          <ArticleReader
+            articleId={article.id}
+            articleSlug={article.slug}
+            content={article.content || ''}
+            article={{
+              slug: article.slug,
+              title: article.title,
+              excerpt: article.excerpt ?? null,
+              featured_image: article.featured_image ?? null,
+              author_name: article.author?.name ?? null,
+              category_name: article.category?.name ?? null,
+              published_at: article.published_at ?? null,
+              reading_time: null,
+            }}
+          />
 
           {/* Tags */}
           {article.tags?.length > 0 && (

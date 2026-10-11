@@ -10,6 +10,7 @@ import { HighlightHeatmap } from '@/components/article/HighlightHeatmap';
 import { ArticleCorrections } from '@/components/article/ArticleCorrections';
 import { ArticleSources } from '@/components/article/ArticleSources';
 import { CuratedReads } from '@/components/article/CuratedReads';
+import { SaveButton } from '@/components/article/SaveButton';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
 
@@ -17,9 +18,19 @@ type Props = {
   articleId: number;
   articleSlug: string;
   content: string;
+  article: {
+    slug: string;
+    title: string;
+    excerpt: string | null;
+    featured_image: string | null;
+    author_name: string | null;
+    category_name: string | null;
+    published_at: string | null;
+    reading_time: number | null;
+  };
 };
 
-export function ArticleReader({ articleId, articleSlug, content }: Props) {
+export function ArticleReader({ articleId, articleSlug, content, article }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -30,6 +41,7 @@ export function ArticleReader({ articleId, articleSlug, content }: Props) {
           articleId={articleId}
           articleSlug={articleSlug}
           content={content}
+          article={article}
         />
       </HighlightsProvider>
     </ReaderProvider>
@@ -41,11 +53,13 @@ function ArticleReaderInner({
   articleId,
   articleSlug,
   content,
+  article,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
   articleId: number;
   articleSlug: string;
   content: string;
+  article: Props['article'];
 }) {
   const [clickedHighlightId, setClickedHighlightId] = useState<{
     id: number;
@@ -82,6 +96,10 @@ function ArticleReaderInner({
     return (
       <div className="relative">
         <div ref={containerRef} className="relative">
+          <div className="mb-6">
+            <SaveButton article={article} />
+          </div>
+
           <ArticleBody html={content} />
         </div>
 
@@ -122,6 +140,10 @@ function ArticleReaderInner({
   return (
     <div className="relative">
       <div ref={containerRef} className="relative">
+        <div className="mb-6">
+          <SaveButton article={article} />
+        </div>
+
         <ArticleBody html={content} />
         <HighlightLayer
           containerRef={containerRef}

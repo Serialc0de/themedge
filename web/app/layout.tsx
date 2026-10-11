@@ -12,6 +12,8 @@ import BreakingBanner from '@/components/BreakingBanner';
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 import PushSubscribeButton from '@/components/PushSubscribeButton';
 import { ReaderProvider } from '@/lib/reader';
+import { ReadingListProvider } from '@/lib/reading-list';
+import { ReadingListNavIcon } from '@/components/ReadingListNavIcon';
 import { ToastProvider } from '@/lib/toast';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 
@@ -142,7 +144,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </head>
       <body className="min-h-full flex flex-col font-sans antialiased bg-white dark:bg-gray-950 dark:text-gray-100 transition-colors">
         <ReaderProvider>
-          <ToastProvider>
+          <ReadingListProvider>
+            <ToastProvider>
         <BreakingBanner
           items={breakingNews.data}
           config={breakingNews.config || getDefaultBreakingConfig()}
@@ -190,6 +193,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 </li>
               ))}
               <li><Link href="/cerca" className="hover:text-red-700 transition">Cerca</Link></li>
+              <li><ReadingListNavIcon /></li>
             </ul>
           </div>
         </nav>
@@ -258,7 +262,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <CookieBanner />
         <ServiceWorkerRegister />
                 <ToastContainer />
-          </ToastProvider>
+            </ToastProvider>
+          </ReadingListProvider>
         </ReaderProvider>
       </body>
     </html>

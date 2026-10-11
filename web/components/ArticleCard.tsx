@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import BreakingBadge from './BreakingBadge';
+import { SaveIconButton } from './SaveIconButton';
 
 interface Article {
   id: number;
@@ -33,6 +34,17 @@ function timeAgo(dateString?: string): string {
 
 export default function ArticleCard({ article, variant = 'default' }: Props) {
   const categoryColor = article.category?.color || '#c8102e';
+  const saveData = {
+    slug: article.slug,
+    title: article.title,
+    excerpt: article.excerpt ?? null,
+    featured_image: article.featured_image ?? null,
+    author_name: article.author?.name ?? null,
+    category_name: article.category?.name ?? null,
+    published_at: article.published_at ?? null,
+    reading_time: null,
+  };
+
 
   // COMPACT
   if (variant === 'compact') {
@@ -72,17 +84,20 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
     return (
       <article className="flex gap-4 py-4 border-b border-gray-200 dark:border-gray-800 last:border-b-0">
         {article.featured_image && (
-          <Link
-            href={`/articolo/${article.slug}`}
-            className="flex-shrink-0 w-24 h-24 md:w-32 md:h-32 overflow-hidden bg-gray-100 dark:bg-gray-800 relative"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={article.featured_image}
-              alt={article.title}
-              className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-            />
-          </Link>
+          <div className="relative flex-shrink-0">
+            <Link
+              href={`/articolo/${article.slug}`}
+              className="block w-24 h-24 md:w-32 md:h-32 overflow-hidden bg-gray-100 dark:bg-gray-800"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={article.featured_image}
+                alt={article.title}
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+              />
+            </Link>
+            <SaveIconButton article={saveData} size="sm" floating />
+          </div>
         )}
         <div className="flex-1 min-w-0">
           {article.is_breaking && (
@@ -133,6 +148,7 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
                   <BreakingBadge size="md" />
                 </div>
               )}
+              <SaveIconButton article={saveData} size="md" floating />
             </div>
           )}
           <div className="mb-3 flex items-center gap-3 text-xs uppercase tracking-widest">
@@ -183,6 +199,7 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
                 <BreakingBadge size="sm" />
               </div>
             )}
+            <SaveIconButton article={saveData} size="sm" floating />
           </div>
         )}
         <div className="mb-2 flex items-center gap-3 text-xs uppercase tracking-widest">
