@@ -7,6 +7,7 @@ import { HighlightsProvider } from '@/lib/highlight';
 import { HighlightLayer } from '@/components/article/HighlightLayer';
 import { HighlightMenu } from '@/components/article/HighlightMenu';
 import { HighlightHeatmap } from '@/components/article/HighlightHeatmap';
+import { ArticleCorrections } from '@/components/article/ArticleCorrections';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
 
@@ -77,8 +78,12 @@ function ArticleReaderInner({
   // mostra solo ArticleBody + eventuale badge informativo.
   if (!hlConfig.isEnabled) {
     return (
-      <div ref={containerRef} className="relative">
-        <ArticleBody html={content} />
+      <div className="relative">
+        <div ref={containerRef} className="relative">
+          <ArticleBody html={content} />
+        </div>
+
+        <ArticleCorrections articleSlug={articleSlug} />
 
         {/* Badge informativo */}
         {(hlConfig.isTemporarilyDisabled || hlConfig.policyName === 'disabled') && (
@@ -118,6 +123,8 @@ function ArticleReaderInner({
           onOrphanDetected={handleOrphanDetected}
         />
       </div>
+
+      <ArticleCorrections articleSlug={articleSlug} />
 
       <HighlightHeatmap articleSlug={articleSlug} />
       <HighlightMenu
