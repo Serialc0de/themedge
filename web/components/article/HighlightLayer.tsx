@@ -26,8 +26,12 @@ type Rect = {
 type Props = {
   /** Container DOM in cui sono renderizzati gli articoli (di solito .prose) */
   containerRef: React.RefObject<HTMLElement | null>;
-  /** Callback quando l'utente clicca su un highlight */
-  onHighlightClick?: (highlight: Highlight | any) => void;
+  /** Callback quando l'utente clicca su un highlight (con coordinate click) */
+  onHighlightClick?: (
+    highlight: Highlight | any,
+    clickX: number,
+    clickY: number
+  ) => void;
 };
 
 // ============================================================
@@ -173,7 +177,11 @@ export function HighlightLayer({ containerRef, onHighlightClick }: Props) {
             style={r.isPending ? { opacity: 0.5, strokeDasharray: '3 2' } : undefined}
             onClick={(e) => {
               e.stopPropagation();
-              onHighlightClick?.(r.highlight);
+              onHighlightClick?.(
+                r.highlight,
+                e.clientX,
+                e.clientY
+              );
             }}
           />
         ))}

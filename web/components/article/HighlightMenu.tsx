@@ -7,11 +7,12 @@ import {
   buildTextMap,
   getContext,
 } from '@/lib/text-anchoring';
-import { useHighlights } from '@/lib/highlight';
+import { useHighlights, useAllHighlights } from '@/lib/highlight';
 import { useReader } from '@/lib/reader';
 import { useToast } from '@/lib/toast';
 import { HighlightPopup, type PopupAction } from './HighlightPopup';
 import { HighlightNoteEditor } from './HighlightNoteEditor';
+import { HighlightDetailPopup } from './HighlightDetailPopup';
 
 // ============================================================
 // ICONS
@@ -48,6 +49,14 @@ const IconShare = (
 type Props = {
   containerRef: React.RefObject<HTMLElement | null>;
   articleId: number;
+  /** Click esterno su un highlight esistente (da ArticleReader): solo ID + coords */
+  externalClickedHighlight?: {
+    id: number;
+    x: number;
+    y: number;
+  } | null;
+  /** Callback chiusura esterna */
+  onExternalClose?: () => void;
 };
 
 type PendingSelection = {
@@ -66,7 +75,12 @@ type PendingSelection = {
 // COMPONENT
 // ============================================================
 
-export function HighlightMenu({ containerRef, articleId }: Props) {
+export function HighlightMenu({
+  containerRef,
+  articleId,
+  externalClickedHighlight,
+  onExternalClose,
+}: Props) {
   const [selection, setSelection] = useState<PendingSelection | null>(null);
   const [noteMode, setNoteMode] = useState<{
     color: 'yellow' | 'green' | 'pink';
@@ -75,7 +89,8 @@ export function HighlightMenu({ containerRef, articleId }: Props) {
   } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { create } = useHighlights();
+  const { create, react, unreact, update, remove } = useHighlights();
+  const allHighlights = useAllHighlights();
   const { token, register } = useReader();
   const toast = useToast();
 
@@ -253,6 +268,30 @@ export function HighlightMenu({ containerRef, articleId }: Props) {
       onClick: () => openNoteEditor('yellow'),
     },
   ];
+
+  // Se c'è un highlight cliccato (via prop esterna), risolviamo l'oggetto LIVE dal context
+  if (externalClickedHighlight) {
+    const liveHighlight = allHighlights.find(
+      (h) => h.id === externalClickedHighlight.id
+    );
+    // Se l'highlight è stato eliminato, chiudiamo il popup
+    if (!liveHighlight) {
+      onExternalClose?.();
+      return null;
+    }
+    return (
+      <HighlightDetailPopup
+        highlight={liveHighlight as any}
+        clickX={externalClickedHighlight.x}
+        clickY={externalClickedHighlight.y}
+        onClose={onExternalClose ?? (() => {})}
+        onReact={react}
+        onUnreact={unreact}
+        onUpdate={update}
+        onDelete={remove}
+      />
+    );
+  }
 
   // Se siamo in noteMode, il popup è guidato da quello
   if (noteMode) {
