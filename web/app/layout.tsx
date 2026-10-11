@@ -139,6 +139,18 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <div className="max-w-7xl mx-auto px-4">
             <ul className="flex flex-wrap justify-center gap-x-6 gap-y-2 md:gap-x-8 py-3 text-xs uppercase tracking-widest font-bold">
               <li><Link href="/" className="hover:text-red-700 transition">Home</Link></li>
+              <li>
+                <Link href="/ultimora" className="text-red-700 hover:text-red-800 transition flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-red-700 rounded-full animate-pulse" />
+                  Ultim&apos;ora
+                </Link>
+              </li>
+              <li>
+                <Link href="/dirette" className="hover:text-red-700 transition flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-red-700 rounded-full" />
+                  Dirette
+                </Link>
+              </li>
               {CATEGORIES.map((cat) => (
                 <li key={cat.slug}>
                   <Link href={`/categoria/${cat.slug}`} className="hover:text-red-700 transition">{cat.name}</Link>
@@ -172,6 +184,16 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <div>
                 <h4 className="text-xs uppercase tracking-widest font-bold mb-4">Testata</h4>
                 <ul className="space-y-2 text-sm">
+                  <li>
+                    <Link href="/ultimora" className="text-red-700 dark:text-red-500 font-bold hover:text-red-800 dark:hover:text-red-400 transition">
+                      🔴 Ultim&apos;ora
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/dirette" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">
+                      📺 Dirette Live
+                    </Link>
+                  </li>
                   <li><Link href="/chi-siamo" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Chi siamo</Link></li>
                   <li><Link href="/redazione" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Redazione</Link></li>
                   <li><Link href="/correzioni" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Correzioni</Link></li>

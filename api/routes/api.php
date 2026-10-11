@@ -47,3 +47,10 @@ Route::get('/editorial-team', [\App\Http\Controllers\Api\EditorialTeamController
 
 // Breaking News
 Route::get('/breaking-news', [\App\Http\Controllers\Api\BreakingNewsController::class, 'index']);
+Route::get('/breaking-news/archive', [\App\Http\Controllers\Api\BreakingNewsController::class, 'archive']);
+
+// Live Blog
+Route::get('/live-blogs', [\App\Http\Controllers\Api\LiveBlogController::class, 'index']);
+Route::get('/live-blogs/{slug}', [\App\Http\Controllers\Api\LiveBlogController::class, 'show']);
+Route::get('/live-blogs/{slug}/updates', [\App\Http\Controllers\Api\LiveBlogController::class, 'updates']);
+Route::post('/live-blogs/{slug}/subscribe', [\App\Http\Controllers\Api\LiveBlogController::class, 'subscribe']);
