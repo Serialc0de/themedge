@@ -125,6 +125,25 @@ class Article extends Model implements HasMedia
         return $this->hasMany(Poll::class);
     }
 
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class)->whereNull('parent_id')->orderByDesc('is_pinned')->orderByDesc('created_at');
+    }
+
+    public function allComments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
+    }
+
+    public function approvedComments(): HasMany
+    {
+        return $this->hasMany(Comment::class)
+            ->where('status', 'approved')
+            ->whereNull('parent_id')
+            ->orderByDesc('is_pinned')
+            ->orderByDesc('created_at');
+    }
+
     // ============================================================
     // ROUTING
     // ============================================================

@@ -60,3 +60,7 @@ Route::get('/push/vapid-public-key', [\App\Http\Controllers\Api\PushController::
 Route::post('/push/subscribe', [\App\Http\Controllers\Api\PushController::class, 'subscribe']);
 Route::post('/push/unsubscribe', [\App\Http\Controllers\Api\PushController::class, 'unsubscribe']);
 Route::get('/push/status', [\App\Http\Controllers\Api\PushController::class, 'status']);
+
+// Commenti
+Route::get('/articles/{slug}/comments', [\App\Http\Controllers\Api\CommentController::class, 'index']);
+Route::post('/articles/{slug}/comments', [\App\Http\Controllers\Api\CommentController::class, 'store']);

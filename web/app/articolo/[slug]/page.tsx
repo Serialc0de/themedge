@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import Sidebar from '@/components/Sidebar';
 import ReadingProgress from '@/components/ReadingProgress';
+import CommentsSection from '@/components/CommentsSection';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://themedge.com';
@@ -295,6 +296,12 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
             </section>
           )}
 
+          {/* Commenti */}
+          <CommentsSection
+            articleSlug={article.slug}
+            allowComments={article.allow_comments !== false}
+          />
+
           <div className="mt-12 text-center">
             <Link
               href="/"
@@ -308,7 +315,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         {/* Sidebar */}
         <Sidebar articles={latest} categories={[]} />
       </div>
-    </div> 
+    </div>
     </>
   );
 }
