@@ -6,6 +6,7 @@ import { ReaderProvider } from '@/lib/reader';
 import { HighlightsProvider } from '@/lib/highlight';
 import { HighlightLayer } from '@/components/article/HighlightLayer';
 import { HighlightMenu } from '@/components/article/HighlightMenu';
+import { HighlightHeatmap } from '@/components/article/HighlightHeatmap';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
 
@@ -108,13 +109,17 @@ function ArticleReaderInner({
 
   // Highlights attivi: comportamento completo
   return (
-    <div ref={containerRef} className="relative">
-      <ArticleBody html={content} />
-      <HighlightLayer
-        containerRef={containerRef}
-        onHighlightClick={handleHighlightClick}
-        onOrphanDetected={handleOrphanDetected}
-      />
+    <div className="relative">
+      <div ref={containerRef} className="relative">
+        <ArticleBody html={content} />
+        <HighlightLayer
+          containerRef={containerRef}
+          onHighlightClick={handleHighlightClick}
+          onOrphanDetected={handleOrphanDetected}
+        />
+      </div>
+
+      <HighlightHeatmap articleSlug={articleSlug} />
       <HighlightMenu
         containerRef={containerRef}
         articleId={articleId}
