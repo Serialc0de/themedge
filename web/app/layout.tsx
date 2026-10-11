@@ -11,6 +11,9 @@ import SocialLinks from '@/components/SocialLinks';
 import BreakingBanner from '@/components/BreakingBanner';
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 import PushSubscribeButton from '@/components/PushSubscribeButton';
+import { ReaderProvider } from '@/lib/reader';
+import { ToastProvider } from '@/lib/toast';
+import { ToastContainer } from '@/components/ui/ToastContainer';
 
 const playfair = Playfair_Display({ variable: "--font-playfair", subsets: ["latin"], display: "swap" });
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
@@ -138,6 +141,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <SeoHead settings={seoSettings} />
       </head>
       <body className="min-h-full flex flex-col font-sans antialiased bg-white dark:bg-gray-950 dark:text-gray-100 transition-colors">
+        <ReaderProvider>
+          <ToastProvider>
         <BreakingBanner
           items={breakingNews.data}
           config={breakingNews.config || getDefaultBreakingConfig()}
@@ -251,6 +256,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <ScrollToTop />
         <CookieBanner />
         <ServiceWorkerRegister />
+                <ToastContainer />
+          </ToastProvider>
+        </ReaderProvider>
       </body>
     </html>
   );

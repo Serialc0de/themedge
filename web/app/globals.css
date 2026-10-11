@@ -267,3 +267,130 @@ a { transition: color 0.2s ease; }
 .dark .hover\:bg-gray-700:hover {
   background-color: rgb(55 65 81);
 }
+
+/* ============================================================
+   TOAST ANIMATIONS
+   ============================================================ */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================================
+   HIGHLIGHT LAYER (SVG overlay)
+   ============================================================ */
+.highlight-layer-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: visible;
+}
+
+.highlight-layer-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.highlight-rect {
+  pointer-events: auto;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.highlight-rect:hover {
+  opacity: 0.85;
+}
+
+/* ============================================================
+   HIGHLIGHT POPUP (selezione)
+   ============================================================ */
+.highlight-popup {
+  position: fixed;
+  z-index: 9998;
+  background: #1f2937;
+  color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  animation: popup-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+@keyframes popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.highlight-popup::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  background: #1f2937;
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 2px;
+}
+
+.highlight-popup[data-placement='top']::after {
+  bottom: -6px;
+}
+
+.highlight-popup[data-placement='bottom']::after {
+  top: -6px;
+  bottom: auto;
+}
+
+/* ============================================================
+   HIGHLIGHT COLORS
+   ============================================================ */
+:root {
+  --hl-yellow: rgba(253, 224, 71, 0.5);
+  --hl-yellow-hover: rgba(253, 224, 71, 0.7);
+  --hl-green: rgba(134, 239, 172, 0.55);
+  --hl-green-hover: rgba(134, 239, 172, 0.75);
+  --hl-pink: rgba(249, 168, 212, 0.55);
+  --hl-pink-hover: rgba(249, 168, 212, 0.75);
+}
+
+.dark {
+  --hl-yellow: rgba(253, 224, 71, 0.35);
+  --hl-yellow-hover: rgba(253, 224, 71, 0.55);
+  --hl-green: rgba(134, 239, 172, 0.35);
+  --hl-green-hover: rgba(134, 239, 172, 0.55);
+  --hl-pink: rgba(249, 168, 212, 0.35);
+  --hl-pink-hover: rgba(249, 168, 212, 0.55);
+}
+
+.highlight-rect--yellow { fill: var(--hl-yellow); }
+.highlight-rect--yellow:hover { fill: var(--hl-yellow-hover); }
+.highlight-rect--green { fill: var(--hl-green); }
+.highlight-rect--green:hover { fill: var(--hl-green-hover); }
+.highlight-rect--pink { fill: var(--hl-pink); }
+.highlight-rect--pink:hover { fill: var(--hl-pink-hover); }
+
+.highlight-rect--public {
+  stroke: rgba(59, 130, 246, 0.35);
+  stroke-width: 0.5;
+}

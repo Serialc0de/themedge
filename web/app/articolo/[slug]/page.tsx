@@ -4,7 +4,7 @@ import { Metadata } from 'next';
 import Sidebar from '@/components/Sidebar';
 import ReadingProgress from '@/components/ReadingProgress';
 import CommentsSection from '@/components/CommentsSection';
-import { ArticleBody } from '@/components/ArticleBody';
+import { ArticleReader } from '@/components/article/ArticleReader';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://themedge.com';
@@ -245,7 +245,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           )}
 
           {/* Contenuto */}
-          <ArticleBody html={article.content || ''} />
+          <ArticleReader articleId={article.id} articleSlug={article.slug} content={article.content || ''} />
 
           {/* Tags */}
           {article.tags?.length > 0 && (
