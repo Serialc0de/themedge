@@ -302,3 +302,34 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - Fix unique constraint dopo cambio reazioni
 
 ---
+
+---
+
+## [2026-10-12] — Pacchetto Credibilità
+
+### Aggiunto — Correzioni pubbliche inline
+- Componente `ArticleCorrections` con badge collassabile
+- Diff "Prima / Dopo" con testo barrato vs corretto
+- Colore dinamico per severity (minor/major/retraction)
+- Integrato in `ArticleReader` (entrambi i return)
+
+### Aggiunto — Fonti verificabili
+- Migration `article_sources` (8 tipi: official, study, news, social, archive, video, dataset, other)
+- Model `ArticleSource` con accessor icon/label/domain
+- API `GET /api/articles/{slug}/sources`
+- Admin Repeater in ArticleResource
+- Componente `ArticleSources` con badge tipo colorato, verificato, link archiviato
+
+### Aggiunto — Approfondimenti curati
+- Migration `article_related` (self-referencing many-to-many)
+- Relazione `Article->relatedCurated()`
+- API `GET /api/articles/{slug}/curated`
+- Admin Repeater con saveRelationshipsUsing custom
+- Componente `CuratedReads` con note editoriali + bordo tratteggiato
+
+### Fix
+- Hook `creating()` Article: blocca articoli senza titolo (evita crash Filament)
+- Repeater relatedCurated: `saveRelationshipsUsing` scarta item null
+- Sezione CuratedReads: dark mode ottimizzato (bg-gray-50 / bg-gray-800)
+
+---

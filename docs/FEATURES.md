@@ -316,3 +316,34 @@ Gli utenti possono **evidenziare frasi** degli articoli, aggiungere note persona
 - **Contatore = persone uniche**: "4 reazioni = 4 persone"
 - **Privacy default: privato** — opt-in per pubblico
 - **Policy a 3 livelli**: articolo > categoria > autore > default
+
+---
+
+## 🎯 Pacchetto Credibilità
+
+### Correzioni pubbliche
+- Badge collassabile in fondo all'articolo
+- Diff "Prima / Dopo" per ogni correzione
+- Severità: minor (giallo), major (arancione), retraction (rosso)
+- Nota redazione
+- Link a /correzioni per storico completo
+
+### Fonti verificabili
+- 8 tipi fonte: ufficiale, studio, giornale, social, archivio, video, dataset, altro
+- Badge colorato per tipo con icona
+- Badge "Verificata" (trust signal)
+- Link archiviato (Wayback Machine) opzionale
+- Note redazione per contesto
+- API: `GET /api/articles/{slug}/sources`
+
+### Approfondimenti curati
+- Sezione "📖 Per capire meglio" in fondo all'articolo
+- Articoli selezionati manualmente dalla redazione
+- Nota editoriale opzionale ("Perché leggerlo")
+- Numero, titolo, data, freccia animata
+- API: `GET /api/articles/{slug}/curated`
+
+### Quando usarli (best practice)
+- **Correzioni:** sempre per errori fatti
+- **Fonti:** obbligatorie per analisi, inchieste, dati citati
+- **Approfondimenti:** per articoli di contesto (analisi, spiegazioni, inchieste)
