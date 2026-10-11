@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\LiveBlogResource\RelationManagers;
 
+use App\Services\PushNotificationService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -23,7 +25,7 @@ class UpdatesRelationManager extends RelationManager
                 ->label('Tipo')
                 ->options([
                     'update' => '📝 Aggiornamento',
-                    'breaking' => '🚨 Ultim\'ora',
+                    'breaking' => '🚨 Ultim\'ora (invia push)',
                     'analysis' => '📊 Analisi',
                     'quote' => '💬 Dichiarazione',
                     'photo' => '📸 Foto',
@@ -32,7 +34,8 @@ class UpdatesRelationManager extends RelationManager
                 ])
                 ->default('update')
                 ->required()
-                ->live(),
+                ->live()
+                ->helperText('Il tipo "Ultim\'ora" invia una notifica push a tutti gli iscritti'),
 
             Forms\Components\TextInput::make('title')
                 ->label('Titolo (opzionale)')
@@ -133,9 +136,34 @@ class UpdatesRelationManager extends RelationManager
                         $data['author_id'] = Auth::id();
                         return $data;
                     })
-                    ->after(function () {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Aggiornamento pubblicato')
+                    ->after(function ($record) {
+                        $message = 'Aggiornamento pubblicato';
+
+                        // Se è tipo "breaking" e il blog è live, invia push
+                        if ($record->type === 'breaking' && $record->is_published) {
+                            try {
+                                $service = app(PushNotificationService::class);
+                                $liveBlog = $record->liveBlog;
+
+                                if ($liveBlog && $liveBlog->isLive()) {
+                                    $result = $service->sendLiveBlogUpdate($liveBlog, $record->content);
+
+                                    if ($result['total'] === 0) {
+                                        $message .= ' · 📱 Nessun iscritto';
+                                    } else {
+                                        $message .= " · 📱 Push: {$result['success']} inviate";
+                                    }
+                                } else {
+                                    $message .= ' · ⚠️ Blog non in diretta, push non inviato';
+                                }
+                            } catch (\Throwable $e) {
+                                \Log::warning('Push live update error: ' . $e->getMessage());
+                                $message .= ' · ⚠️ Push non inviato';
+                            }
+                        }
+
+                        Notification::make()
+                            ->title($message)
                             ->success()
                             ->send();
                     }),

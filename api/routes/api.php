@@ -54,3 +54,9 @@ Route::get('/live-blogs', [\App\Http\Controllers\Api\LiveBlogController::class, 
 Route::get('/live-blogs/{slug}', [\App\Http\Controllers\Api\LiveBlogController::class, 'show']);
 Route::get('/live-blogs/{slug}/updates', [\App\Http\Controllers\Api\LiveBlogController::class, 'updates']);
 Route::post('/live-blogs/{slug}/subscribe', [\App\Http\Controllers\Api\LiveBlogController::class, 'subscribe']);
+
+// Push Notifications
+Route::get('/push/vapid-public-key', [\App\Http\Controllers\Api\PushController::class, 'vapidPublicKey']);
+Route::post('/push/subscribe', [\App\Http\Controllers\Api\PushController::class, 'subscribe']);
+Route::post('/push/unsubscribe', [\App\Http\Controllers\Api\PushController::class, 'unsubscribe']);
+Route::get('/push/status', [\App\Http\Controllers\Api\PushController::class, 'status']);

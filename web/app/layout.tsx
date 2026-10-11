@@ -9,6 +9,8 @@ import { getSeoSettings, formatTitle } from '@/lib/seoSettings';
 import SeoHead from '@/components/SeoHead';
 import SocialLinks from '@/components/SocialLinks';
 import BreakingBanner from '@/components/BreakingBanner';
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
+import PushSubscribeButton from '@/components/PushSubscribeButton';
 
 const playfair = Playfair_Display({ variable: "--font-playfair", subsets: ["latin"], display: "swap" });
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
@@ -107,6 +109,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         <meta name="theme-color" content="#0a0a0a" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Themedge" />
         <SeoHead settings={seoSettings} />
       </head>
       <body className="min-h-full flex flex-col font-sans antialiased bg-white dark:bg-gray-950 dark:text-gray-100 transition-colors">
@@ -206,6 +213,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <div>
                 <h4 className="text-xs uppercase tracking-widest font-bold mb-4">Seguici</h4>
                 <SocialLinks settings={seoSettings} variant="footer" />
+                <div className="mt-4 pt-4 border-t border-gray-300 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Ricevi gli aggiornamenti in tempo reale
+                  </p>
+                  <PushSubscribeButton variant="compact" />
+                </div>
               </div>
             </div>
             <div className="pt-6 border-t border-gray-300 dark:border-gray-800 text-center">
@@ -216,6 +229,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
         <ScrollToTop />
         <CookieBanner />
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

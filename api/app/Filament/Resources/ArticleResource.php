@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ArticleResource\Pages;
 use App\Models\Article;
+use App\Services\PushNotificationService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -491,7 +492,7 @@ class ArticleResource extends Resource
                         ->modalHeading(fn (Article $record) => $record->is_breaking ? 'Disattivare Breaking News?' : 'Attivare Breaking News?')
                         ->modalDescription(fn (Article $record) => $record->is_breaking
                             ? 'Il banner smetterà di apparire.'
-                            : 'Il banner apparirà in cima al sito per tutti i lettori.')
+                            : 'Il banner apparirà in cima al sito e verrà inviata una notifica push a tutti gli iscritti.')
                         ->visible(fn () => Auth::user()->hasRole(['super_admin', 'editor']))
                         ->action(function (Article $record) {
                             if ($record->is_breaking) {
@@ -500,30 +501,48 @@ class ArticleResource extends Resource
                                     ->title('Breaking News disattivata')
                                     ->success()
                                     ->send();
-                            } else {
-                                // Imposta tipo di default se nullo
-                                $type = $record->breaking_type ?? 'breaking';
-                                $hours = match ($type) {
-                                    'flash' => 1,
-                                    'breaking' => 24,
-                                    'developing' => 72,
-                                    default => 24,
-                                };
 
-                                $record->update([
-                                    'is_breaking' => true,
-                                    'breaking_type' => $type,
-                                    'breaking_expires_at' => $record->breaking_expires_at ?? now()->addHours($hours),
-                                    'status' => 'published',
-                                    'published_at' => $record->published_at ?? now(),
-                                ]);
-
-                                Notification::make()
-                                    ->title('🚨 Breaking News attivata')
-                                    ->body('Il banner apparirà in cima al sito per ' . $hours . ' ore.')
-                                    ->success()
-                                    ->send();
+                                return;
                             }
+
+                            // Attivazione
+                            $type = $record->breaking_type ?? 'breaking';
+                            $hours = match ($type) {
+                                'flash' => 1,
+                                'breaking' => 24,
+                                'developing' => 72,
+                                default => 24,
+                            };
+
+                            $record->update([
+                                'is_breaking' => true,
+                                'breaking_type' => $type,
+                                'breaking_expires_at' => $record->breaking_expires_at ?? now()->addHours($hours),
+                                'status' => 'published',
+                                'published_at' => $record->published_at ?? now(),
+                            ]);
+
+                            // Invia notifica push
+                            $pushMsg = 'Push non configurato';
+                            try {
+                                $service = app(PushNotificationService::class);
+                                $result = $service->sendBreakingNews($record);
+
+                                if ($result['total'] === 0) {
+                                    $pushMsg = '📱 Nessun iscritto alle notifiche';
+                                } else {
+                                    $pushMsg = "📱 Push: {$result['success']} inviate, {$result['failed']} fallite";
+                                }
+                            } catch (\Throwable $e) {
+                                \Log::warning('Push breaking error: ' . $e->getMessage());
+                                $pushMsg = '⚠️ Push non inviato';
+                            }
+
+                            Notification::make()
+                                ->title('🚨 Breaking News attivata')
+                                ->body("Il banner apparirà per {$hours} ore. {$pushMsg}")
+                                ->success()
+                                ->send();
                         }),
 
                     Tables\Actions\Action::make('submit_review')
