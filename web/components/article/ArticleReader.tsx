@@ -11,6 +11,7 @@ import { ArticleCorrections } from '@/components/article/ArticleCorrections';
 import { ArticleSources } from '@/components/article/ArticleSources';
 import { CuratedReads } from '@/components/article/CuratedReads';
 import { SaveButton } from '@/components/article/SaveButton';
+import { AudioPlayerClient } from '@/components/article/AudioPlayerClient';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
 
@@ -100,6 +101,12 @@ function ArticleReaderInner({
             <SaveButton article={article} />
           </div>
 
+          <AudioPlayerClient
+            title={article.title}
+            contentHtml={content}
+            authorName={article.author_name}
+          />
+
           <ArticleBody html={content} />
         </div>
 
@@ -143,6 +150,12 @@ function ArticleReaderInner({
         <div className="mb-6">
           <SaveButton article={article} />
         </div>
+
+        <AudioPlayerClient
+          title={article.title}
+          contentHtml={content}
+          authorName={article.author_name}
+        />
 
         <ArticleBody html={content} />
         <HighlightLayer
