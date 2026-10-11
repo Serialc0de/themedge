@@ -7,6 +7,7 @@ import {
   type ReactionEmoji,
 } from './HighlightReactions';
 import { HighlightNoteEditor } from './HighlightNoteEditor';
+import { ShareHighlightCard } from './ShareHighlightCard';
 
 // ============================================================
 // TYPES
@@ -89,6 +90,7 @@ export function HighlightDetailPopup({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isPublic, setIsPublic] = useState(highlight.is_public);
   const [togglingPublic, setTogglingPublic] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Misura altezza reale + riposiziona
   useEffect(() => {
@@ -318,6 +320,17 @@ export function HighlightDetailPopup({
           {highlight.is_mine && (onUpdate || onDelete) && (
             <div className="flex items-center justify-between border-t border-white/10 px-2 py-1.5">
               <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setShareOpen(true)}
+                  className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-white/80 transition hover:bg-white/10"
+                  title="Condividi highlight"
+                >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342A3 3 0 106 11a3 3 0 002.684 2.342zm0 0a3.001 3.001 0 010 3.316m0-3.316l6.632 3.316m0 0a3 3 0 11.001 5.999 3 3 0 01-.001-5.999zm0-3.316L8.684 6.342m0 0a3 3 0 11-.001-5.999 3 3 0 01.001 5.999zm6.632 3.316A3 3 0 1021 13a3 3 0 01-2.684-2.342z" />
+                  </svg>
+                  Condividi
+                </button>
                 {onUpdate && canNote && (
                   <button
                     type="button"
@@ -393,6 +406,13 @@ export function HighlightDetailPopup({
             </div>
           )}
         </>
+      )}
+
+      {shareOpen && (
+        <ShareHighlightCard
+          highlight={highlight as any}
+          onClose={() => setShareOpen(false)}
+        />
       )}
     </div>
   );
