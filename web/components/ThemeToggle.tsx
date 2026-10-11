@@ -7,12 +7,10 @@ export default function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // Leggi il tema già applicato dallo script inline nel <head>
+    const isDark = document.documentElement.classList.contains('dark');
+    setTheme(isDark ? 'dark' : 'light');
     setMounted(true);
-    const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initial = saved || (prefersDark ? 'dark' : 'light');
-    setTheme(initial);
-    document.documentElement.classList.toggle('dark', initial === 'dark');
   }, []);
 
   function toggleTheme() {
@@ -22,10 +20,17 @@ export default function ThemeToggle() {
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
   }
 
-  if (!mounted) return null;
+  if (!mounted) {
+    // Placeholder invisibile per evitare layout shift durante hydration
+    return <div className="w-8 h-8" aria-hidden="true" />;
+  }
 
   return (
-    <button onClick={toggleTheme} aria-label="Cambia tema" className="p-2 hover:text-red-700 transition-colors">
+    <button
+      onClick={toggleTheme}
+      aria-label="Cambia tema"
+      className="p-2 hover:text-red-700 transition-colors"
+    >
       {theme === 'light' ? (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
           <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />

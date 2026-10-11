@@ -69,7 +69,7 @@ function getDefaultBreakingConfig() {
     text_color: '',
     show_badge: true,
     badge_all: false,
-    auto_refresh: true,
+    auto_refresh: false,
     refresh_interval: 60,
     dismissible: true,
     dismiss_hours: 4,
@@ -114,6 +114,27 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Themedge" />
+
+        {/* Anti-FOUC: applica il tema PRIMA del render per evitare flash bianco */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('theme');
+                  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  var isDark = theme === 'dark' || (!theme && prefersDark);
+                  if (isDark) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+
         <SeoHead settings={seoSettings} />
       </head>
       <body className="min-h-full flex flex-col font-sans antialiased bg-white dark:bg-gray-950 dark:text-gray-100 transition-colors">

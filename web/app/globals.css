@@ -239,3 +239,31 @@ a { transition: color 0.2s ease; }
 .animate-pulse-subtle {
   animation: pulse-subtle 2s ease-in-out infinite;
 }
+
+/* ============================================================
+   FIX TAILWIND V4 + FILAMENT COLORI
+   ============================================================ */
+
+.hover\:bg-gray-50:hover {
+  background-color: rgb(249 250 251);
+}
+
+.dark .hover\:bg-gray-800:hover {
+  background-color: rgb(31 41 55);
+}
+
+.hover\:bg-gray-100:hover {
+  background-color: rgb(243 244 246);
+}
+
+.dark .hover\:bg-gray-700:hover {
+  background-color: rgb(55 65 81);
+}
+
+.hover\:bg-gray-200:hover {
+  background-color: rgb(229 231 235);
+}
+
+.dark .hover\:bg-gray-700:hover {
+  background-color: rgb(55 65 81);
+}

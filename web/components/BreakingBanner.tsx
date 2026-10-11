@@ -56,11 +56,6 @@ function shouldShowOnPage(config: BreakingConfig, pathname: string): boolean {
   return true;
 }
 
-/**
- * Restituisce classi e stili CSS in base allo stile selezionato.
- * Ogni stile ha colori FISSI (non dipendono dall'articolo).
- * Solo "custom" e "override articolo" possono sovrascrivere.
- */
 function getStyleConfig(
   style: string,
   config: BreakingConfig,
@@ -73,14 +68,11 @@ function getStyleConfig(
   pulseColor?: [string, string];
   blink?: boolean;
 } {
-  // Override articolo (solo se articolo ha colori custom E stile non è "custom")
   const hasArticleOverride =
     style !== 'custom' && mainItem.bg_color && mainItem.bg_color !== '#b91c1c' && mainItem.bg_color !== '#dc2626' && mainItem.bg_color !== '#2563eb';
 
-  // Override globale (solo se stile = "custom")
   const hasGlobalCustom = style === 'custom' && config.bg_color;
 
-  // Se c'è override, applica quello
   if (hasArticleOverride || hasGlobalCustom) {
     const bg = hasGlobalCustom ? config.bg_color : mainItem.bg_color;
     const text = hasGlobalCustom ? config.text_color : mainItem.text_color;
@@ -96,7 +88,6 @@ function getStyleConfig(
     };
   }
 
-  // Stili predefiniti
   switch (style) {
     case 'pulse_red':
       return {
@@ -142,10 +133,11 @@ function getStyleConfig(
   }
 }
 
-export default function BreakingBanner({ items, config }: Props) {
+export default function BreakingBanner({ items: initialItems, config }: Props) {
   const pathname = usePathname();
   const [dismissed, setDismissed] = useState(false);
   const [pulseToggle, setPulseToggle] = useState(false);
+  const [items, setItems] = useState<BreakingItem[]>(initialItems);
 
   useEffect(() => {
     if (!config.dismissible) return;
@@ -158,6 +150,29 @@ export default function BreakingBanner({ items, config }: Props) {
       }
     }
   }, [config.dismissible, config.dismiss_hours]);
+
+  // Auto-refresh SOLO il banner (fetch API, non reload pagina)
+  useEffect(() => {
+    if (!config.auto_refresh) return;
+    if (config.display_mode === 'disabled') return;
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
+
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(`${apiUrl}/breaking-news`, {
+          cache: 'no-store',
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setItems(data.data || []);
+      } catch {
+        // Silenzioso
+      }
+    }, config.refresh_interval * 1000);
+
+    return () => clearInterval(timer);
+  }, [config.auto_refresh, config.refresh_interval, config.display_mode]);
 
   // Pulse per stile "pulse_red"
   const styleConfig = items.length > 0 ? getStyleConfig(config.style, config, items[0]) : null;
@@ -174,15 +189,6 @@ export default function BreakingBanner({ items, config }: Props) {
     return () => clearInterval(interval);
   }, [needsPulse]);
 
-  // Auto-refresh
-  useEffect(() => {
-    if (!config.auto_refresh) return;
-    const timer = setInterval(() => {
-      window.location.reload();
-    }, config.refresh_interval * 1000);
-    return () => clearInterval(timer);
-  }, [config.auto_refresh, config.refresh_interval]);
-
   if (items.length === 0) return null;
   if (!shouldShowOnPage(config, pathname)) return null;
   if (dismissed) return null;
@@ -190,7 +196,6 @@ export default function BreakingBanner({ items, config }: Props) {
   const main = items[0];
   const sc = getStyleConfig(config.style, config, main);
 
-  // Applica colore pulse se serve
   const finalStyle: React.CSSProperties = { ...sc.containerStyle };
   if (sc.pulseColor) {
     finalStyle.backgroundColor = pulseToggle ? sc.pulseColor[0] : sc.pulseColor[1];
