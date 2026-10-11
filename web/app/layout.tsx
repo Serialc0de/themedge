@@ -7,6 +7,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import CookieBanner from "@/components/CookieBanner";
 import { getSeoSettings, formatTitle } from '@/lib/seoSettings';
 import SeoHead from '@/components/SeoHead';
+import SocialLinks from '@/components/SocialLinks';
 
 const playfair = Playfair_Display({ variable: "--font-playfair", subsets: ["latin"], display: "swap" });
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
@@ -115,7 +116,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
         <footer className="border-t-4 border-black dark:border-gray-100 bg-gray-50 dark:bg-gray-900 mt-16">
           <div className="max-w-7xl mx-auto px-4 py-12">
-            <div className="grid md:grid-cols-4 gap-8 mb-8">
+            <div className="grid md:grid-cols-5 gap-8 mb-8">
               <div className="md:col-span-2">
                 <h3 className="font-serif text-3xl font-black mb-3">{seoSettings.site_name}</h3>
                 <p className="text-gray-600 dark:text-gray-400 font-serif italic mb-3">{seoSettings.site_tagline}</p>
@@ -140,7 +141,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                   <li><Link href="/rss" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">RSS</Link></li>
                 </ul>
               </div>
-            </div>
+              <div>
+                <h4 className="text-xs uppercase tracking-widest font-bold mb-4">Seguici</h4>
+                <SocialLinks settings={seoSettings} variant="footer" />
+              </div>            </div>
             <div className="pt-6 border-t border-gray-300 dark:border-gray-800 text-center">
               <p className="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">© {new Date().getFullYear()} {seoSettings.site_name} — Tutti i diritti riservati</p>
             </div>
