@@ -462,13 +462,20 @@ export function HighlightsProvider({
     async (id: number, emoji: string): Promise<boolean> => {
       if (!token) return false;
 
+      // Trova l'highlight per controllare se ha già reagito
+      const target = highlights.find((h) => h.id === id);
+      if (target && (target.my_reactions?.length ?? 0) > 0) {
+        // Ha già reagito → non fare nulla (la UI mostrerà il toast)
+        return false;
+      }
+
       // Optimistic update
       setHighlights((h) =>
         h.map((x) => {
           if (x.id !== id) return x;
           const byEmoji = { ...(x.reactions_by_emoji ?? {}) };
           byEmoji[emoji] = (byEmoji[emoji] ?? 0) + 1;
-          const my = Array.from(new Set([...(x.my_reactions ?? []), emoji]));
+          const my = [emoji]; // una sola reazione
           return {
             ...x,
             reactions_by_emoji: byEmoji,
@@ -479,7 +486,12 @@ export function HighlightsProvider({
       );
 
       try {
-        const res = await apiCall<{ reactions_count: number }>(
+        const res = await apiCall<{
+          action: string;
+          my_reaction: string;
+          my_reactions: string[];
+          reactions_count: number;
+        }>(
           `${API_BASE}/highlights/${id}/react`,
           {
             method: 'POST',
@@ -489,7 +501,17 @@ export function HighlightsProvider({
         );
         setHighlights((h) =>
           h.map((x) =>
-            x.id === id ? { ...x, reactions_count: res.reactions_count } : x
+            x.id === id
+              ? {
+                  ...x,
+                  reactions_count: res.reactions_count,
+                  my_reactions: res.my_reactions ?? [res.my_reaction],
+                  reactions_by_emoji: {
+                    ...(x.reactions_by_emoji ?? {}),
+                    [res.my_reaction]: (x.reactions_by_emoji?.[res.my_reaction] ?? 0) + 1,
+                  },
+                }
+              : x
           )
         );
         return true;
@@ -501,11 +523,10 @@ export function HighlightsProvider({
             const byEmoji = { ...(x.reactions_by_emoji ?? {}) };
             byEmoji[emoji] = Math.max(0, (byEmoji[emoji] ?? 1) - 1);
             if (byEmoji[emoji] === 0) delete byEmoji[emoji];
-            const my = (x.my_reactions ?? []).filter((e) => e !== emoji);
             return {
               ...x,
               reactions_by_emoji: byEmoji,
-              my_reactions: my,
+              my_reactions: [],
               reactions_count: Math.max(0, (x.reactions_count ?? 1) - 1),
             };
           })
@@ -514,7 +535,7 @@ export function HighlightsProvider({
         return false;
       }
     },
-    [token]
+    [token, highlights]
   );
 
   const unreact = useCallback(

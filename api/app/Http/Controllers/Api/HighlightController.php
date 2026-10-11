@@ -331,21 +331,34 @@ class HighlightController extends Controller
             ], 403);
         }
 
-        $reaction = HighlightReaction::firstOrCreate([
-            'highlight_id' => $highlight->id,
-            'reader_id' => $reader->id,
-            'emoji' => $data['emoji'],
-        ]);
+        // Verifica se ha già reagito (immutabile)
+        $existing = HighlightReaction::forReader($highlight->id, $reader->id);
+        if ($existing) {
+            return response()->json([
+                'error' => 'Hai già reagito a questo highlight',
+                'my_reaction' => $existing->emoji,
+                'can_change' => false,
+            ], 409);
+        }
+
+        // Crea reazione (immutabile)
+        $reaction = HighlightReaction::react($highlight->id, $reader->id, $data['emoji']);
+
+        if (!$reaction) {
+            return response()->json([
+                'error' => 'Impossibile registrare la reazione',
+            ], 500);
+        }
 
         $highlight->refreshReactionsCount();
+        $highlight->refresh();
 
         return response()->json([
-            'reaction' => [
-                'id' => $reaction->id,
-                'emoji' => $reaction->emoji,
-            ],
-            'reactions_count' => $highlight->fresh()->reactions_count,
-        ], $reaction->wasRecentlyCreated ? 201 : 200);
+            'action' => 'created',
+            'my_reaction' => $reaction->emoji,
+            'my_reactions' => [$reaction->emoji],
+            'reactions_count' => $highlight->reactions_count,
+        ], 201);
     }
 
     /**
@@ -387,29 +400,9 @@ class HighlightController extends Controller
      */
     public function unreact(Request $request, int $id)
     {
-        $reader = ReaderController::resolveReader($request);
-        if (!$reader) {
-            return response()->json(['error' => 'Token non valido'], 401);
-        }
-
-        $allowedEmojis = HighlightReaction::allowedEmojis();
-        $data = $request->validate([
-            'emoji' => ['required', 'string', Rule::in($allowedEmojis)],
-        ]);
-
-        HighlightReaction::where('highlight_id', $id)
-            ->where('reader_id', $reader->id)
-            ->where('emoji', $data['emoji'])
-            ->delete();
-
-        $highlight = ReaderHighlight::find($id);
-        if ($highlight) {
-            $highlight->refreshReactionsCount();
-        }
-
         return response()->json([
-            'deleted' => true,
-            'reactions_count' => $highlight?->reactions_count ?? 0,
-        ]);
+            'error' => 'Le reazioni non possono essere rimosse o modificate',
+            'code' => 'REACTIONS_IMMUTABLE',
+        ], 405);
     }
 }

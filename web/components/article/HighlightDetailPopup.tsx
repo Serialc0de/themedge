@@ -8,6 +8,7 @@ import {
 } from './HighlightReactions';
 import { HighlightNoteEditor } from './HighlightNoteEditor';
 import { ShareHighlightCard } from './ShareHighlightCard';
+import { useToast } from '@/lib/toast';
 
 // ============================================================
 // TYPES
@@ -91,6 +92,7 @@ export function HighlightDetailPopup({
   const [isPublic, setIsPublic] = useState(highlight.is_public);
   const [togglingPublic, setTogglingPublic] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const toast = useToast();
 
   // Misura altezza reale + riposiziona
   useEffect(() => {
@@ -250,6 +252,12 @@ export function HighlightDetailPopup({
                 reactionsByEmoji={highlight.reactions_by_emoji ?? {}}
                 myReactions={highlight.my_reactions ?? []}
                 onToggle={handleToggleReaction}
+                onAlreadyReacted={() =>
+                  toast.info(
+                    'Hai già reagito',
+                    'Puoi reagire una sola volta a questo highlight.'
+                  )
+                }
                 size="sm"
                 variant="compact"
               />

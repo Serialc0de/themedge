@@ -40,4 +40,49 @@ class HighlightReaction extends Model
     {
         return $this->belongsTo(ReaderIdentity::class, 'reader_id');
     }
+
+    /**
+     * Registra una reazione immutabile.
+     * Un reader può reagire UNA SOLA VOLTA a un highlight.
+     * Se ha già reagito (con qualsiasi emoji), ritorna null.
+     *
+     * @return self|null
+     */
+    public static function react(int $highlightId, int $readerId, string $emoji): ?self
+    {
+        // Verifica se esiste già una reazione di questo reader
+        $existing = self::where('highlight_id', $highlightId)
+            ->where('reader_id', $readerId)
+            ->first();
+
+        if ($existing) {
+            return null; // già reagito → non permesso
+        }
+
+        return self::create([
+            'highlight_id' => $highlightId,
+            'reader_id' => $readerId,
+            'emoji' => $emoji,
+        ]);
+    }
+
+    /**
+     * Verifica se un reader ha già reagito.
+     */
+    public static function hasReacted(int $highlightId, int $readerId): bool
+    {
+        return self::where('highlight_id', $highlightId)
+            ->where('reader_id', $readerId)
+            ->exists();
+    }
+
+    /**
+     * Reazione di un reader (se esiste).
+     */
+    public static function forReader(int $highlightId, int $readerId): ?self
+    {
+        return self::where('highlight_id', $highlightId)
+            ->where('reader_id', $readerId)
+            ->first();
+    }
 }
