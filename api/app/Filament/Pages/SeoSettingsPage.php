@@ -217,7 +217,6 @@ class SeoSettingsPage extends Page implements HasForms
             SeoSetting::set($key, $value, $type);
         }
 
-        // Svuota cache SEO
         \Illuminate\Support\Facades\Cache::forget('seo_settings_all');
 
         Notification::make()

@@ -99,7 +99,23 @@ class UserResource extends Resource
                         ->label('Account attivo')
                         ->default(true)
                         ->helperText('Se disattivato, l\'utente non può accedere al pannello.'),
-                ]),
+                               Forms\Components\Select::make('editorial_role_id')
+                        ->label('Ruolo editoriale')
+                        ->relationship('editorialRole', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->helperText('Es. Direttore, Caporedattore, Redattore'),
+
+                    Forms\Components\Toggle::make('show_in_editorial_board')
+                        ->label('Mostra in redazione')
+                        ->helperText('Appare nella pagina pubblica /redazione'),
+
+                    Forms\Components\TextInput::make('board_order')
+                        ->label('Ordine in redazione')
+                        ->numeric()
+                        ->default(0)
+                        ->helperText('Numero più basso = appare prima'),
+    ]),
         ]);
     }
 

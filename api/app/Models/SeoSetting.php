@@ -17,7 +17,7 @@ class SeoSetting extends Model
         }
 
         return match ($setting->type) {
-            'boolean' => (bool) $setting->value,
+            'boolean' => filter_var($setting->value, FILTER_VALIDATE_BOOLEAN),
             'integer' => (int) $setting->value,
             'json' => json_decode($setting->value, true),
             default => $setting->value,
@@ -26,10 +26,18 @@ class SeoSetting extends Model
 
     public static function set(string $key, $value, string $type = 'string'): void
     {
+        // Normalizza il valore in base al tipo
+        $normalizedValue = match ($type) {
+            'boolean' => $value ? '1' : '0',
+            'integer' => (string) (int) $value,
+            'json' => is_array($value) ? json_encode($value) : (string) $value,
+            default => $value === null ? '' : (string) $value,
+        };
+
         static::updateOrCreate(
             ['key' => $key],
             [
-                'value' => is_array($value) ? json_encode($value) : (string) $value,
+                'value' => $normalizedValue,
                 'type' => $type,
             ]
         );

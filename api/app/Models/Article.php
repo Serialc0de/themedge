@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
@@ -89,7 +90,17 @@ class Article extends Model implements HasMedia
     {
         return $this->belongsToMany(Tag::class);
     }
+        public function corrections(): HasMany
+    {
+        return $this->hasMany(Correction::class)
+            ->where('is_published', true)
+            ->orderByDesc('published_at');
+    }
 
+    public function polls(): HasMany
+    {
+        return $this->hasMany(Poll::class);
+    }
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');

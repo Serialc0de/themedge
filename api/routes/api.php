@@ -3,9 +3,12 @@
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\AuthorController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\CorrectionController;
+use App\Http\Controllers\Api\PollController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\SeoController;
 use App\Http\Controllers\Api\TagController;
+use App\Http\Controllers\Api\TipController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -27,3 +30,17 @@ Route::get('/search', [SearchController::class, 'search']);
 
 // SEO
 Route::get('/seo/settings', [SeoController::class, 'settings']);
+
+// Sondaggi
+Route::get('/polls/{poll}', [PollController::class, 'show']);
+Route::post('/polls/{poll}/vote', [PollController::class, 'vote']);
+
+// Correzioni
+Route::get('/corrections', [CorrectionController::class, 'index']);
+Route::get('/corrections/article/{slug}', [CorrectionController::class, 'forArticle']);
+
+// Segnalazioni
+Route::post('/tips', [TipController::class, 'store']);
+
+// Redazione
+Route::get('/editorial-team', [\App\Http\Controllers\Api\EditorialTeamController::class, 'index']);

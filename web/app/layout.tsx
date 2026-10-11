@@ -133,9 +133,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 </ul>
               </div>
               <div>
-                <h4 className="text-xs uppercase tracking-widest font-bold mb-4">Info</h4>
+                <h4 className="text-xs uppercase tracking-widest font-bold mb-4">Testata</h4>
                 <ul className="space-y-2 text-sm">
                   <li><Link href="/chi-siamo" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Chi siamo</Link></li>
+                  <li><Link href="/redazione" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Redazione</Link></li>
+                  <li><Link href="/correzioni" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Correzioni</Link></li>
+                  <li><Link href="/segnala" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Segnala</Link></li>
                   <li><Link href="/contatti" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Contatti</Link></li>
                   <li><Link href="/privacy" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Privacy</Link></li>
                   <li><Link href="/rss" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">RSS</Link></li>
