@@ -71,3 +71,6 @@ _ide_helper_models.php
 !api/storage/framework/views/.gitkeep
 !api/storage/framework/testing/.gitkeep
 !api/storage/logs/.gitkeep
+*.bak2.*
+*.bak3.*
+*.bak4.*
