@@ -17,9 +17,11 @@
         "laravel/tinker": "^3.0",
         "leandrocfe/filament-apex-charts": "^3.3",
         "meilisearch/meilisearch-php": "^1.17",
+        "minishlink/web-push": "^11.0",
         "pxlrbt/filament-excel": "^2.5",
         "spatie/laravel-activitylog": "^5.1",
-        "spatie/laravel-medialibrary": "^11.23"
+        "spatie/laravel-medialibrary": "^11.23",
+        "symfony/html-sanitizer": "^7.4"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

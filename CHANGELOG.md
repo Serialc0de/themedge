@@ -12,7 +12,51 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - Notifiche email automatiche
 - Reading list lettori
 - Text-to-Speech
-- Video/Embed
+
+---
+
+---
+
+## [2026-10-11b] — Sistema Embed completo
+
+### Aggiunto — Sistema Embed
+
+**Backend:**
+- Servizio `HtmlSanitizer` basato su `symfony/html-sanitizer` con allow-list configurabile
+- Servizio `OEmbedResolver` con 8 provider: YouTube, Vimeo, Spotify, Twitter/X, Instagram, TikTok, Generic
+- Endpoint `GET /api/oembed?url=...` per risolvere URL in HTML embed
+- Endpoint `GET /api/oembed/providers` per elenco provider supportati
+- Hook `Article::saving()` per sanitizzazione automatica del content
+- Colonna `content_raw` per backup del contenuto originale (rollback)
+- Comando `articles:resanitize` con `--dry-run`, `--force`, `--id`
+- Action Filament `InsertEmbedAction` in ArticleResource
+- Rate limiting su `/api/oembed` (60 req/min)
+
+**Frontend:**
+- Componente `ArticleBody` con parser embed e sanitizzazione output
+- Componenti embed: `VideoEmbed`, `SpotifyEmbed`, `GenericEmbed`, `TwitterEmbed`, `InstagramEmbed`, `TikTokEmbed`
+- `VideoEmbed` con click-to-load + thumbnail YouTube (GDPR-friendly)
+- Integrazione in `/articolo/[slug]` via `<ArticleBody />`
+- Wrapper `sanitizeHtml()` con `isomorphic-dompurify`
+- Stili embed in `globals.css`
+
+### Sicurezza
+- Doppia sanitizzazione: input (Laravel) + output (Next.js)
+- Blocco SSRF: iframe verso IP interni/localhost rimossi
+- Blocco XSS: `<script>`, event handlers (`onclick`, `onerror`), `javascript:` href
+- Allow-list iframe host per provider
+- Force HTTPS su tutti gli URL
+- Rate limiting endpoint oEmbed
+
+### Dipendenze
+- Backend: `symfony/html-sanitizer ^7.4`
+- Frontend: `isomorphic-dompurify`, `react-social-media-embed`
+
+### Test
+- XSS `<script>alert(1)</script>` → rimosso
+- iframe YouTube → preservato (no-cookie)
+- iframe evil.com → bloccato (`host not allowed`)
+- iframe 192.168.x.x → bloccato (`internal host`)
 
 ---
 

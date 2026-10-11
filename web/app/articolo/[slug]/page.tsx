@@ -4,6 +4,7 @@ import { Metadata } from 'next';
 import Sidebar from '@/components/Sidebar';
 import ReadingProgress from '@/components/ReadingProgress';
 import CommentsSection from '@/components/CommentsSection';
+import { ArticleBody } from '@/components/ArticleBody';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://themedge.com';
@@ -244,10 +245,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           )}
 
           {/* Contenuto */}
-          <div
-            className="prose prose-lg max-w-none font-serif text-gray-800"
-            dangerouslySetInnerHTML={{ __html: article.content || '' }}
-          />
+          <ArticleBody html={article.content || ''} />
 
           {/* Tags */}
           {article.tags?.length > 0 && (

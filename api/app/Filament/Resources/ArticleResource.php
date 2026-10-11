@@ -473,6 +473,7 @@ class ArticleResource extends Resource
                     ->visible(fn () => ! Auth::user()->hasRole(['super_admin', 'editor'])),
             ])
             ->actions([
+                \App\Filament\Actions\InsertEmbedAction::make(),
                 Tables\Actions\Action::make('preview')
                     ->label('Anteprima')
                     ->icon('heroicon-o-arrow-top-right-on-square')

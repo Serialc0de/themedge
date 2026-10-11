@@ -64,3 +64,9 @@ Route::get('/push/status', [\App\Http\Controllers\Api\PushController::class, 'st
 // Commenti
 Route::get('/articles/{slug}/comments', [\App\Http\Controllers\Api\CommentController::class, 'index']);
 Route::post('/articles/{slug}/comments', [\App\Http\Controllers\Api\CommentController::class, 'store']);
+
+// Embed / oEmbed
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/oembed', [\App\Http\Controllers\Api\OEmbedController::class, 'resolve']);
+    Route::get('/oembed/providers', [\App\Http\Controllers\Api\OEmbedController::class, 'providers']);
+});

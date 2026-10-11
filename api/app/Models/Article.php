@@ -28,6 +28,7 @@ class Article extends Model implements HasMedia
         // Breaking News
         'is_breaking', 'breaking_expires_at', 'breaking_priority',
         'breaking_type', 'breaking_bg_color', 'breaking_text_color', 'breaking_show_badge',
+        'content_raw',
     ];
 
     protected $casts = [
@@ -70,6 +71,19 @@ class Article extends Model implements HasMedia
                         'note' => 'Auto-generato: cambio slug articolo #' . $article->id,
                     ]
                 );
+            }
+        });
+        // Sanitizza il content al salvataggio (difesa input)
+        static::saving(function ($article) {
+            if ($article->isDirty('content')) {
+                // Backup raw al primo salvataggio o se vuoto
+                if (empty($article->content_raw)) {
+                    $original = $article->getOriginal('content');
+                    $article->content_raw = !empty($original) ? $original : $article->content;
+                }
+
+                $sanitizer = app(\App\Services\HtmlSanitizer::class);
+                $article->content = $sanitizer->sanitize($article->content);
             }
         });
     }
