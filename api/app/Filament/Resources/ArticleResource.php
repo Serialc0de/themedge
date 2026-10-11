@@ -316,6 +316,78 @@ class ArticleResource extends Resource
                         }),
                 ]),
 
+            Forms\Components\Section::make('📚 Fonti e riferimenti')
+                ->description('Documenti, studi, articoli e link che supportano le affermazioni dell\'articolo.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('sources')
+                        ->relationship()
+                        ->label('Fonti')
+                        ->addActionLabel('Aggiungi fonte')
+                        ->reorderable()
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): ?string => $state['title'] ?? null)
+                        ->defaultItems(0)
+                        ->schema([
+                            Forms\Components\Grid::make(3)
+                                ->schema([
+                                    Forms\Components\TextInput::make('url')
+                                        ->label('URL')
+                                        ->url()
+                                        ->required()
+                                        ->maxLength(2048)
+                                        ->columnSpan(2),
+
+                                    Forms\Components\Select::make('type')
+                                        ->label('Tipo')
+                                        ->options([
+                                            'official' => '📄 Fonte ufficiale',
+                                            'study' => '🎓 Studio / Ricerca',
+                                            'news' => '📰 Testata giornalistica',
+                                            'social' => '🐦 Social media',
+                                            'archive' => '🗄️ Archivio',
+                                            'video' => '🎥 Video',
+                                            'dataset' => '📊 Dataset',
+                                            'other' => '🔗 Altro',
+                                        ])
+                                        ->default('news')
+                                        ->required(),
+
+                                    Forms\Components\TextInput::make('title')
+                                        ->label('Titolo')
+                                        ->required()
+                                        ->maxLength(500)
+                                        ->columnSpan(2),
+
+                                    Forms\Components\TextInput::make('publisher')
+                                        ->label('Editore / Autore')
+                                        ->maxLength(255)
+                                        ->placeholder('Es. Il Sole 24 Ore, ISTAT'),
+
+                                    Forms\Components\DatePicker::make('published_at')
+                                        ->label('Data pubblicazione fonte'),
+
+                                    Forms\Components\Textarea::make('note')
+                                        ->label('Nota redazione')
+                                        ->rows(2)
+                                        ->maxLength(1000)
+                                        ->columnSpanFull(),
+
+                                    Forms\Components\TextInput::make('archived_url')
+                                        ->label('URL archiviato (archive.org)')
+                                        ->url()
+                                        ->maxLength(2048)
+                                        ->columnSpan(2)
+                                        ->helperText('Link alla versione archiviata'),
+
+                                    Forms\Components\Toggle::make('is_verified')
+                                        ->label('Verificata')
+                                        ->helperText('La redazione ha verificato la fonte'),
+                                ]),
+                        ])
+                        ->columnSpanFull(),
+                ]),
+
             Forms\Components\Section::make('🎯 Highlight Policy')
                 ->description('Controlla come gli utenti possono evidenziare il testo di questo articolo.')
                 ->columns(2)

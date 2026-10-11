@@ -12,7 +12,7 @@ class ArticleController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Article::published()
-            ->with(['author', 'category', 'tags'])
+            ->with(['author', 'category', 'tags', 'sources'])
             ->orderByDesc('published_at');
 
         // Filtro per categoria
@@ -59,7 +59,7 @@ class ArticleController extends Controller
     {
         $article = Article::where('slug', $slug)
             ->published()
-            ->with(['author', 'category', 'tags'])
+            ->with(['author', 'category', 'tags', 'sources'])
             ->firstOrFail();
 
         // Incrementa views
@@ -68,6 +68,36 @@ class ArticleController extends Controller
         return response()->json([
             'data' => $this->formatArticle($article, true),
         ]);
+    }
+
+    /**
+     * Ritorna le fonti di un articolo.
+     */
+    public function sources(string $slug): \Illuminate\Http\JsonResponse
+    {
+        $article = Article::where('slug', $slug)->first();
+        if (!$article) {
+            return response()->json(['error' => 'Articolo non trovato'], 404);
+        }
+
+        $sources = $article->sources()
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'url' => $s->url,
+                'title' => $s->title,
+                'publisher' => $s->publisher,
+                'type' => $s->type,
+                'note' => $s->note,
+                'published_at' => $s->published_at?->toIso8601String(),
+                'archived_url' => $s->archived_url,
+                'is_verified' => $s->is_verified,
+                'type_icon' => $s->type_icon,
+                'type_label' => $s->type_label,
+                'domain' => $s->domain,
+            ]);
+
+        return response()->json(['data' => $sources]);
     }
 
     protected function formatArticle(Article $article, bool $full = false): array

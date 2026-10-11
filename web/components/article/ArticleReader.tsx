@@ -8,6 +8,7 @@ import { HighlightLayer } from '@/components/article/HighlightLayer';
 import { HighlightMenu } from '@/components/article/HighlightMenu';
 import { HighlightHeatmap } from '@/components/article/HighlightHeatmap';
 import { ArticleCorrections } from '@/components/article/ArticleCorrections';
+import { ArticleSources } from '@/components/article/ArticleSources';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
 
@@ -85,6 +86,8 @@ function ArticleReaderInner({
 
         <ArticleCorrections articleSlug={articleSlug} />
 
+      <ArticleSources articleSlug={articleSlug} />
+
         {/* Badge informativo */}
         {(hlConfig.isTemporarilyDisabled || hlConfig.policyName === 'disabled') && (
           <div className="mt-6 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
@@ -125,6 +128,8 @@ function ArticleReaderInner({
       </div>
 
       <ArticleCorrections articleSlug={articleSlug} />
+
+      <ArticleSources articleSlug={articleSlug} />
 
       <HighlightHeatmap articleSlug={articleSlug} />
       <HighlightMenu

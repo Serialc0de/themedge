@@ -326,6 +326,12 @@ class Article extends Model implements HasMedia
             ->orderByDesc('published_at');
     }
 
+    public function sources(): HasMany
+    {
+        return $this->hasMany(ArticleSource::class)->orderBy('order');
+    }
+
+
     public function polls(): HasMany
     {
         return $this->hasMany(Poll::class);
