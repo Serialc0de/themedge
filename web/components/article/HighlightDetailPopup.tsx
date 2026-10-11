@@ -18,13 +18,16 @@ type Props = {
   clickX: number;
   clickY: number;
   onClose: () => void;
-  onReact: (id: number, emoji: string) => Promise<boolean>;
-  onUnreact: (id: number, emoji: string) => Promise<boolean>;
+  onReact?: (id: number, emoji: string) => Promise<boolean>;
+  onUnreact?: (id: number, emoji: string) => Promise<boolean>;
   onUpdate?: (
     id: number,
     patch: { note?: string; color?: HighlightColor; is_public?: boolean }
   ) => Promise<boolean>;
   onDelete?: (id: number) => Promise<boolean>;
+  canPublic?: boolean;
+  canReact?: boolean;
+  canNote?: boolean;
 };
 
 // ============================================================
@@ -75,6 +78,9 @@ export function HighlightDetailPopup({
   onUnreact,
   onUpdate,
   onDelete,
+  canPublic = true,
+  canReact = true,
+  canNote = true,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(180);
@@ -127,9 +133,9 @@ export function HighlightDetailPopup({
   const handleToggleReaction = async (emoji: ReactionEmoji) => {
     const isMine = (highlight.my_reactions ?? []).includes(emoji);
     if (isMine) {
-      await onUnreact(highlight.id, emoji);
+      if (onUnreact) await onUnreact(highlight.id, emoji);
     } else {
-      await onReact(highlight.id, emoji);
+      if (onReact) await onReact(highlight.id, emoji);
     }
   };
 
@@ -235,19 +241,21 @@ export function HighlightDetailPopup({
         </div>
       ) : (
         <>
-          {/* Barra reazioni */}
-          <div className="border-t border-white/10 p-3">
-            <HighlightReactions
-              reactionsByEmoji={highlight.reactions_by_emoji ?? {}}
-              myReactions={highlight.my_reactions ?? []}
-              onToggle={handleToggleReaction}
-              size="sm"
-              variant="compact"
-            />
-          </div>
+          {/* Barra reazioni (solo se permesse) */}
+          {canReact && onReact && onUnreact && (
+            <div className="border-t border-white/10 p-3">
+              <HighlightReactions
+                reactionsByEmoji={highlight.reactions_by_emoji ?? {}}
+                myReactions={highlight.my_reactions ?? []}
+                onToggle={handleToggleReaction}
+                size="sm"
+                variant="compact"
+              />
+            </div>
+          )}
 
-          {/* Riga privacy (solo se è mio) */}
-          {highlight.is_mine && onUpdate && (
+          {/* Riga privacy (solo se è mio e canPublic) */}
+          {highlight.is_mine && onUpdate && canPublic && (
             <div className="flex items-center justify-between border-t border-white/10 px-3 py-2">
               <div className="flex items-center gap-2 text-xs text-white/80">
                 {isPublic ? (
@@ -310,7 +318,7 @@ export function HighlightDetailPopup({
           {highlight.is_mine && (onUpdate || onDelete) && (
             <div className="flex items-center justify-between border-t border-white/10 px-2 py-1.5">
               <div className="flex gap-1">
-                {onUpdate && (
+                {onUpdate && canNote && (
                   <button
                     type="button"
                     onClick={() => setNoteMode(true)}

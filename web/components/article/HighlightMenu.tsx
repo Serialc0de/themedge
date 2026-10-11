@@ -57,6 +57,12 @@ type Props = {
   } | null;
   /** Callback chiusura esterna */
   onExternalClose?: () => void;
+  /** Config policy (canPublic, canReact, canNote) */
+  config?: {
+    canPublic: boolean;
+    canReact: boolean;
+    canNote: boolean;
+  };
 };
 
 type PendingSelection = {
@@ -80,7 +86,11 @@ export function HighlightMenu({
   articleId,
   externalClickedHighlight,
   onExternalClose,
+  config,
 }: Props) {
+  const canNote = config?.canNote ?? true;
+  const canReact = config?.canReact ?? true;
+  const canPublic = config?.canPublic ?? true;
   const [selection, setSelection] = useState<PendingSelection | null>(null);
   const [noteMode, setNoteMode] = useState<{
     color: 'yellow' | 'green' | 'pink';
@@ -260,14 +270,18 @@ export function HighlightMenu({
       color: 'pink',
       onClick: () => handleCreate('pink'),
     },
-    {
+  ];
+
+  // Aggiungi bottone "Nota" solo se permesso
+  if (canNote) {
+    actions.push({
       id: 'note',
       label: 'Nota',
       color: 'default',
       icon: IconNotePlus,
       onClick: () => openNoteEditor('yellow'),
-    },
-  ];
+    });
+  }
 
   // Se c'è un highlight cliccato (via prop esterna), risolviamo l'oggetto LIVE dal context
   if (externalClickedHighlight) {
@@ -285,10 +299,13 @@ export function HighlightMenu({
         clickX={externalClickedHighlight.x}
         clickY={externalClickedHighlight.y}
         onClose={onExternalClose ?? (() => {})}
-        onReact={react}
-        onUnreact={unreact}
+        onReact={canReact ? react : undefined}
+        onUnreact={canReact ? unreact : undefined}
         onUpdate={update}
         onDelete={remove}
+        canPublic={canPublic}
+        canReact={canReact}
+        canNote={canNote}
       />
     );
   }
