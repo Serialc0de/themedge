@@ -316,6 +316,52 @@ class ArticleResource extends Resource
                         }),
                 ]),
 
+            Forms\Components\Section::make('📖 Approfondimenti curati')
+                ->description('Articoli selezionati dalla redazione come letture correlate.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('relatedCurated')
+                        ->label('Articoli correlati')
+                        ->addActionLabel('Aggiungi articolo')
+                        ->relationship()
+                        ->saveRelationshipsUsing(function ($component, $state) {
+                            // Scarta item senza related_article_id
+                            $clean = collect($state)->filter(function ($item) {
+                                return !empty($item['related_article_id']);
+                            })->map(function ($item) {
+                                return [
+                                    'related_article_id' => $item['related_article_id'],
+                                    'note' => $item['note'] ?? null,
+                                    'order' => $item['order'] ?? 0,
+                                ];
+                            })->values()->toArray();
+
+                            $component->getRecord()->relatedCurated()->sync($clean);
+                        })
+                        ->reorderable()
+                        ->collapsible()
+                        ->defaultItems(0)
+                        ->schema([
+                            Forms\Components\Select::make('related_article_id')
+                                ->label('Articolo')
+                                ->options(fn () => \App\Models\Article::query()
+                                    ->orderByDesc('published_at')
+                                    ->limit(100)
+                                    ->pluck('title', 'id')
+                                    ->toArray())
+                                ->searchable()
+                                ->required(),
+
+                            Forms\Components\Textarea::make('note')
+                                ->label('Nota editoriale (opzionale)')
+                                ->rows(2)
+                                ->maxLength(500)
+                                ->placeholder('Perche consigliamo questo articolo?'),
+                        ])
+                        ->columns(1)
+                        ->columnSpanFull(),
+                ]),
+
             Forms\Components\Section::make('📚 Fonti e riferimenti')
                 ->description('Documenti, studi, articoli e link che supportano le affermazioni dell\'articolo.')
                 ->collapsed()

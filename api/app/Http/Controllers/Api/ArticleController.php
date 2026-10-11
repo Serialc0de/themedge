@@ -100,6 +100,33 @@ class ArticleController extends Controller
         return response()->json(['data' => $sources]);
     }
 
+    /**
+     * Approfondimenti curati editorialmente.
+     */
+    public function curated(string $slug): \Illuminate\Http\JsonResponse
+    {
+        $article = Article::where('slug', $slug)->first();
+        if (!$article) {
+            return response()->json(['error' => 'Articolo non trovato'], 404);
+        }
+
+        $curated = $article->relatedCurated()
+            ->select(['articles.id', 'articles.title', 'articles.slug', 'articles.excerpt', 'articles.featured_image', 'articles.published_at'])
+            ->get()
+            ->map(fn ($a) => [
+                'id' => $a->id,
+                'title' => $a->title,
+                'slug' => $a->slug,
+                'excerpt' => $a->excerpt,
+                'featured_image' => $a->featured_image,
+                'published_at' => $a->published_at?->toIso8601String(),
+                'note' => $a->pivot->note,
+                'order' => $a->pivot->order,
+            ]);
+
+        return response()->json(['data' => $curated]);
+    }
+
     protected function formatArticle(Article $article, bool $full = false): array
     {
         $data = [

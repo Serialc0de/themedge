@@ -59,8 +59,19 @@ class Article extends Model implements HasMedia
         parent::boot();
 
         static::creating(function ($article) {
+            // Blocca creazione di articoli senza titolo (es. relazioni malformate)
+            if (empty($article->title) && !$article->exists) {
+                throw new \InvalidArgumentException(
+                    'Impossibile creare un articolo senza titolo.'
+                );
+            }
+
             if (empty($article->slug)) {
-                $article->slug = Str::slug($article->title);
+                $slug = Str::slug($article->title);
+                if (empty($slug)) {
+                    $slug = 'articolo-' . time() . '-' . Str::random(6);
+                }
+                $article->slug = $slug;
             }
         });
 
@@ -329,6 +340,22 @@ class Article extends Model implements HasMedia
     public function sources(): HasMany
     {
         return $this->hasMany(ArticleSource::class)->orderBy('order');
+    }
+
+    /**
+     * Articoli correlati curati editorialmente.
+     */
+    public function relatedCurated(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Article::class,
+            'article_related',
+            'article_id',
+            'related_article_id'
+        )
+            ->withPivot('note', 'order')
+            ->withTimestamps()
+            ->orderByPivot('order');
     }
 
 
