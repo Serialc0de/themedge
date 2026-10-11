@@ -215,3 +215,63 @@ api/config/embeds.php:
 - providers.*: pattern URL + iframe host
 - sanitize.allowed_tags: tag HTML permessi
 - sanitize.blocked_iframe_hosts: host iframe bloccati
+
+---
+
+## 🖍️ Sistema Highlight (NYT-level)
+
+### Cosa fa
+Gli utenti possono **evidenziare frasi** degli articoli, aggiungere note personali, reagire con emoji, e ritrovare tutto nella pagina `/highlight`.
+
+### Feature
+
+| Feature | Stato |
+|---------|-------|
+| Selezione testo → popup | ✅ |
+| 3 colori (giallo, verde, rosa) | ✅ |
+| Note personali | ✅ |
+| Toggle privato/pubblico | ✅ |
+| Reazioni emoji (5) | ✅ |
+| Badge "X persone hanno reagito" | ✅ |
+| Pagina `/highlight` personale | ✅ |
+| SVG overlay (non tocca HTML) | ✅ |
+| Fuzzy match (articolo modificato) | ✅ |
+| Rilevamento orfani | ✅ |
+| Coda offline | ✅ |
+| Toast con undo | ✅ |
+
+### Configurazione
+`api/config/highlights.php`:
+- `enabled`: kill switch
+- `privacy.default_public`: default privacy
+- `privacy.allow_public`: se false, utenti non possono rendere pubblici
+- `limits.*`: lunghezza max, rate limit
+- `colors`: 3 colori con label + hex
+- `emojis`: emoji supportate
+- `features`: toggle per reazioni/note/pubbliche/heatmap/share
+
+### API
+
+| Endpoint | Metodo | Descrizione |
+|----------|--------|-------------|
+| `/api/highlights/config` | GET | Config pubblica |
+| `/api/reader/register` | POST | Registra reader anonimo |
+| `/api/reader/me` | GET | Info reader |
+| `/api/highlights` | POST | Crea highlight |
+| `/api/highlights/mine` | GET | I miei highlight |
+| `/api/highlights/{id}` | PATCH/DELETE | Modifica/elimina |
+| `/api/articles/{slug}/highlights` | GET | Highlight articolo |
+| `/api/articles/{slug}/highlights/stats` | GET | Stats + heatmap |
+| `/api/highlights/{id}/react` | POST/DELETE | Toggle reazione |
+
+### Identità device-based
+- Token anonimo generato al primo highlight
+- Salvato in `localStorage` (`themedge_reader_token`)
+- Header `X-Reader-Token` per autenticazione
+- **Nessun account richiesto**
+- ⚠️ Non sincronizzato cross-device (OAuth in roadmap)
+
+### Privacy
+- Default privato (opt-in pubblico)
+- Toggle "Solo tu" / "Visibile a tutti"
+- GDPR-safe: nessun dato personale pubblico

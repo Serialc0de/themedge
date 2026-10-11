@@ -202,3 +202,59 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - **Modificato** — modifiche a funzionalità esistenti
 - **Fix** — bug fix
 - **Sicurezza** — fix di sicurezza
+
+---
+
+## [2026-10-11c] — Sistema Highlight NYT-level
+
+### Aggiunto — Sistema Highlight
+
+**Backend:**
+- Migration: `reader_identities`, `reader_highlights`, `highlight_reactions`
+- Model: `ReaderIdentity` (token anonimo device-based), `ReaderHighlight`, `HighlightReaction`
+- Controller: `ReaderController` (register/me), `HighlightController` (CRUD completo + config + react)
+- API Resource: `HighlightResource` (con `my_reactions` + `reactions_by_emoji`), `HighlightStatsResource`
+- Route: 11 endpoint sotto `/api/reader`, `/api/highlights`, `/api/articles/{slug}/highlights`
+- Text anchoring W3C-style: `text_fragment` + `context_before/after` + offset
+- Stats + heatmap (20 bucket) per articolo
+- Reazioni emoji (5) con unique constraint e contatore denormalizzato
+- Config centralizzata `config/highlights.php` (limiti, colori, emoji, feature flag)
+- Endpoint pubblico `GET /api/highlights/config`
+- Kill switch globale `HIGHLIGHTS_ENABLED`
+- Toggle `is_public` con default configurabile
+
+**Frontend:**
+- Pagina `/highlight` con lista raggruppata per articolo, skeleton, empty state
+- Context `ReaderProvider` (auto-register anonimo, token persistente)
+- Context `HighlightsProvider` (CRUD + optimistic UI + coda offline)
+- Hook `useMyHighlights()` per pagina personale
+- Libreria `text-anchoring.ts` con fuzzy match W3C (offset → fragment → context)
+- Componenti:
+  - `ArticleReader`: wrapper con provider
+  - `HighlightLayer`: SVG overlay per rendering highlight (non tocca HTML)
+  - `HighlightPopup`: popup fluttuante su selezione
+  - `HighlightMenu`: menu azioni (evidenzia, nota)
+  - `HighlightDetailPopup`: popup su click highlight esistente
+  - `HighlightReactions`: barra 5 emoji toggle
+  - `HighlightNoteEditor`: textarea inline con auto-resize + scorciatoie
+  - `HighlightOrphanNotice`: banner per highlight orfani
+  - `HighlightCard`: card su pagina /highlight
+  - `HighlightEditModal`: modal edit (colore, nota, privacy)
+  - `Toast`: sistema notifiche con undo
+- Toggle privacy (privato/pubblico) su popup e modal
+- Rilevamento highlight orfani con toast una-tantum
+- Badge "X persone hanno reagito" su highlight pubblici
+- Optimistic update + rollback su tutte le mutazioni
+- CSS: animazioni popup/toast/modal, layer SVG, responsive
+
+**Sicurezza:**
+- Rate limiting 120 req/min su highlights
+- Anti-duplicato (stesso reader + offset = 409)
+- Validazione da config (limiti, colori, emoji)
+- Token anonimo via header `X-Reader-Token`
+
+### Note
+- Sistema device-based (no account) — cross-device sync richiede OAuth (sessione futura)
+- Moderazione highlight per-articolo/policy in roadmap (sessione 4)
+
+---
