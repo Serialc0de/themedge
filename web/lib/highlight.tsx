@@ -38,6 +38,8 @@ export type Highlight = {
   is_public: boolean;
   is_mine: boolean;
   reactions_count: number;
+  reactions_by_emoji?: Record<string, number>;
+  my_reactions?: string[];
   reader?: { display_name: string };
   created_at: string;
   updated_at: string;
@@ -459,6 +461,23 @@ export function HighlightsProvider({
   const react = useCallback(
     async (id: number, emoji: string): Promise<boolean> => {
       if (!token) return false;
+
+      // Optimistic update
+      setHighlights((h) =>
+        h.map((x) => {
+          if (x.id !== id) return x;
+          const byEmoji = { ...(x.reactions_by_emoji ?? {}) };
+          byEmoji[emoji] = (byEmoji[emoji] ?? 0) + 1;
+          const my = Array.from(new Set([...(x.my_reactions ?? []), emoji]));
+          return {
+            ...x,
+            reactions_by_emoji: byEmoji,
+            my_reactions: my,
+            reactions_count: (x.reactions_count ?? 0) + 1,
+          };
+        })
+      );
+
       try {
         const res = await apiCall<{ reactions_count: number }>(
           `${API_BASE}/highlights/${id}/react`,
@@ -475,6 +494,22 @@ export function HighlightsProvider({
         );
         return true;
       } catch (e: any) {
+        // Rollback
+        setHighlights((h) =>
+          h.map((x) => {
+            if (x.id !== id) return x;
+            const byEmoji = { ...(x.reactions_by_emoji ?? {}) };
+            byEmoji[emoji] = Math.max(0, (byEmoji[emoji] ?? 1) - 1);
+            if (byEmoji[emoji] === 0) delete byEmoji[emoji];
+            const my = (x.my_reactions ?? []).filter((e) => e !== emoji);
+            return {
+              ...x,
+              reactions_by_emoji: byEmoji,
+              my_reactions: my,
+              reactions_count: Math.max(0, (x.reactions_count ?? 1) - 1),
+            };
+          })
+        );
         setError(e?.message ?? 'Errore reazione');
         return false;
       }
@@ -485,6 +520,24 @@ export function HighlightsProvider({
   const unreact = useCallback(
     async (id: number, emoji: string): Promise<boolean> => {
       if (!token) return false;
+
+      // Optimistic
+      setHighlights((h) =>
+        h.map((x) => {
+          if (x.id !== id) return x;
+          const byEmoji = { ...(x.reactions_by_emoji ?? {}) };
+          byEmoji[emoji] = Math.max(0, (byEmoji[emoji] ?? 1) - 1);
+          if (byEmoji[emoji] === 0) delete byEmoji[emoji];
+          const my = (x.my_reactions ?? []).filter((e) => e !== emoji);
+          return {
+            ...x,
+            reactions_by_emoji: byEmoji,
+            my_reactions: my,
+            reactions_count: Math.max(0, (x.reactions_count ?? 1) - 1),
+          };
+        })
+      );
+
       try {
         const res = await apiCall<{ reactions_count: number }>(
           `${API_BASE}/highlights/${id}/react`,

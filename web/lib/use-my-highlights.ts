@@ -25,6 +25,8 @@ export type UseMyHighlightsValue = {
   error: string | null;
   refresh: () => Promise<void>;
   remove: (id: number) => Promise<boolean>;
+  react: (id: number, emoji: string) => Promise<boolean>;
+  unreact: (id: number, emoji: string) => Promise<boolean>;
 };
 
 // ============================================================
@@ -101,5 +103,84 @@ export function useMyHighlights(): UseMyHighlightsValue {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, token]);
 
-  return { highlights, isLoading, error, refresh, remove };
+  const react = useCallback(
+    async (id: number, emoji: string): Promise<boolean> => {
+      if (!token) return false;
+
+      setHighlights((h) =>
+        h.map((x) => {
+          if (x.id !== id) return x;
+          const byEmoji = { ...(x.reactions_by_emoji ?? {}) };
+          byEmoji[emoji] = (byEmoji[emoji] ?? 0) + 1;
+          const my = Array.from(new Set([...(x.my_reactions ?? []), emoji]));
+          return {
+            ...x,
+            reactions_by_emoji: byEmoji,
+            my_reactions: my,
+            reactions_count: (x.reactions_count ?? 0) + 1,
+          };
+        })
+      );
+
+      try {
+        const res = await fetch(`${API_BASE}/highlights/${id}/react`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-Reader-Token': token,
+          },
+          body: JSON.stringify({ emoji }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return true;
+      } catch (e) {
+        refresh();
+        return false;
+      }
+    },
+    [token, refresh]
+  );
+
+  const unreact = useCallback(
+    async (id: number, emoji: string): Promise<boolean> => {
+      if (!token) return false;
+
+      setHighlights((h) =>
+        h.map((x) => {
+          if (x.id !== id) return x;
+          const byEmoji = { ...(x.reactions_by_emoji ?? {}) };
+          byEmoji[emoji] = Math.max(0, (byEmoji[emoji] ?? 1) - 1);
+          if (byEmoji[emoji] === 0) delete byEmoji[emoji];
+          const my = (x.my_reactions ?? []).filter((e) => e !== emoji);
+          return {
+            ...x,
+            reactions_by_emoji: byEmoji,
+            my_reactions: my,
+            reactions_count: Math.max(0, (x.reactions_count ?? 1) - 1),
+          };
+        })
+      );
+
+      try {
+        const res = await fetch(`${API_BASE}/highlights/${id}/react`, {
+          method: 'DELETE',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-Reader-Token': token,
+          },
+          body: JSON.stringify({ emoji }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return true;
+      } catch (e) {
+        refresh();
+        return false;
+      }
+    },
+    [token, refresh]
+  );
+
+  return { highlights, isLoading, error, refresh, remove, react, unreact };
 }

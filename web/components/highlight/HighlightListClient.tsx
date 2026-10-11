@@ -28,7 +28,7 @@ type ArticleGroup = {
 // ============================================================
 
 export function HighlightListClient() {
-  const { highlights, isLoading, error, refresh, remove } = useMyHighlights();
+  const { highlights, isLoading, error, refresh, remove, react, unreact } = useMyHighlights();
   const toast = useToast();
   const { token } = useReader();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
@@ -188,6 +188,8 @@ export function HighlightListClient() {
                     highlight={h}
                     onDelete={handleDelete}
                     onEditNote={(hl) => setEditingHighlight(hl)}
+                    onReact={react}
+                    onUnreact={unreact}
                   />
                 ))}
               </div>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type { HighlightWithArticle } from '@/lib/use-my-highlights';
 import type { HighlightColor } from '@/lib/highlight';
+import { HighlightReactions, type ReactionEmoji } from '@/components/article/HighlightReactions';
 
 // ============================================================
 // COLOR STYLES
@@ -41,14 +42,20 @@ type Props = {
   highlight: HighlightWithArticle;
   onDelete: (id: number) => void;
   onEditNote?: (highlight: HighlightWithArticle) => void;
+  onReact?: (id: number, emoji: string) => Promise<boolean>;
+  onUnreact?: (id: number, emoji: string) => Promise<boolean>;
 };
 
 // ============================================================
 // COMPONENT
 // ============================================================
 
-export function HighlightCard({ highlight, onDelete, onEditNote }: Props) {
+export function HighlightCard({ highlight, onDelete, onEditNote, onReact, onUnreact }: Props) {
   const [confirming, setConfirming] = useState(false);
+  const [reactions, setReactions] = useState({
+    byEmoji: highlight.reactions_by_emoji ?? {},
+    my: highlight.my_reactions ?? [],
+  });
   const color = (highlight.color ?? 'yellow') as HighlightColor;
 
   const createdDate = new Date(highlight.created_at).toLocaleDateString('it-IT', {
@@ -56,6 +63,29 @@ export function HighlightCard({ highlight, onDelete, onEditNote }: Props) {
     month: 'short',
     year: 'numeric',
   });
+
+  const handleToggleReaction = async (emoji: ReactionEmoji) => {
+    const isMine = reactions.my.includes(emoji);
+    const fn = isMine ? onUnreact : onReact;
+    if (!fn) return;
+
+    // Optimistic locale
+    setReactions((prev) => {
+      const byEmoji = { ...prev.byEmoji };
+      if (isMine) {
+        byEmoji[emoji] = Math.max(0, (byEmoji[emoji] ?? 1) - 1);
+        if (byEmoji[emoji] === 0) delete byEmoji[emoji];
+      } else {
+        byEmoji[emoji] = (byEmoji[emoji] ?? 0) + 1;
+      }
+      const my = isMine
+        ? prev.my.filter((e) => e !== emoji)
+        : [...prev.my, emoji];
+      return { byEmoji, my };
+    });
+
+    await fn(highlight.id, emoji);
+  };
 
   return (
     <article
@@ -169,12 +199,7 @@ export function HighlightCard({ highlight, onDelete, onEditNote }: Props) {
               </span>
             )}
 
-            {/* Reazioni */}
-            {highlight.reactions_count > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                👍 {highlight.reactions_count}
-              </span>
-            )}
+
           </div>
 
           {/* Azioni */}
@@ -226,6 +251,19 @@ export function HighlightCard({ highlight, onDelete, onEditNote }: Props) {
             </button>
           </div>
         </div>
+
+        {/* Barra reazioni */}
+        {(onReact || onUnreact) && (
+          <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+            <HighlightReactions
+              reactionsByEmoji={reactions.byEmoji}
+              myReactions={reactions.my}
+              onToggle={handleToggleReaction}
+              size="sm"
+              variant="compact"
+            />
+          </div>
+        )}
 
         {/* Conferma eliminazione inline */}
         {confirming && (

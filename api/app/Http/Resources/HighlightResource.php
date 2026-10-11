@@ -12,6 +12,26 @@ class HighlightResource extends JsonResource
         $readerToken = $request->header('X-Reader-Token');
         $isOwner = $readerToken && $this->reader && hash_equals($this->reader->token, $readerToken);
 
+        // Reazioni del reader corrente (se loggato)
+        $myReactions = [];
+        if ($readerToken && $this->relationLoaded('reactions')) {
+            $myReactions = $this->reactions
+                ->filter(fn ($r) => $r->reader && hash_equals($r->reader->token, $readerToken))
+                ->pluck('emoji')
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        // Contatori per emoji
+        $reactionsByEmoji = [];
+        if ($this->relationLoaded('reactions')) {
+            $reactionsByEmoji = $this->reactions
+                ->groupBy('emoji')
+                ->map(fn ($group) => $group->count())
+                ->toArray();
+        }
+
         return [
             'id' => $this->id,
             'article_id' => $this->article_id,
@@ -25,6 +45,8 @@ class HighlightResource extends JsonResource
             'is_public' => $this->is_public,
             'is_mine' => $isOwner,
             'reactions_count' => $this->reactions_count,
+            'reactions_by_emoji' => $reactionsByEmoji,
+            'my_reactions' => $myReactions,
             'reader' => $this->when($this->is_public, function () {
                 return [
                     'display_name' => $this->reader?->display_name ?? 'Lettore anonimo',

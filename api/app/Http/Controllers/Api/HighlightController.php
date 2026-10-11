@@ -63,7 +63,10 @@ class HighlightController extends Controller
             'is_public' => $data['is_public'] ?? false,
         ]);
 
-        return new HighlightResource($highlight->refresh());
+        if ($highlight->reactions_count === null) {
+            $highlight->reactions_count = 0;
+        }
+        return new HighlightResource($highlight->load('reactions.reader'));
     }
 
     /**
@@ -92,7 +95,10 @@ class HighlightController extends Controller
 
         $highlight->update(array_filter($data, fn($v) => $v !== null));
 
-        return new HighlightResource($highlight);
+        if ($highlight->reactions_count === null) {
+            $highlight->reactions_count = 0;
+        }
+        return new HighlightResource($highlight->load('reactions.reader'));
     }
 
     /**
@@ -129,7 +135,7 @@ class HighlightController extends Controller
         }
 
         $highlights = ReaderHighlight::byReader($reader->id)
-            ->with('article:id,title,slug')
+            ->with(['article:id,title,slug', 'reactions.reader:id,token'])
             ->orderByDesc('created_at')
             ->limit(500)
             ->get();
@@ -162,7 +168,11 @@ class HighlightController extends Controller
             $query->where('is_public', true);
         }
 
-        $highlights = $query->orderBy('start_offset')->limit(500)->get();
+        $highlights = $query
+            ->with('reactions.reader:id,token')
+            ->orderBy('start_offset')
+            ->limit(500)
+            ->get();
 
         return HighlightResource::collection($highlights);
     }
