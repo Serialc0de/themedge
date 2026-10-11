@@ -324,10 +324,13 @@ a { transition: color 0.2s ease; }
   z-index: 9998;
   background: #1f2937;
   color: white;
-  border-radius: 0.5rem;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.3),
+    0 8px 10px -6px rgba(0, 0, 0, 0.2);
   animation: popup-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: auto;
+  overflow: visible;
 }
 
 @keyframes popup-in {
@@ -339,27 +342,6 @@ a { transition: color 0.2s ease; }
     opacity: 1;
     transform: translateY(0) scale(1);
   }
-}
-
-.highlight-popup::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: -6px;
-  width: 12px;
-  height: 12px;
-  background: #1f2937;
-  transform: translateX(-50%) rotate(45deg);
-  border-radius: 2px;
-}
-
-.highlight-popup[data-placement='top']::after {
-  bottom: -6px;
-}
-
-.highlight-popup[data-placement='bottom']::after {
-  top: -6px;
-  bottom: auto;
 }
 
 /* ============================================================
@@ -393,4 +375,41 @@ a { transition: color 0.2s ease; }
 .highlight-rect--public {
   stroke: rgba(59, 130, 246, 0.35);
   stroke-width: 0.5;
+}
+
+/* ============================================================
+   MODAL ANIMATION
+   ============================================================ */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-in {
+  animation: modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Fix overflow popup + rimozione freccia problematica */
+.highlight-popup {
+  max-width: calc(100vw - 16px) !important;
+}
+
+.highlight-popup::after {
+  display: none !important;
+}
+
+/* Popup responsive: mai più largo del viewport */
+.highlight-popup {
+  max-width: min(340px, calc(100vw - 16px)) !important;
+  min-width: 0;
+}
+
+.highlight-popup[data-expanded="true"] {
+  max-width: min(400px, calc(100vw - 16px)) !important;
 }

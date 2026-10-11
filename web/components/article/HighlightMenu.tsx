@@ -11,6 +11,7 @@ import { useHighlights } from '@/lib/highlight';
 import { useReader } from '@/lib/reader';
 import { useToast } from '@/lib/toast';
 import { HighlightPopup, type PopupAction } from './HighlightPopup';
+import { HighlightNoteEditor } from './HighlightNoteEditor';
 
 // ============================================================
 // ICONS
@@ -23,6 +24,12 @@ const IconHighlight = (
 );
 
 const IconNote = (
+  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+  </svg>
+);
+
+const IconNotePlus = (
   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
   </svg>
@@ -61,6 +68,11 @@ type PendingSelection = {
 
 export function HighlightMenu({ containerRef, articleId }: Props) {
   const [selection, setSelection] = useState<PendingSelection | null>(null);
+  const [noteMode, setNoteMode] = useState<{
+    color: 'yellow' | 'green' | 'pink';
+    anchor: PendingSelection['anchor'];
+    rect: DOMRect;
+  } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { create } = useHighlights();
@@ -71,6 +83,9 @@ export function HighlightMenu({ containerRef, articleId }: Props) {
   // Gestione selezione
   // ----------------------------------------------------------
   const checkSelection = useCallback(() => {
+    // Se siamo in noteMode, NON toccare la selezione
+    if (noteMode) return;
+
     const container = containerRef.current;
     if (!container) return;
 
@@ -128,7 +143,7 @@ export function HighlightMenu({ containerRef, articleId }: Props) {
         end_offset: offsets.end,
       },
     });
-  }, [containerRef]);
+  }, [containerRef, noteMode]);
 
   // ----------------------------------------------------------
   // Listener selezione
@@ -157,9 +172,10 @@ export function HighlightMenu({ containerRef, articleId }: Props) {
   // Azioni popup
   // ----------------------------------------------------------
   const handleCreate = useCallback(
-    async (color: 'yellow' | 'green' | 'pink', withNote: boolean) => {
-      if (!selection) return;
-      const anchor = selection.anchor;
+    async (color: 'yellow' | 'green' | 'pink', note?: string) => {
+      // Usa anchor da noteMode se attivo (per gestire il caso in cui selection è persa)
+      const anchor = noteMode?.anchor ?? selection?.anchor;
+      if (!anchor) return;
 
       // Registra reader se serve
       if (!token) {
@@ -174,13 +190,14 @@ export function HighlightMenu({ containerRef, articleId }: Props) {
         start_offset: anchor.start_offset,
         end_offset: anchor.end_offset,
         color,
+        note: note || undefined,
         is_public: false,
       });
 
       if (created) {
         toast.success(
-          'Highlight salvato',
-          withNote ? 'Aggiungi una nota dalle impostazioni' : 'Visibile a te solo'
+          note ? 'Highlight con nota salvato' : 'Highlight salvato',
+          note ? 'Visibile solo a te' : 'Visibile a te solo'
         );
       } else {
         toast.error('Impossibile salvare', 'Riprova tra un istante');
@@ -189,8 +206,23 @@ export function HighlightMenu({ containerRef, articleId }: Props) {
       // Pulisci selezione
       window.getSelection()?.removeAllRanges();
       setSelection(null);
+      setNoteMode(null);
     },
-    [selection, token, register, create, articleId, toast]
+    [selection, noteMode, token, register, create, articleId, toast]
+  );
+
+  // Nuova funzione: apri editor nota
+  const openNoteEditor = useCallback(
+    (color: 'yellow' | 'green' | 'pink') => {
+      if (!selection) return;
+      setNoteMode({
+        color,
+        anchor: selection.anchor,
+        rect: selection.rect,
+      });
+      // Non tocchiamo selection: la lasciamo per riferimento
+    },
+    [selection]
   );
 
   const actions: PopupAction[] = [
@@ -199,21 +231,54 @@ export function HighlightMenu({ containerRef, articleId }: Props) {
       label: 'Evidenzia',
       color: 'yellow',
       icon: IconHighlight,
-      onClick: () => handleCreate('yellow', false),
+      onClick: () => handleCreate('yellow'),
     },
     {
       id: 'green',
       label: 'OK',
       color: 'green',
-      onClick: () => handleCreate('green', false),
+      onClick: () => handleCreate('green'),
     },
     {
       id: 'pink',
       label: 'Interessante',
       color: 'pink',
-      onClick: () => handleCreate('pink', false),
+      onClick: () => handleCreate('pink'),
+    },
+    {
+      id: 'note',
+      label: 'Nota',
+      color: 'default',
+      icon: IconNotePlus,
+      onClick: () => openNoteEditor('yellow'),
     },
   ];
+
+  // Se siamo in noteMode, il popup è guidato da quello
+  if (noteMode) {
+    return (
+      <HighlightPopup
+        selectionRect={noteMode.rect}
+        actions={[]}
+        expanded={true}
+        onClose={() => {
+          setSelection(null);
+          setNoteMode(null);
+        }}
+      >
+        <HighlightNoteEditor
+          placeholder="Aggiungi una nota a questo highlight..."
+          onSave={(note) => {
+            handleCreate(noteMode.color, note);
+          }}
+          onCancel={() => {
+            setNoteMode(null);
+            setSelection(null);
+          }}
+        />
+      </HighlightPopup>
+    );
+  }
 
   if (!selection) return null;
 

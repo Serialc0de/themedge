@@ -3,9 +3,14 @@
 import { useMemo, useState } from 'react';
 import { useMyHighlights, type HighlightWithArticle } from '@/lib/use-my-highlights';
 import { useToast } from '@/lib/toast';
+import { useReader } from '@/lib/reader';
 import { HighlightCard } from './HighlightCard';
 import { HighlightEmpty } from './HighlightEmpty';
 import { HighlightSkeleton } from './HighlightSkeleton';
+import { HighlightEditModal } from './HighlightEditModal';
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || 'https://api.themedge.com/api';
 
 // ============================================================
 // TYPES
@@ -25,7 +30,9 @@ type ArticleGroup = {
 export function HighlightListClient() {
   const { highlights, isLoading, error, refresh, remove } = useMyHighlights();
   const toast = useToast();
+  const { token } = useReader();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
+  const [editingHighlight, setEditingHighlight] = useState<HighlightWithArticle | null>(null);
 
   // Raggruppa per articolo
   const groups = useMemo<ArticleGroup[]>(() => {
@@ -61,6 +68,34 @@ export function HighlightListClient() {
       toast.success('Highlight eliminato');
     } else {
       toast.error('Impossibile eliminare');
+    }
+  };
+
+  const handleSaveEdit = async (
+    id: number,
+    patch: { color?: 'yellow' | 'green' | 'pink'; note?: string }
+  ): Promise<boolean> => {
+    if (!token) {
+      toast.error('Sessione non valida');
+      return false;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/highlights/${id}`, {
+        method: 'PATCH',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-Reader-Token': token,
+        },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success('Highlight aggiornato');
+      refresh();
+      return true;
+    } catch (e) {
+      toast.error('Errore aggiornamento');
+      return false;
     }
   };
 
@@ -152,6 +187,7 @@ export function HighlightListClient() {
                     key={h.id}
                     highlight={h}
                     onDelete={handleDelete}
+                    onEditNote={(hl) => setEditingHighlight(hl)}
                   />
                 ))}
               </div>
@@ -159,6 +195,13 @@ export function HighlightListClient() {
           </section>
         );
       })}
+
+      <HighlightEditModal
+        highlight={editingHighlight}
+        isOpen={!!editingHighlight}
+        onClose={() => setEditingHighlight(null)}
+        onSave={handleSaveEdit}
+      />
     </div>
   );
 }

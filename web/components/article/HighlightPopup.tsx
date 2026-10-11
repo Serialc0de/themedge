@@ -21,6 +21,10 @@ type Props = {
   actions: PopupAction[];
   /** Callback chiusura */
   onClose: () => void;
+  /** Contenuto opzionale sotto le azioni (es. note editor) */
+  children?: React.ReactNode;
+  /** Larghezza dinamica del popup */
+  expanded?: boolean;
 };
 
 // ============================================================
@@ -28,22 +32,28 @@ type Props = {
 // ============================================================
 
 const SWATCH_CLASSES: Record<string, string> = {
-  yellow: 'bg-yellow-300 hover:bg-yellow-400',
-  green: 'bg-green-300 hover:bg-green-400',
-  pink: 'bg-pink-300 hover:bg-pink-400',
-  default: 'bg-white/10 hover:bg-white/20',
-  danger: 'bg-red-500/80 hover:bg-red-500',
+  yellow: 'bg-yellow-300 hover:bg-yellow-400 text-gray-900',
+  green: 'bg-green-300 hover:bg-green-400 text-gray-900',
+  pink: 'bg-pink-300 hover:bg-pink-400 text-gray-900',
+  default: 'bg-white/10 hover:bg-white/20 text-white',
+  danger: 'bg-red-500/80 hover:bg-red-500 text-white',
 };
 
 // ============================================================
 // POSITIONING
 // ============================================================
 
-const POPUP_WIDTH = 260;
-const POPUP_HEIGHT = 56;
-const OFFSET = 10;
+const POPUP_COLLAPSED_WIDTH = 340;
+const POPUP_EXPANDED_WIDTH = 400;
+const POPUP_ACTIONS_HEIGHT = 56;
+const POPUP_OFFSET = 10;
+const POPUP_MARGIN = 8;
 
-function computePosition(rect: DOMRect): {
+function computePosition(
+  rect: DOMRect,
+  width: number,
+  estimatedHeight: number
+): {
   top: number;
   left: number;
   placement: 'top' | 'bottom';
@@ -51,22 +61,27 @@ function computePosition(rect: DOMRect): {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // Preferisci sopra; se non c'è spazio, sotto
+  // Preferisci sopra; se non c'è spazio sufficiente, sotto
   const spaceAbove = rect.top;
-  const placement: 'top' | 'bottom' = spaceAbove > POPUP_HEIGHT + OFFSET + 10 ? 'top' : 'bottom';
+  const needsSpace = estimatedHeight + POPUP_OFFSET + 20;
+  const placement: 'top' | 'bottom' =
+    spaceAbove > needsSpace ? 'top' : 'bottom';
 
   const top =
     placement === 'top'
-      ? rect.top - POPUP_HEIGHT - OFFSET
-      : rect.bottom + OFFSET;
+      ? rect.top - estimatedHeight - POPUP_OFFSET
+      : rect.bottom + POPUP_OFFSET;
 
-  // Centra orizzontalmente, evita overflow
-  let left = rect.left + rect.width / 2 - POPUP_WIDTH / 2;
-  if (left < 8) left = 8;
-  if (left + POPUP_WIDTH > vw - 8) left = vw - POPUP_WIDTH - 8;
+  // Centra orizzontalmente, evita overflow orizzontale
+  let left = rect.left + rect.width / 2 - width / 2;
+  if (left < POPUP_MARGIN) left = POPUP_MARGIN;
+  if (left + width > vw - POPUP_MARGIN) left = vw - width - POPUP_MARGIN;
 
   // Evita overflow verticale
-  const finalTop = Math.max(8, Math.min(top, vh - POPUP_HEIGHT - 8));
+  const finalTop = Math.max(
+    POPUP_MARGIN,
+    Math.min(top, vh - estimatedHeight - POPUP_MARGIN)
+  );
 
   return { top: finalTop, left, placement };
 }
@@ -75,20 +90,57 @@ function computePosition(rect: DOMRect): {
 // COMPONENT
 // ============================================================
 
-export function HighlightPopup({ selectionRect, actions, onClose }: Props) {
+export function HighlightPopup({
+  selectionRect,
+  actions,
+  onClose,
+  children,
+  expanded = false,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState(() => computePosition(selectionRect));
+  const [size, setSize] = useState({
+    width: expanded ? POPUP_EXPANDED_WIDTH : POPUP_COLLAPSED_WIDTH,
+    height: POPUP_ACTIONS_HEIGHT,
+  });
+  const [pos, setPos] = useState(() =>
+    computePosition(
+      selectionRect,
+      expanded ? POPUP_EXPANDED_WIDTH : POPUP_COLLAPSED_WIDTH,
+      POPUP_ACTIONS_HEIGHT
+    )
+  );
 
-  // Riposiziona on resize
+  // Quando cambia expanded → ricalcola size
   useEffect(() => {
-    const recompute = () => setPos(computePosition(selectionRect));
+    setSize({
+      width: expanded ? POPUP_EXPANDED_WIDTH : POPUP_COLLAPSED_WIDTH,
+      height: ref.current?.offsetHeight ?? POPUP_ACTIONS_HEIGHT,
+    });
+  }, [expanded]);
+
+  // Misura altezza reale dopo il render
+  useEffect(() => {
+    if (!ref.current) return;
+    const h = ref.current.offsetHeight;
+    const w = ref.current.offsetWidth;
+    setSize({ width: w, height: h });
+  }, [children, expanded]);
+
+  // Riposiziona on resize/scroll
+  useEffect(() => {
+    const recompute = () => {
+      const w = ref.current?.offsetWidth ?? size.width;
+      const h = ref.current?.offsetHeight ?? size.height;
+      setPos(computePosition(selectionRect, w, h));
+    };
+    recompute();
     window.addEventListener('resize', recompute);
     window.addEventListener('scroll', recompute, { passive: true });
     return () => {
       window.removeEventListener('resize', recompute);
       window.removeEventListener('scroll', recompute);
     };
-  }, [selectionRect]);
+  }, [selectionRect, size.width, size.height, children]);
 
   // Chiudi su ESC / click esterno
   useEffect(() => {
@@ -101,7 +153,6 @@ export function HighlightPopup({ selectionRect, actions, onClose }: Props) {
       }
     };
     document.addEventListener('keydown', onKey);
-    // setTimeout per non catturare il mousedown che ha aperto il popup
     const timer = setTimeout(() => {
       document.addEventListener('mousedown', onMouseDown);
     }, 100);
@@ -112,6 +163,8 @@ export function HighlightPopup({ selectionRect, actions, onClose }: Props) {
     };
   }, [onClose]);
 
+  const width = expanded ? POPUP_EXPANDED_WIDTH : POPUP_COLLAPSED_WIDTH;
+
   return (
     <div
       ref={ref}
@@ -119,33 +172,41 @@ export function HighlightPopup({ selectionRect, actions, onClose }: Props) {
       aria-label="Azioni highlight"
       className="highlight-popup"
       data-placement={pos.placement}
-      style={{ top: pos.top, left: pos.left, width: POPUP_WIDTH }}
+      data-expanded={expanded ? 'true' : 'false'}
+      style={{
+        top: pos.top,
+        left: pos.left,
+        width,
+      }}
     >
-      <div className="flex items-center justify-center gap-1 p-2">
-        {actions.map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              a.onClick();
-            }}
-            title={a.label}
-            aria-label={a.label}
-            className={[
-              'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition',
-              a.color ? SWATCH_CLASSES[a.color] ?? SWATCH_CLASSES.default : SWATCH_CLASSES.default,
-              a.color === 'yellow' || a.color === 'green' || a.color === 'pink'
-                ? 'text-gray-900'
-                : 'text-white',
-            ].join(' ')}
-          >
-            {a.icon}
-            <span className="hidden sm:inline">{a.label}</span>
-          </button>
-        ))}
-      </div>
+      {/* Azioni (solo se presenti) */}
+      {actions.length > 0 && (
+        <div className="flex items-center justify-center gap-1 p-1.5">
+          {actions.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                a.onClick();
+              }}
+              title={a.label}
+              aria-label={a.label}
+              className={[
+                'flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition whitespace-nowrap leading-none',
+                SWATCH_CLASSES[a.color ?? 'default'] ?? SWATCH_CLASSES.default,
+              ].join(' ')}
+            >
+              {a.icon}
+              <span>{a.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Contenuto espanso (es. note editor) */}
+      {children && <div className="border-t border-white/10">{children}</div>}
     </div>
   );
 }
