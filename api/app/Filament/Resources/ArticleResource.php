@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Spatie\Activitylog\Models\Activity;
 
 class ArticleResource extends Resource
 {
@@ -196,7 +197,7 @@ class ArticleResource extends Resource
                         ->columnSpanFull()
                         ->content(fn (Forms\Get $get) => view('filament.forms.components.seo-check', ['get' => $get])),
 
-                                       Forms\Components\Placeholder::make('og_preview')
+                    Forms\Components\Placeholder::make('og_preview')
                         ->label('')
                         ->columnSpanFull()
                         ->content(fn (Forms\Get $get) => view('filament.forms.components.og-preview', ['get' => $get])),
@@ -213,7 +214,6 @@ class ArticleResource extends Resource
                                 ]);
                             }
 
-                            // Aggiorna il record con i valori correnti del form
                             $record->fill([
                                 'title' => $get('title'),
                                 'slug' => $get('slug'),
@@ -306,7 +306,7 @@ class ArticleResource extends Resource
                     ->placeholder('—')
                     ->toggleable(),
 
-                                Tables\Columns\TextColumn::make('views')
+                Tables\Columns\TextColumn::make('views')
                     ->label('Views')
                     ->numeric()
                     ->sortable()
@@ -315,18 +315,17 @@ class ArticleResource extends Resource
                     ->alignCenter()
                     ->toggleable(),
 
-                Tables\Columns\TextColumn::make('seo_score')
-                    ->label('SEO')
-                    ->getStateUsing(fn (Article $record) => $record->seo_score['score'] . '/100')
-                    ->badge()
-                    ->color(fn (Article $record) => match ($record->seo_score['grade']) {
-                        'excellent' => 'success',
-                        'good' => 'info',
-                        'fair' => 'warning',
-                        default => 'danger',
+                Tables\Columns\TextColumn::make('revisions_count')
+                    ->label('Rev.')
+                    ->getStateUsing(function (Article $record) {
+                        return Activity::where('log_name', 'article')
+                            ->where('subject_type', Article::class)
+                            ->where('subject_id', $record->id)
+                            ->count();
                     })
+                    ->badge()
+                    ->color('info')
                     ->alignCenter()
-                    ->sortable(false)
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('updated_at')

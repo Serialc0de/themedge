@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ArticleResource\Pages;
 
 use App\Filament\Resources\ArticleResource;
+use App\Filament\Resources\ArticleResource\Widgets\ArticleRevisionsWidget;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
@@ -22,6 +23,13 @@ class EditArticle extends EditRecord
                 ->visible(fn () => $this->record->status === 'published'),
 
             Actions\DeleteAction::make()->label('Elimina'),
+        ];
+    }
+
+    protected function getFooterWidgets(): array
+    {
+        return [
+            ArticleRevisionsWidget::class,
         ];
     }
 }
