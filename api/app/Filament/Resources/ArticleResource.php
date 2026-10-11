@@ -160,6 +160,30 @@ class ArticleResource extends Resource
                         ->helperText('Appare nella hero della homepage'),
                 ]),
 
+            Forms\Components\Section::make('🚨 Breaking News')
+                ->description('Notizia urgente che apparirà in un banner in cima a tutte le pagine')
+                ->columns(2)
+                ->visible(fn () => Auth::user()->hasRole(['super_admin', 'editor']))
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Toggle::make('is_breaking')
+                        ->label('Attiva Breaking News')
+                        ->helperText('Mostra il banner rosso lampeggiante in cima al sito')
+                        ->reactive(),
+
+                    Forms\Components\TextInput::make('breaking_priority')
+                        ->label('Priorità')
+                        ->numeric()
+                        ->default(0)
+                        ->helperText('Numero più alto = più importante'),
+
+                    Forms\Components\DateTimePicker::make('breaking_expires_at')
+                        ->label('Scade il')
+                        ->seconds(false)
+                        ->helperText('Dopo questa data la breaking news scompare automaticamente')
+                        ->columnSpanFull(),
+                ]),
+
             Forms\Components\Section::make('Pubblicazione')
                 ->columns(2)
                 ->visible(fn () => Auth::user()->hasRole(['super_admin', 'editor']))
@@ -298,7 +322,13 @@ class ArticleResource extends Resource
                     ->boolean()
                     ->alignCenter()
                     ->toggleable(),
-
+		Tables\Columns\IconColumn::make('is_breaking')
+                    ->label('🚨')
+                    ->boolean()
+                    ->alignCenter()
+                    ->color(fn (bool $state): string => $state ? 'danger' : 'gray')
+                    ->tooltip('Breaking News')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('published_at')
                     ->label('Pubblicato')
                     ->dateTime('d/m/Y H:i')
@@ -382,6 +412,37 @@ class ArticleResource extends Resource
 
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\EditAction::make()->label('Modifica'),
+                    Tables\Actions\Action::make('toggle_breaking')
+                        ->label(fn (Article $record) => $record->is_breaking ? 'Disattiva Breaking' : 'Attiva Breaking')
+                        ->icon(fn (Article $record) => $record->is_breaking ? 'heroicon-o-bell-slash' : 'heroicon-o-bell-alert')
+                        ->color(fn (Article $record) => $record->is_breaking ? 'gray' : 'danger')
+                        ->requiresConfirmation()
+                        ->modalHeading(fn (Article $record) => $record->is_breaking ? 'Disattivare Breaking News?' : 'Attivare Breaking News?')
+                        ->modalDescription(fn (Article $record) => $record->is_breaking
+                            ? 'Il banner rosso smetterà di apparire.'
+                            : 'Il banner rosso lampeggiante apparirà in cima al sito per tutti i lettori.')
+                        ->visible(fn () => Auth::user()->hasRole(['super_admin', 'editor']))
+                        ->action(function (Article $record) {
+                            if ($record->is_breaking) {
+                                $record->update(['is_breaking' => false]);
+                                Notification::make()
+                                    ->title('Breaking News disattivata')
+                                    ->success()
+                                    ->send();
+                            } else {
+                                $record->update([
+                                    'is_breaking' => true,
+                                    'breaking_expires_at' => now()->addHours(24),
+                                    'status' => 'published',
+                                    'published_at' => $record->published_at ?? now(),
+                                ]);
+                                Notification::make()
+                                    ->title('🚨 Breaking News attivata')
+                                    ->body('Il banner apparirà in cima al sito.')
+                                    ->success()
+                                    ->send();
+                            }
+                        }),
 
                     Tables\Actions\Action::make('submit_review')
                         ->label('Invia in review')

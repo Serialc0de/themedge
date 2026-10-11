@@ -25,6 +25,7 @@ class Article extends Model implements HasMedia
         'meta_title', 'meta_description',
         'review_requested_at', 'approved_at', 'approved_by',
         'rejection_reason', 'scheduled_for', 'revision_count',
+	'is_breaking', 'breaking_expires_at', 'breaking_priority',
     ];
 
     protected $casts = [
@@ -36,6 +37,9 @@ class Article extends Model implements HasMedia
         'allow_comments' => 'boolean',
         'views' => 'integer',
         'revision_count' => 'integer',
+	'is_breaking' => 'boolean',
+        'breaking_expires_at' => 'datetime',
+        'breaking_priority' => 'integer',
     ];
 
     protected static function boot()
@@ -150,6 +154,33 @@ class Article extends Model implements HasMedia
     public function scopeScheduled($query)
     {
         return $query->where('status', 'scheduled');
+    }
+
+        public function scopeBreaking($query)
+    {
+        return $query->where('is_breaking', true)
+            ->where(function ($q) {
+                $q->whereNull('breaking_expires_at')
+                    ->orWhere('breaking_expires_at', '>', now());
+            })
+            ->where('status', 'published');
+    }
+
+    public function isBreakingActive(): bool
+    {
+        if (! $this->is_breaking) {
+            return false;
+        }
+
+        if ($this->status !== 'published') {
+            return false;
+        }
+
+        if ($this->breaking_expires_at && $this->breaking_expires_at->isPast()) {
+            return false;
+        }
+
+        return true;
     }
 
     public function isDraft(): bool

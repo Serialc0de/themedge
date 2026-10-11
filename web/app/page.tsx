@@ -52,13 +52,6 @@ export default async function HomePage() {
         </div>
       ) : (
         <>
-          <div className="bg-signal text-white mb-8">
-            <div className="flex items-center gap-3 px-4 py-2">
-              <span className="bg-paper text-signal text-xs font-bold px-2 py-1 uppercase tracking-widest flex-shrink-0">Ultim&apos;ora</span>
-              <Link href={`/articolo/${mainArticle.slug}`} className="text-sm font-semibold hover:underline truncate">{mainArticle.title}</Link>
-            </div>
-          </div>
-
           <section className="grid lg:grid-cols-3 gap-8 pb-8 mb-8 border-b-2 border-ink">
             <div className="lg:col-span-2">
               <ArticleCard article={mainArticle} variant="large" />

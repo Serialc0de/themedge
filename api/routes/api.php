@@ -44,3 +44,6 @@ Route::post('/tips', [TipController::class, 'store']);
 
 // Redazione
 Route::get('/editorial-team', [\App\Http\Controllers\Api\EditorialTeamController::class, 'index']);
+
+// Breaking News
+Route::get('/breaking-news', [\App\Http\Controllers\Api\BreakingNewsController::class, 'index']);

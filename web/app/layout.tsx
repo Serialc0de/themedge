@@ -8,6 +8,7 @@ import CookieBanner from "@/components/CookieBanner";
 import { getSeoSettings, formatTitle } from '@/lib/seoSettings';
 import SeoHead from '@/components/SeoHead';
 import SocialLinks from '@/components/SocialLinks';
+import BreakingBanner from '@/components/BreakingBanner';
 
 const playfair = Playfair_Display({ variable: "--font-playfair", subsets: ["latin"], display: "swap" });
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
@@ -32,6 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
       googleBot: {
         index: settings.robots_index !== '0' && settings.robots_index !== false,
         follow: settings.robots_follow !== '0' && settings.robots_follow !== false,
+        'max-video-preview': -1,
         'max-image-preview': (settings.robots_max_image_preview as 'large' | 'none' | 'standard') || 'large',
         'max-snippet': -1,
       },
@@ -56,6 +58,19 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+async function getBreakingNews() {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
+    const res = await fetch(`${apiUrl}/breaking-news`, {
+      next: { revalidate: 30 },
+    });
+    if (!res.ok) return { data: [], count: 0 };
+    return res.json();
+  } catch {
+    return { data: [], count: 0 };
+  }
+}
+
 const CATEGORIES = [
   { name: "Politica", slug: "politica" },
   { name: "Economia", slug: "economia" },
@@ -69,6 +84,7 @@ const CATEGORIES = [
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const today = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const seoSettings = await getSeoSettings();
+  const breakingNews = await getBreakingNews();
 
   return (
     <html lang="it" className={`${playfair.variable} ${inter.variable}`} suppressHydrationWarning>
@@ -78,6 +94,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <SeoHead settings={seoSettings} />
       </head>
       <body className="min-h-full flex flex-col font-sans antialiased bg-white dark:bg-gray-950 dark:text-gray-100 transition-colors">
+        <BreakingBanner items={breakingNews.data} />
+
         <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
           <div className="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">
             <span className="capitalize">{today}</span>
@@ -147,7 +165,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <div>
                 <h4 className="text-xs uppercase tracking-widest font-bold mb-4">Seguici</h4>
                 <SocialLinks settings={seoSettings} variant="footer" />
-              </div>            </div>
+              </div>
+            </div>
             <div className="pt-6 border-t border-gray-300 dark:border-gray-800 text-center">
               <p className="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">© {new Date().getFullYear()} {seoSettings.site_name} — Tutti i diritti riservati</p>
             </div>
