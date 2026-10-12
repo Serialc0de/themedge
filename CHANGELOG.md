@@ -458,3 +458,37 @@ Tutte le modifiche importanti del progetto sono documentate qui.
   - Cause investigate: timeAgo, gravatar, DOMPurify, toLocaleDateString, BLUR_DATA_URL, dynamic import — tutte fixate, ma persiste
   - Prossimo step: React DevTools in dev mode (non urgente)
 
+
+---
+
+## [2026-10-12] — ✅ React error #418 RISOLTO
+
+### Causa finale (combinazione di 3 fattori)
+1. **`timeAgo` duplicata in 7 file** con logica divergente:
+   - `ArticleCard.tsx` usava sempre "giorni" (no singolare)
+   - `app/page.tsx` usava singolare/plurale
+   - → mismatch tra componenti
+2. **Build vecchia con typo "giornoi"** in `.next/`:
+   - Servita per errore prima del rebuild pulito
+   - 14 occorrenze di "giornoi" in `.next/` (0 nei sorgenti)
+3. **Cache Cloudflare con HTML vecchio**:
+   - Il purge globale non bastava
+   - **Il purge per-articolo via `purgeCloudflareCache()` ha risolto definitivamente**
+
+### Fix applicati
+- **`lib/time.ts`**: unica funzione `timeAgo` (importata da 8 file)
+- **Rebuild pulito**: `rm -rf .next` + `npm run build`
+- **Purge per-articolo**: `App\Models\Article::all()->each(fn($a) => $a->purgeCloudflareCache())`
+
+### Verifica finale
+- ✅ Nessun React error #418 in console
+- ✅ Date corrette: "1 giorno fa" (singolare), "3 giorni fa" (plurale)
+- ✅ Nessun "giornoi" o "1 giorni" nell'HTML
+
+### Altri fix della sessione
+- Glossario: tooltip posizionato correttamente (Portal + freccia sulla parola)
+- 6 `relative` mancanti su `<Image fill>` (immagini non scappano più nell'header)
+- `remotePatterns` estesi (YouTube, Vimeo, Twitter, Instagram, TikTok, Spotify)
+- `suppressHydrationWarning` su `ArticleCorrections`
+- `useGlossaryHighlighting`: delay 2s
+
