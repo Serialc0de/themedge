@@ -162,7 +162,7 @@ export default async function DirettaPage({ params }: { params: Promise<{ slug: 
 
       {/* Immagine di copertina */}
       {blog.featured_image && (
-        <div className="mb-8 overflow-hidden">
+        <div className="relative mb-8 overflow-hidden">
           <Image
             src={blog.featured_image}
             alt={blog.title}

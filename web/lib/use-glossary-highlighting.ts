@@ -157,13 +157,18 @@ export function useGlossaryHighlighting(
 
     let cancelled = false;
 
-    loadTerms().then((terms) => {
-      if (cancelled || terms.length === 0) return;
-      applyGlossaryHighlighting(container, terms);
-    });
+    // Ritarda l'iniezione DOM di 2 secondi per permettere a React
+    // di completare l'idratazione senza mismatch (React error #418).
+    const timer = setTimeout(() => {
+      loadTerms().then((terms) => {
+        if (cancelled || terms.length === 0) return;
+        applyGlossaryHighlighting(container, terms);
+      });
+    }, 2000);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [containerRef, enabled]);
 }

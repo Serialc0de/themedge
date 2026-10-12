@@ -82,7 +82,7 @@ export default async function DirettePage() {
             {live.map((blog) => (
               <article
                 key={blog.id}
-                className="border-2 border-red-600 overflow-hidden hover:shadow-lg transition-shadow"
+                className="relative border-2 border-red-600 overflow-hidden hover:shadow-lg transition-shadow"
               >
                 {blog.featured_image && (
                   <Link href={`/diretta/${blog.slug}`} className="block">
@@ -151,7 +151,7 @@ export default async function DirettePage() {
                 {blog.featured_image && (
                   <Link
                     href={`/diretta/${blog.slug}`}
-                    className="flex-shrink-0 w-32 h-24 md:w-40 md:h-28 overflow-hidden bg-gray-100 dark:bg-gray-800"
+                    className="relative flex-shrink-0 w-32 h-24 md:w-40 md:h-28 overflow-hidden bg-gray-100 dark:bg-gray-800"
                   >
                       <Image
                       src={blog.featured_image}

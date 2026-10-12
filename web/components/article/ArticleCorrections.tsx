@@ -126,7 +126,7 @@ export function ArticleCorrections({ articleSlug }: Props) {
                     <span>{config.emoji}</span>
                     {config.label}
                   </span>
-                  <time className="text-xs text-gray-500 dark:text-gray-400" dateTime={c.published_at}>
+                  <time className="text-xs text-gray-500 dark:text-gray-400" dateTime={c.published_at} suppressHydrationWarning>
                     {new Date(c.published_at).toLocaleDateString('it-IT', {
                       day: 'numeric',
                       month: 'long',

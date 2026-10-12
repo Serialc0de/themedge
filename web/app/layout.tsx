@@ -10,7 +10,7 @@ import SeoHead from '@/components/SeoHead';
 import SocialLinks from '@/components/SocialLinks';
 import BreakingBanner from '@/components/BreakingBanner';
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
-// import { GlossaryTooltipManager } from '@/components/GlossaryTooltipManager';
+import { GlossaryTooltipManager } from '@/components/GlossaryTooltipManager';
 import PushSubscribeButton from '@/components/PushSubscribeButton';
 import { ReaderProvider } from '@/lib/reader';
 import { ReadingListProvider } from '@/lib/reading-list';
@@ -287,7 +287,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <ScrollToTop />
         <CookieBanner />
         <ServiceWorkerRegister />
-        {/* <GlossaryTooltipManager /> */}
+        <GlossaryTooltipManager />
                 <ToastContainer />
             </ToastProvider>
           </ReadingListProvider>

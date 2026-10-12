@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { timeAgo } from '@/lib/time';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
@@ -6,6 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import ReadingProgress from '@/components/ReadingProgress';
 import CommentsSection from '@/components/CommentsSection';
 import { ArticleReader } from '@/components/article/ArticleReader';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 const BLUR_DATA_URL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiBmaWxsPSIjZTVlN2ViIi8+PC9zdmc+';
 
@@ -95,16 +97,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       images: article.featured_image ? [article.featured_image] : undefined,
     },
   };
-}
-
-function timeAgo(date: string) {
-  const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
-  const intervals: [number, string][] = [[31536000, 'anno'], [2592000, 'mese'], [86400, 'giorno'], [3600, 'ora'], [60, 'minuto']];
-  for (const [secs, label] of intervals) {
-    const counter = Math.floor(seconds / secs);
-    if (counter > 0) return `${counter} ${label}${counter > 1 ? 'i' : ''} fa`;
-  }
-  return 'adesso';
 }
 
 function readingTime(content: string): number {
@@ -268,7 +260,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <ArticleReader
             articleId={article.id}
             articleSlug={article.slug}
-            content={article.content || ''}
+            content={sanitizeHtml(article.content || '')}
             article={{
               slug: article.slug,
               title: article.title,

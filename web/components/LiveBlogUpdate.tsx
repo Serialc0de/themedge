@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { timeAgo } from '@/lib/time';
 import Image from 'next/image';
 
 const BLUR_DATA_URL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiBmaWxsPSIjZTVlN2ViIi8+PC9zdmc+';
@@ -35,16 +36,6 @@ function formatDate(dateString: string): string {
   if (isToday) return 'Oggi';
 
   return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
-}
-
-function timeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-
-  if (seconds < 60) return 'ora';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min fa`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} ore fa`;
-  return `${Math.floor(seconds / 86400)} giorni fa`;
 }
 
 const TYPE_STYLES: Record<string, { border: string; bg: string; text: string; label: string; icon: string }> = {

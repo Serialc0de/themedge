@@ -409,3 +409,26 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - `.gitignore` aggiornato con `*.bak*` + `*.generated*`
 
 ---
+
+---
+
+## [2026-10-12] — Fix timeAgo + relative + known issue 418
+
+### Fixati
+- **lib/time.ts**: funzione `timeAgo` unificata (era duplicata in 8 file con logica divergente)
+  - Risolto "1 giorni fa" (mancava singolare) e "3 giornoi fa" (build vecchia)
+- **6 `relative` mancanti** su contenitori `<Image fill>`:
+  - `app/redazione`, `app/diretta/[slug]`, `app/ultimora`, `app/dirette` (2), `components/ArticleCard` (variant list)
+  - → Immagini non scappano più nell'header
+- **next.config.ts**: aggiunti hostname per thumbnail esterne (YouTube, Vimeo, Twitter, Instagram, TikTok, Spotify)
+- **ArticleCorrections**: `suppressHydrationWarning` su `toLocaleDateString`
+- **GlossaryTooltipManager**: fix posizionamento (tooltip sopra il termine, con freccia) + riattivato in layout
+- **useGlossaryHighlighting**: delay 2s per evitare mismatch DOM
+
+### Known issue
+- **React error #418** (hydration mismatch) — non risolto
+  - Impatto utente: nullo (React recupera, sito funziona)
+  - Impatto SEO: nullo
+  - Cause investigate: timeAgo, gravatar, DOMPurify, toLocaleDateString, BLUR_DATA_URL, dynamic import, GlossaryTooltipManager — tutte fixate, ma il 418 persiste
+  - Prossimo step: React DevTools in dev mode (non urgente)
+

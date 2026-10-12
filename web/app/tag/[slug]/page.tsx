@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { timeAgo } from '@/lib/time';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
@@ -42,16 +43,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       type: 'website',
     },
   };
-}
-
-function timeAgo(date: string) {
-  const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
-  const intervals: [number, string][] = [[31536000, 'anno'], [2592000, 'mese'], [86400, 'giorno'], [3600, 'ora'], [60, 'minuto']];
-  for (const [secs, label] of intervals) {
-    const counter = Math.floor(seconds / secs);
-    if (counter > 0) return `${counter} ${label}${counter > 1 ? 'i' : ''} fa`;
-  }
-  return 'adesso';
 }
 
 export default async function TagPage({ params }: { params: Promise<{ slug: string }> }) {

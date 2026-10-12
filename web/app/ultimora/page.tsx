@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { timeAgo } from '@/lib/time';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -46,16 +47,6 @@ async function getArchive(): Promise<{ data: BreakingItem[]; active_count: numbe
   } catch {
     return { data: [], active_count: 0, expired_count: 0 };
   }
-}
-
-function timeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-
-  if (seconds < 60) return 'ora';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} minuti fa`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} ore fa`;
-  return `${Math.floor(seconds / 86400)} giorni fa`;
 }
 
 function formatDate(dateString: string): string {
@@ -146,7 +137,7 @@ export default async function UltimoraPage() {
                     {item.featured_image && (
                       <Link
                         href={`/articolo/${item.slug}`}
-                        className="flex-shrink-0 w-32 h-32 md:w-40 md:h-40 overflow-hidden bg-gray-100 dark:bg-gray-800"
+                        className="relative flex-shrink-0 w-32 h-32 md:w-40 md:h-40 overflow-hidden bg-gray-100 dark:bg-gray-800"
                       >
                               <Image
                           src={item.featured_image}

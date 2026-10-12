@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { timeAgo } from '@/lib/time';
 import Image from 'next/image';
 import BreakingBadge from './BreakingBadge';
 import { SaveIconButton } from './SaveIconButton';
@@ -22,18 +23,6 @@ interface Article {
 interface Props {
   article: Article;
   variant?: 'default' | 'large' | 'compact' | 'list';
-}
-
-function timeAgo(dateString?: string): string {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-
-  if (seconds < 60) return 'ora';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min fa`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} ore fa`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)} giorni fa`;
-  return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
 }
 
 export default function ArticleCard({ article, variant = 'default' }: Props) {
@@ -89,7 +78,7 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
           <div className="relative flex-shrink-0">
             <Link
               href={`/articolo/${article.slug}`}
-              className="block w-24 h-24 md:w-32 md:h-32 overflow-hidden bg-gray-100 dark:bg-gray-800"
+              className="relative block w-24 h-24 md:w-32 md:h-32 overflow-hidden bg-gray-100 dark:bg-gray-800"
             >
               <Image
                 src={article.featured_image}

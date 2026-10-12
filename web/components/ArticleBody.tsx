@@ -1,4 +1,3 @@
-import { sanitizeHtml } from '@/lib/sanitize';
 import { VideoEmbed } from '@/components/embeds/VideoEmbed';
 import { SpotifyEmbed } from '@/components/embeds/SpotifyEmbed';
 import { GenericEmbed } from '@/components/embeds/GenericEmbed';
@@ -18,8 +17,8 @@ type Props = {
  *  3. il resto viene reso con dangerouslySetInnerHTML
  */
 export function ArticleBody({ html, className = '' }: Props) {
-  const clean = sanitizeHtml(html);
-  const segments = parseSegments(clean);
+  // HTML già sanificato da page.tsx (server-side)
+  const segments = parseSegments(html);
 
   return (
     <div className={`prose prose-lg max-w-none font-serif dark:prose-invert ${className}`}>

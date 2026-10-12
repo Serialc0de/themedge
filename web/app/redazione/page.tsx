@@ -66,7 +66,7 @@ export default async function RedazionePage() {
               key={member.id}
               className="text-center group"
             >
-              <div className="aspect-square overflow-hidden bg-gray-100 dark:bg-gray-800 mb-4 max-w-[240px] mx-auto rounded-full">
+              <div className="relative aspect-square overflow-hidden bg-gray-100 dark:bg-gray-800 mb-4 max-w-[240px] mx-auto rounded-full">
                 {member.avatar ? (
                             <Image
                     src={member.avatar}
