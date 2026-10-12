@@ -740,4 +740,23 @@ class Article extends Model implements HasMedia
         ];
     }
 
+    // ============================================================
+    // TIMELINE — Relazione
+    // ============================================================
+
+    public function timelineEvents(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ArticleTimelineEvent::class)->chronological();
+    }
+
+    public function hasTimelineEvents(): bool
+    {
+        return $this->timelineEvents()->exists();
+    }
+
+    public function keyTimelineEvents(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ArticleTimelineEvent::class)->chronological()->keyEvents();
+    }
+
 }

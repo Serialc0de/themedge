@@ -16,6 +16,7 @@ import { ShareButtons } from '@/components/article/ShareButtons';
 import { AiDisclosureBadge } from '@/components/article/AiDisclosureBadge';
 import { ArticleFactChecks } from '@/components/article/ArticleFactChecks';
 import { ArticleKnowledgeBox } from '@/components/article/ArticleKnowledgeBox';
+import { ArticleTimeline } from '@/components/article/ArticleTimeline';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
 
@@ -135,6 +136,8 @@ function ArticleReaderInner({
 
       <ArticleKnowledgeBox articleSlug={articleSlug} />
 
+      <ArticleTimeline articleSlug={articleSlug} />
+
       <ShareButtons
         url={`https://themedge.com/articolo/${articleSlug}`}
         title={article.title}
@@ -205,6 +208,8 @@ function ArticleReaderInner({
       <ArticleFactChecks articleSlug={articleSlug} />
 
       <ArticleKnowledgeBox articleSlug={articleSlug} />
+
+      <ArticleTimeline articleSlug={articleSlug} />
 
       <ShareButtons
         url={`https://themedge.com/articolo/${articleSlug}`}

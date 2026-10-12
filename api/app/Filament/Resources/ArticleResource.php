@@ -524,6 +524,59 @@ class ArticleResource extends Resource
                         ->defaultItems(0),
                 ])
                 ->columns(1),
+            Forms\Components\Section::make('📅 Timeline contesto')
+                ->description('Eventi storici collegati all\'articolo, in ordine cronologico.')
+                ->icon('heroicon-o-clock')
+                ->collapsible()
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('timelineEvents')
+                        ->relationship()
+                        ->label('Eventi della timeline')
+                        ->schema([
+                            Forms\Components\DatePicker::make('event_date')
+                                ->label('Data evento')
+                                ->required()
+                                ->displayFormat('d/m/Y')
+                                ->native(false),
+
+                            Forms\Components\TextInput::make('title')
+                                ->label('Titolo')
+                                ->required()
+                                ->maxLength(300),
+
+                            Forms\Components\Textarea::make('description')
+                                ->label('Descrizione (opzionale)')
+                                ->rows(2)
+                                ->columnSpanFull(),
+
+                            Forms\Components\TextInput::make('source_name')
+                                ->label('Fonte (opzionale)')
+                                ->maxLength(200),
+
+                            Forms\Components\TextInput::make('source_url')
+                                ->label('URL fonte (opzionale)')
+                                ->url()
+                                ->maxLength(500),
+
+                            Forms\Components\Toggle::make('is_key_event')
+                                ->label('Evento chiave')
+                                ->helperText('Evidenzia questo evento nella timeline.')
+                                ->default(false),
+
+                            Forms\Components\TextInput::make('order')
+                                ->label('Ordine (stessa data)')
+                                ->numeric()
+                                ->default(0),
+                        ])
+                        ->columns(2)
+                        ->reorderable('order')
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): ?string => isset($state['title']) && $state['title'] !== '' ? mb_substr($state['title'], 0, 60) . (mb_strlen($state['title']) > 60 ? '…' : '') : 'Nuovo evento')
+                        ->addActionLabel('Aggiungi evento')
+                        ->defaultItems(0),
+                ])
+                ->columns(1),
             Forms\Components\Section::make('🎯 Highlight Policy')
                 ->description('Controlla come gli utenti possono evidenziare il testo di questo articolo.')
                 ->columns(2)

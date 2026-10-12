@@ -101,6 +101,56 @@ class ArticleController extends Controller
     }
 
     /**
+     * Timeline contesto di un articolo (eventi storici collegati).
+     */
+    public function timeline(string $slug): \Illuminate\Http\JsonResponse
+    {
+        $article = Article::where('slug', $slug)->first();
+        if (!$article) {
+            return response()->json(['error' => 'Articolo non trovato'], 404);
+        }
+
+        $events = $article->timelineEvents()
+            ->get()
+            ->map(fn ($event) => [
+                'id' => $event->id,
+                'event_date' => $event->event_date?->toIso8601String(),
+                'formatted_date' => $event->formatted_date,
+                'short_date' => $event->short_date,
+                'title' => $event->title,
+                'description' => $event->description,
+                'source_url' => $event->source_url,
+                'source_name' => $event->source_name,
+                'is_key_event' => $event->is_key_event,
+                'order' => $event->order,
+            ]);
+
+        // Timeline completa + solo eventi chiave
+        $keyEvents = $article->keyTimelineEvents()
+            ->get()
+            ->map(fn ($event) => [
+                'id' => $event->id,
+                'event_date' => $event->event_date?->toIso8601String(),
+                'formatted_date' => $event->formatted_date,
+                'short_date' => $event->short_date,
+                'title' => $event->title,
+                'description' => $event->description,
+                'source_url' => $event->source_url,
+                'source_name' => $event->source_name,
+                'is_key_event' => true,
+                'order' => $event->order,
+            ]);
+
+        return response()->json([
+            'data' => $events->values()->all(),
+            'key_events' => $keyEvents->values()->all(),
+            'counts' => [
+                'total' => $events->count(),
+                'key' => $keyEvents->count(),
+            ],
+        ]);
+    }
+    /**
      * Punti di conoscenza di un articolo (cosa sappiamo / non sappiamo / stiamo verificando).
      */
     public function knowledge(string $slug): \Illuminate\Http\JsonResponse
