@@ -101,6 +101,65 @@ class Article extends Model implements HasMedia
                 $article->content = $sanitizer->sanitize($article->content);
             }
         });
+
+        // Purge cache Cloudflare quando articolo pubblicato/modificato
+        static::saved(function ($article) {
+            $article->purgeCloudflareCache();
+        });
+    }
+
+    /**
+     * Purge selettivo della cache Cloudflare per questo articolo.
+     * Invalida: URL articolo + homepage + categoria + sitemap.
+     */
+    public function purgeCloudflareCache(): void
+    {
+        $token = config('services.cloudflare.token');
+        $zoneId = config('services.cloudflare.zone_id');
+
+        if (!$token || !$zoneId) {
+            return;
+        }
+
+        // Non purgare per bozze
+        if ($this->status !== 'published') {
+            return;
+        }
+
+        $urls = [
+            'https://themedge.com/articolo/' . $this->slug,
+            'https://themedge.com/', // homepage
+        ];
+
+        // Categoria
+        if ($this->category) {
+            $urls[] = 'https://themedge.com/categoria/' . $this->category->slug;
+        }
+
+        // Autore
+        if ($this->author_id) {
+            $urls[] = 'https://themedge.com/autore/' . $this->author_id;
+        }
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->timeout(5)
+                ->post("https://api.cloudflare.com/client/v4/zones/{$zoneId}/purge_cache", [
+                    'files' => $urls,
+                ]);
+
+            if ($response->failed()) {
+                \Log::warning('Cloudflare purge failed', [
+                    'article_id' => $this->id,
+                    'urls' => $urls,
+                    'response' => $response->json(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Cloudflare purge exception: ' . $e->getMessage(), [
+                'article_id' => $this->id,
+            ]);
+        }
     }
 
     // ============================================================
