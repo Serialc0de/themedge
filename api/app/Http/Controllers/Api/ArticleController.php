@@ -101,6 +101,35 @@ class ArticleController extends Controller
     }
 
     /**
+     * Fact-check di un articolo.
+     */
+    public function factChecks(string $slug): \Illuminate\Http\JsonResponse
+    {
+        $article = Article::where('slug', $slug)->first();
+        if (!$article) {
+            return response()->json(['error' => 'Articolo non trovato'], 404);
+        }
+
+        $factChecks = $article->factChecks()
+            ->ordered()
+            ->get()
+            ->map(fn ($fc) => [
+                'id' => $fc->id,
+                'claim' => $fc->claim,
+                'verdict' => $fc->verdict,
+                'verdict_label' => $fc->verdict_label,
+                'verdict_icon' => $fc->verdict_icon,
+                'verdict_color' => $fc->verdict_color,
+                'verdict_description' => $fc->verdict_description,
+                'source_url' => $fc->source_url,
+                'source_name' => $fc->source_name,
+                'note' => $fc->note,
+                'order' => $fc->order,
+            ]);
+
+        return response()->json(['data' => $factChecks]);
+    }
+    /**
      * Approfondimenti curati editorialmente.
      */
     public function curated(string $slug): \Illuminate\Http\JsonResponse

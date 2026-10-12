@@ -434,6 +434,55 @@ class ArticleResource extends Resource
                         ->columnSpanFull(),
                 ]),
 
+            Forms\Components\Section::make('✅ Fact-check')
+                ->description('Affermazioni verificate con fonti attendibili.')
+                ->icon('heroicon-o-check-badge')
+                ->collapsible()
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('factChecks')
+                        ->relationship()
+                        ->label('Affermazioni verificate')
+                        ->schema([
+                            Forms\Components\Textarea::make('claim')
+                                ->label('Affermazione')
+                                ->required()
+                                ->rows(2)
+                                ->columnSpanFull(),
+
+                            Forms\Components\Select::make('verdict')
+                                ->label('Verdetto')
+                                ->options(\App\Models\ArticleFactCheck::VERDICT_LABELS)
+                                ->required()
+                                ->default('in_review'),
+
+                            Forms\Components\TextInput::make('source_name')
+                                ->label('Fonte')
+                                ->maxLength(200),
+
+                            Forms\Components\TextInput::make('source_url')
+                                ->label('URL fonte')
+                                ->url()
+                                ->maxLength(500),
+
+                            Forms\Components\Textarea::make('note')
+                                ->label('Nota editoriale')
+                                ->rows(2)
+                                ->columnSpanFull(),
+
+                            Forms\Components\TextInput::make('order')
+                                ->label('Ordine')
+                                ->numeric()
+                                ->default(0),
+                        ])
+                        ->columns(2)
+                        ->reorderable('order')
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): ?string => $state['claim'] ?? 'Nuovo fact-check')
+                        ->addActionLabel('Aggiungi fact-check')
+                        ->defaultItems(0),
+                ])
+                ->columns(1),
             Forms\Components\Section::make('🎯 Highlight Policy')
                 ->description('Controlla come gli utenti possono evidenziare il testo di questo articolo.')
                 ->columns(2)

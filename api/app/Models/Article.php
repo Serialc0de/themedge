@@ -703,4 +703,18 @@ class Article extends Model implements HasMedia
         return $query->where('ai_disclosure', '!=', 'none');
     }
 
+    // ============================================================
+    // FACT-CHECK — Relazione
+    // ============================================================
+
+    public function factChecks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ArticleFactCheck::class)->ordered();
+    }
+
+    public function hasFactChecks(): bool
+    {
+        return $this->factChecks()->exists();
+    }
+
 }
