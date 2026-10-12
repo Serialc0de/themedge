@@ -1,6 +1,16 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import BreakingBadge from './BreakingBadge';
 import { SaveIconButton } from './SaveIconButton';
+
+// Blur placeholder base64 (grigio chiaro) per evitare flash di caricamento
+const BLUR_DATA_URL =
+  'data:image/svg+xml;base64,' +
+  (typeof window === 'undefined'
+    ? Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'
+      ).toString('base64')
+    : btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'));
 
 interface Article {
   id: number;
@@ -89,10 +99,14 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
               href={`/articolo/${article.slug}`}
               className="block w-24 h-24 md:w-32 md:h-32 overflow-hidden bg-gray-100 dark:bg-gray-800"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={article.featured_image}
                 alt={article.title}
+                width={128}
+                height={128}
+                sizes="(max-width: 768px) 96px, 128px"
+                placeholder="blur"
+                blurDataURL={BLUR_DATA_URL}
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
               />
             </Link>
@@ -137,11 +151,15 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
         <Link href={`/articolo/${article.slug}`} className="block group">
           {article.featured_image && (
             <div className="aspect-[16/10] mb-5 overflow-hidden bg-gray-100 dark:bg-gray-800 relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={article.featured_image}
                 alt={article.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 800px"
+                priority
+                placeholder="blur"
+                blurDataURL={BLUR_DATA_URL}
+                className="object-cover group-hover:scale-105 transition-transform duration-700"
               />
               {article.is_breaking && (
                 <div className="absolute top-3 left-3 z-10">
@@ -188,11 +206,14 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
       <Link href={`/articolo/${article.slug}`} className="block group">
         {article.featured_image && (
           <div className="aspect-video mb-4 overflow-hidden bg-gray-100 dark:bg-gray-800 relative">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={article.featured_image}
               alt={article.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 400px"
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
             {article.is_breaking && (
               <div className="absolute top-2 left-2 z-10">

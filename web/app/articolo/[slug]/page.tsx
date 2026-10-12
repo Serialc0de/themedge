@@ -1,10 +1,19 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import Sidebar from '@/components/Sidebar';
 import ReadingProgress from '@/components/ReadingProgress';
 import CommentsSection from '@/components/CommentsSection';
 import { ArticleReader } from '@/components/article/ArticleReader';
+
+const BLUR_DATA_URL =
+  'data:image/svg+xml;base64,' +
+  (typeof window === 'undefined'
+    ? Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'
+      ).toString('base64')
+    : btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'));
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://themedge.com';
@@ -249,10 +258,16 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           {/* Immagine */}
           {article.featured_image && (
             <figure className="mb-8">
-              <img
+              <Image
                 src={article.featured_image}
                 alt={article.title}
-                className="w-full"
+                width={1200}
+                height={675}
+                sizes="(max-width: 1200px) 100vw, 800px"
+                priority
+                placeholder="blur"
+                blurDataURL={BLUR_DATA_URL}
+                className="w-full h-auto"
               />
             </figure>
           )}
@@ -307,11 +322,15 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
                   <article key={rel.id}>
                     <Link href={`/articolo/${rel.slug}`} className="block group">
                       {rel.featured_image && (
-                        <div className="aspect-video mb-3 overflow-hidden bg-gray-100">
-                          <img
+                        <div className="aspect-video mb-3 overflow-hidden bg-gray-100 relative">
+                          <Image
                             src={rel.featured_image}
                             alt={rel.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            fill
+                            sizes="(max-width: 768px) 100vw, 400px"
+                            placeholder="blur"
+                            blurDataURL={BLUR_DATA_URL}
+                            className="object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                         </div>
                       )}

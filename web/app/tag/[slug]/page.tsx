@@ -1,6 +1,15 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
+
+const BLUR_DATA_URL =
+  'data:image/svg+xml;base64,' +
+  (typeof window === 'undefined'
+    ? Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'
+      ).toString('base64')
+    : btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'));
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://themedge.com';
@@ -76,12 +85,16 @@ export default async function TagPage({ params }: { params: Promise<{ slug: stri
             <article key={article.id}>
               <Link href={`/articolo/${article.slug}`} className="block group">
                 {article.featured_image && (
-                  <div className="aspect-video mb-4 overflow-hidden bg-gray-100">
-                    <img
-                      src={article.featured_image}
-                      alt={article.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
+                  <div className="aspect-video mb-4 overflow-hidden bg-gray-100 relative">
+                    <Image
+                        src={article.featured_image}
+                        alt={article.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 400px"
+                        placeholder="blur"
+                        blurDataURL={BLUR_DATA_URL}
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
                   </div>
                 )}
                 <div className="mb-2 text-xs uppercase tracking-wider text-gray-500">
