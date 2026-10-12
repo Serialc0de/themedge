@@ -19,6 +19,7 @@ import { ArticleKnowledgeBox } from '@/components/article/ArticleKnowledgeBox';
 import { ArticleTimeline } from '@/components/article/ArticleTimeline';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
+import { useGlossaryHighlighting } from '@/lib/use-glossary-highlighting';
 
 type Props = {
   articleId: number;
@@ -80,6 +81,9 @@ function ArticleReaderInner({
   const toast = useToast();
   const orphansNotifiedRef = useRef<Set<number>>(new Set());
   const hlConfig = useHighlightConfig(articleSlug);
+
+  // Auto-link del glossario sui termini tecnici
+  useGlossaryHighlighting(containerRef);
 
   const handleHighlightClick = useCallback(
     (highlight: any, x: number, y: number) => {

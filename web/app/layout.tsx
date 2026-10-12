@@ -10,6 +10,7 @@ import SeoHead from '@/components/SeoHead';
 import SocialLinks from '@/components/SocialLinks';
 import BreakingBanner from '@/components/BreakingBanner';
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
+import { GlossaryTooltipManager } from '@/components/GlossaryTooltipManager';
 import PushSubscribeButton from '@/components/PushSubscribeButton';
 import { ReaderProvider } from '@/lib/reader';
 import { ReadingListProvider } from '@/lib/reading-list';
@@ -257,6 +258,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                   </li>
                   <li><Link href="/chi-siamo" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Chi siamo</Link></li>
                   <li><Link href="/redazione" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Redazione</Link></li>
+                  <li><Link href="/glossario" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Glossario</Link></li>
                   <li><Link href="/correzioni" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Correzioni</Link></li>
                   <li><Link href="/segnala" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Segnala</Link></li>
                   <li><Link href="/contatti" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Contatti</Link></li>
@@ -285,6 +287,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <ScrollToTop />
         <CookieBanner />
         <ServiceWorkerRegister />
+        <GlossaryTooltipManager />
                 <ToastContainer />
             </ToastProvider>
           </ReadingListProvider>
