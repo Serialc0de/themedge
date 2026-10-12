@@ -74,3 +74,7 @@ _ide_helper_models.php
 *.bak2.*
 *.bak3.*
 *.bak4.*
+
+# Backup files
+*.bak*
+*.generated*
