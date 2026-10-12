@@ -432,3 +432,29 @@ Tutte le modifiche importanti del progetto sono documentate qui.
   - Cause investigate: timeAgo, gravatar, DOMPurify, toLocaleDateString, BLUR_DATA_URL, dynamic import, GlossaryTooltipManager — tutte fixate, ma il 418 persiste
   - Prossimo step: React DevTools in dev mode (non urgente)
 
+
+---
+
+## [2026-10-12] — Fix timeAgo + tooltip glossario + relative mancanti
+
+### Fixati
+- **lib/time.ts**: funzione `timeAgo` unificata (era duplicata in 8 file con logica divergente)
+  - Risolto "1 giorni fa" (mancava singolare) e "3 giornoi fa" (build vecchia)
+- **GlossaryTooltipManager**: 
+  - Fix posizionamento tooltip con React Portal + coordinate esplicite
+  - Freccia ora punta **esattamente alla parola** cliccata (usa `getClientRects` per il rect preciso del testo sotto il mouse)
+  - Clamp ai bordi dello schermo per non uscire dal viewport
+  - Delay 250ms per hover sul tooltip
+- **6 `relative` mancanti** su contenitori `<Image fill>`:
+  - `app/redazione`, `app/diretta/[slug]`, `app/ultimora`, `app/dirette` (2), `components/ArticleCard` (variant list)
+  - Immagini non scappano più nell'header
+- **next.config.ts**: aggiunti hostname per thumbnail esterne (YouTube, Vimeo, Twitter, Instagram, TikTok, Spotify)
+- **ArticleCorrections**: `suppressHydrationWarning` su `toLocaleDateString`
+- **useGlossaryHighlighting**: delay 2s per evitare mismatch DOM
+
+### Known issue
+- **React error #418** (hydration mismatch) — non risolto
+  - Impatto utente: nullo (React recupera automaticamente)
+  - Cause investigate: timeAgo, gravatar, DOMPurify, toLocaleDateString, BLUR_DATA_URL, dynamic import — tutte fixate, ma persiste
+  - Prossimo step: React DevTools in dev mode (non urgente)
+
