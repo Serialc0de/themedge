@@ -1,7 +1,16 @@
 import { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import LiveBlogStream from '@/components/LiveBlogStream';
+
+const BLUR_DATA_URL =
+  'data:image/svg+xml;base64,' +
+  (typeof window === 'undefined'
+    ? Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'
+      ).toString('base64')
+    : btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'));
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 
@@ -160,10 +169,15 @@ export default async function DirettaPage({ params }: { params: Promise<{ slug: 
       {/* Immagine di copertina */}
       {blog.featured_image && (
         <div className="mb-8 overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={blog.featured_image}
             alt={blog.title}
+            width={1200}
+            height={750}
+            sizes="(max-width: 1200px) 100vw, 800px"
+            priority
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
             className="w-full aspect-[16/10] object-cover"
           />
         </div>

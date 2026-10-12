@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
@@ -6,6 +7,14 @@ export const metadata: Metadata = {
   description: 'Tutte le dirette live di Themedge: eventi, elezioni, sport, conferenze stampa e molto altro.',
   robots: { index: true, follow: true },
 };
+
+const BLUR_DATA_URL =
+  'data:image/svg+xml;base64,' +
+  (typeof window === 'undefined'
+    ? Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'
+      ).toString('base64')
+    : btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'));
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 
@@ -83,10 +92,14 @@ export default async function DirettePage() {
               >
                 {blog.featured_image && (
                   <Link href={`/diretta/${blog.slug}`} className="block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                      <Image
                       src={blog.featured_image}
                       alt={blog.title}
+                      width={800}
+                      height={450}
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
+                      placeholder="blur"
+                      blurDataURL={BLUR_DATA_URL}
                       className="w-full aspect-video object-cover hover:scale-105 transition-transform duration-500"
                     />
                   </Link>
@@ -148,11 +161,14 @@ export default async function DirettePage() {
                     href={`/diretta/${blog.slug}`}
                     className="flex-shrink-0 w-32 h-24 md:w-40 md:h-28 overflow-hidden bg-gray-100 dark:bg-gray-800"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                      <Image
                       src={blog.featured_image}
                       alt={blog.title}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 400px"
+                      placeholder="blur"
+                      blurDataURL={BLUR_DATA_URL}
+                      className="object-cover hover:scale-105 transition-transform duration-500"
                     />
                   </Link>
                 )}

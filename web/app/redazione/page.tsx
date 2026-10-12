@@ -1,10 +1,19 @@
 import { Metadata } from 'next';
+import Image from 'next/image';
 
 export const metadata: Metadata = {
   title: 'Redazione',
   description: 'La redazione di Themedge: chi siamo, chi scrive, chi verifica.',
   robots: { index: true, follow: true },
 };
+
+const BLUR_DATA_URL =
+  'data:image/svg+xml;base64,' +
+  (typeof window === 'undefined'
+    ? Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'
+      ).toString('base64')
+    : btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'));
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 
@@ -65,11 +74,14 @@ export default async function RedazionePage() {
             >
               <div className="aspect-square overflow-hidden bg-gray-100 dark:bg-gray-800 mb-4 max-w-[240px] mx-auto rounded-full">
                 {member.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                            <Image
                     src={member.avatar}
                     alt={member.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    fill
+                    sizes="(max-width: 768px) 50vw, 200px"
+                    placeholder="blur"
+                    blurDataURL={BLUR_DATA_URL}
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-400 text-5xl font-serif">

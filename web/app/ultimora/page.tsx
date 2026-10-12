@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
@@ -11,6 +12,14 @@ export const metadata: Metadata = {
     type: 'website',
   },
 };
+
+const BLUR_DATA_URL =
+  'data:image/svg+xml;base64,' +
+  (typeof window === 'undefined'
+    ? Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'
+      ).toString('base64')
+    : btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'));
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 
@@ -145,11 +154,14 @@ export default async function UltimoraPage() {
                         href={`/articolo/${item.slug}`}
                         className="flex-shrink-0 w-32 h-32 md:w-40 md:h-40 overflow-hidden bg-gray-100 dark:bg-gray-800"
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                              <Image
                           src={item.featured_image}
                           alt={item.title}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 400px"
+                          placeholder="blur"
+                          blurDataURL={BLUR_DATA_URL}
+                          className="object-cover hover:scale-105 transition-transform duration-500"
                         />
                       </Link>
                     )}

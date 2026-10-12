@@ -1,4 +1,15 @@
 import Link from 'next/link';
+import Image from 'next/image';
+
+const BLUR_DATA_URL =
+  'data:image/svg+xml;base64,' +
+  (typeof window === 'undefined'
+    ? Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'
+      ).toString('base64')
+    : btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'));
+
+
 
 interface Update {
   id: number;
@@ -156,11 +167,15 @@ export default function LiveBlogUpdate({ update, isLatest = false }: Props) {
       {/* Image */}
       {update.image && (
         <figure className="mt-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={update.image}
             alt={update.image_caption || 'Immagine'}
-            className="w-full rounded border border-gray-200 dark:border-gray-700"
+            width={1200}
+            height={675}
+            sizes="(max-width: 768px) 100vw, 800px"
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
+            className="w-full h-auto rounded border border-gray-200 dark:border-gray-700"
           />
           {update.image_caption && (
             <figcaption className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic text-center">

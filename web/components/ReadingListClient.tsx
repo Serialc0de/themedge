@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useReadingList, type ReadingListItem } from '@/lib/reading-list';
 
 // ============================================================
@@ -114,12 +115,14 @@ function ReadingListItemCard({
       {item.featured_image && (
         <Link
           href={`/articolo/${item.slug}`}
-          className="hidden h-24 w-32 shrink-0 overflow-hidden rounded-lg sm:block"
+          className="hidden h-24 w-32 shrink-0 overflow-hidden rounded-lg sm:block relative"
         >
-          <img
+          <Image
             src={item.featured_image.startsWith('http') ? item.featured_image : `${MEDIA_BASE}/${item.featured_image}`}
             alt={item.title}
-            className="h-full w-full object-cover transition group-hover:scale-105"
+            fill
+            sizes="128px"
+            className="object-cover transition group-hover:scale-105"
           />
         </Link>
       )}

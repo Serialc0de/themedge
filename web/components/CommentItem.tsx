@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import CommentForm from './CommentForm';
 
 interface CommentData {
@@ -44,12 +45,13 @@ export default function CommentItem({ comment, articleSlug, onReplySuccess, isRe
     >
       <div className="flex gap-4">
         {/* Avatar */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={comment.gravatar_url}
           alt={comment.author_name}
+          width={isReply ? 40 : 48}
+          height={isReply ? 40 : 48}
+          sizes={isReply ? '40px' : '48px'}
           className={`flex-shrink-0 rounded-full ${isReply ? 'w-10 h-10' : 'w-12 h-12'}`}
-          loading="lazy"
         />
 
         <div className="flex-1 min-w-0">
