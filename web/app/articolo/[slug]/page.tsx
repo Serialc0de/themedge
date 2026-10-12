@@ -209,26 +209,26 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           )}
 
           {/* Meta: autore, data, tempo lettura */}
-          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-8 pb-8 border-b border-gray-300">
+          <div className="mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-gray-300 pb-8 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-400">
             {article.author && (
-              <span>
-                di <strong>{article.author.name}</strong>
+              <span className="whitespace-nowrap">
+                di <strong className="text-gray-900 dark:text-gray-100">{article.author.name}</strong>
               </span>
             )}
-            <span>·</span>
-            <time>
+            <span aria-hidden="true" className="text-gray-400">·</span>
+            <time className="whitespace-nowrap">
               {new Date(article.published_at).toLocaleDateString('it-IT', {
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric',
               })}
             </time>
-            <span>·</span>
-            <span>{readTime} min di lettura</span>
+            <span aria-hidden="true" className="text-gray-400">·</span>
+            <span className="whitespace-nowrap">{readTime} min di lettura</span>
             {article.views > 0 && (
               <>
-                <span>·</span>
-                <span>{article.views} visualizzazioni</span>
+                <span aria-hidden="true" className="text-gray-400">·</span>
+                <span className="whitespace-nowrap">{article.views} visualizzazioni</span>
               </>
             )}
           </div>

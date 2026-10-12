@@ -14,6 +14,7 @@ import PushSubscribeButton from '@/components/PushSubscribeButton';
 import { ReaderProvider } from '@/lib/reader';
 import { ReadingListProvider } from '@/lib/reading-list';
 import { ReadingListNavIcon } from '@/components/ReadingListNavIcon';
+import { MobileMenu } from '@/components/MobileMenu';
 import { ToastProvider } from '@/lib/toast';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 
@@ -152,9 +153,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         />
 
         <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-          <div className="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">
-            <span className="capitalize">{today}</span>
-            <div className="flex items-center gap-4">
+          <div className="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center gap-2 text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">
+            <span className="truncate capitalize">
+              {today.split(' ').map((w, i) => (
+                <span key={i} className={i > 1 ? 'hidden sm:inline' : 'inline'}>
+                  {w}{i < today.split(' ').length - 1 ? ' ' : ''}
+                </span>
+              ))}
+            </span>
+            <div className="flex shrink-0 items-center gap-3 sm:gap-4">
               <Link href="/chi-siamo" className="hidden md:inline hover:text-black dark:hover:text-white transition">Chi siamo</Link>
               <Link href="/contatti" className="hidden md:inline hover:text-black dark:hover:text-white transition">Contatti</Link>
               <ThemeToggle />
@@ -163,17 +170,34 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         </div>
 
         <header className="border-b-4 border-black dark:border-gray-100">
-          <div className="max-w-7xl mx-auto px-4 py-6 md:py-10 text-center">
-            <Link href="/" className="inline-block group">
-              <h1 className="font-serif text-5xl md:text-8xl font-black tracking-tighter leading-none group-hover:text-red-700 transition-colors duration-300">{seoSettings.site_name}</h1>
-            </Link>
-            <p className="text-gray-600 dark:text-gray-400 mt-3 italic font-serif text-base md:text-lg">{seoSettings.site_tagline}</p>
+          <div className="max-w-7xl mx-auto px-4 py-4 md:py-10">
+            <div className="flex items-center justify-between gap-4">
+              {/* Hamburger (mobile only) */}
+              <div className="md:hidden">
+                <MobileMenu />
+              </div>
+
+              {/* Logo (centrato) */}
+              <div className="flex-1 text-center">
+                <Link href="/" className="inline-block group">
+                  <h1 className="font-serif text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-none group-hover:text-red-700 transition-colors duration-300">
+                    {seoSettings.site_name}
+                  </h1>
+                </Link>
+                <p className="mt-2 text-sm italic font-serif text-gray-600 md:mt-3 md:text-base lg:text-lg dark:text-gray-400">
+                  {seoSettings.site_tagline}
+                </p>
+              </div>
+
+              {/* Spacer (mobile) per centrare il logo */}
+              <div className="w-10 md:hidden" aria-hidden="true" />
+            </div>
           </div>
         </header>
 
-        <nav className="border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-950 sticky top-0 z-50 shadow-sm">
+        <nav className="hidden border-b border-gray-300 bg-white shadow-sm md:block md:sticky md:top-0 md:z-50 dark:border-gray-800 dark:bg-gray-950">
           <div className="max-w-7xl mx-auto px-4">
-            <ul className="flex flex-wrap justify-center gap-x-6 gap-y-2 md:gap-x-8 py-3 text-xs uppercase tracking-widest font-bold">
+            <ul className="flex justify-center gap-x-6 py-3 text-xs font-bold uppercase tracking-widest lg:gap-x-8">
               <li><Link href="/" className="hover:text-red-700 transition">Home</Link></li>
               <li>
                 <Link href="/ultimora" className="text-red-700 hover:text-red-800 transition flex items-center gap-1.5">
