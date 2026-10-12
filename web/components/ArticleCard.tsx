@@ -4,13 +4,7 @@ import BreakingBadge from './BreakingBadge';
 import { SaveIconButton } from './SaveIconButton';
 
 // Blur placeholder base64 (grigio chiaro) per evitare flash di caricamento
-const BLUR_DATA_URL =
-  'data:image/svg+xml;base64,' +
-  (typeof window === 'undefined'
-    ? Buffer.from(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'
-      ).toString('base64')
-    : btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'));
+const BLUR_DATA_URL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiBmaWxsPSIjZTVlN2ViIi8+PC9zdmc+';
 
 interface Article {
   id: number;
@@ -81,9 +75,7 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
               {article.excerpt}
             </p>
           )}
-          <p className="text-xs text-gray-500 mt-2 uppercase tracking-wider">
-            {timeAgo(article.published_at)}
-          </p>
+          <p className="text-xs text-gray-500 mt-2 uppercase tracking-wider" suppressHydrationWarning>{timeAgo(article.published_at)}</p>
         </Link>
       </article>
     );
@@ -105,8 +97,6 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
                 width={128}
                 height={128}
                 sizes="(max-width: 768px) 96px, 128px"
-                placeholder="blur"
-                blurDataURL={BLUR_DATA_URL}
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
               />
             </Link>
@@ -136,9 +126,7 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
               </p>
             )}
           </Link>
-          <p className="text-xs text-gray-500 mt-2 uppercase tracking-wider">
-            {timeAgo(article.published_at)}
-          </p>
+          <p className="text-xs text-gray-500 mt-2 uppercase tracking-wider" suppressHydrationWarning>{timeAgo(article.published_at)}</p>
         </div>
       </article>
     );
@@ -157,8 +145,6 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 800px"
                 priority
-                placeholder="blur"
-                blurDataURL={BLUR_DATA_URL}
                 className="object-cover group-hover:scale-105 transition-transform duration-700"
               />
               {article.is_breaking && (
@@ -178,7 +164,7 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
             {article.published_at && (
               <>
                 <span className="text-gray-400">·</span>
-                <time className="text-gray-500">{timeAgo(article.published_at)}</time>
+                <time className="text-gray-500" suppressHydrationWarning>{timeAgo(article.published_at)}</time>
               </>
             )}
           </div>
@@ -211,8 +197,6 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
               alt={article.title}
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 400px"
-              placeholder="blur"
-              blurDataURL={BLUR_DATA_URL}
               className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
             {article.is_breaking && (
@@ -232,7 +216,7 @@ export default function ArticleCard({ article, variant = 'default' }: Props) {
           {article.published_at && (
             <>
               <span className="text-gray-400">·</span>
-              <time className="text-gray-500">{timeAgo(article.published_at)}</time>
+              <time className="text-gray-500" suppressHydrationWarning>{timeAgo(article.published_at)}</time>
             </>
           )}
         </div>

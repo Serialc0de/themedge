@@ -13,13 +13,7 @@ export const metadata: Metadata = {
   },
 };
 
-const BLUR_DATA_URL =
-  'data:image/svg+xml;base64,' +
-  (typeof window === 'undefined'
-    ? Buffer.from(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'
-      ).toString('base64')
-    : btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'));
+const BLUR_DATA_URL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiBmaWxsPSIjZTVlN2ViIi8+PC9zdmc+';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 
@@ -159,8 +153,6 @@ export default async function UltimoraPage() {
                           alt={item.title}
                           fill
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 400px"
-                          placeholder="blur"
-                          blurDataURL={BLUR_DATA_URL}
                           className="object-cover hover:scale-105 transition-transform duration-500"
                         />
                       </Link>

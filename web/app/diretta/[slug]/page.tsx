@@ -4,13 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import LiveBlogStream from '@/components/LiveBlogStream';
 
-const BLUR_DATA_URL =
-  'data:image/svg+xml;base64,' +
-  (typeof window === 'undefined'
-    ? Buffer.from(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'
-      ).toString('base64')
-    : btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#e5e7eb"/></svg>'));
+const BLUR_DATA_URL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiBmaWxsPSIjZTVlN2ViIi8+PC9zdmc+';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 
@@ -176,8 +170,6 @@ export default async function DirettaPage({ params }: { params: Promise<{ slug: 
             height={750}
             sizes="(max-width: 1200px) 100vw, 800px"
             priority
-            placeholder="blur"
-            blurDataURL={BLUR_DATA_URL}
             className="w-full aspect-[16/10] object-cover"
           />
         </div>

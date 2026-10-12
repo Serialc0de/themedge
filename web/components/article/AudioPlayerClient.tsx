@@ -13,22 +13,13 @@ export function AudioPlayerClient(props: Props) {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    console.log('[AudioPlayerClient] useEffect scattato, isClient=true');
     setIsClient(true);
   }, []);
 
-  console.log('[AudioPlayerClient] render, isClient=', isClient, 'props:', {
-    title: props.title?.slice(0, 30),
-    contentHtmlLength: props.contentHtml?.length,
-  });
-
+  // IMPORTANTE: il primo render (SSR + primo client) deve essere identico.
+  // Usiamo un placeholder che matcha il `loading` del dynamic import in ArticleReader.
   if (!isClient) {
-    return (
-      <div
-        className="my-6 h-16 animate-pulse rounded-xl border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-gray-900"
-        aria-hidden="true"
-      />
-    );
+    return <div className="h-20 my-6" aria-hidden="true" />;
   }
 
   try {
