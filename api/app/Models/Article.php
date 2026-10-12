@@ -18,6 +18,25 @@ class Article extends Model implements HasMedia
 {
     use SoftDeletes, InteractsWithMedia, Searchable, LogsActivity;
 
+
+    // ============================================================
+    // AI DISCLOSURE — Trasparenza uso AI
+    // ============================================================
+
+    public const AI_DISCLOSURE_LABELS = [
+        'none' => 'Nessun uso AI',
+        'assisted' => 'Assistito da AI',
+        'generated' => 'Generato da AI',
+        'edited' => 'Editato da AI',
+    ];
+
+    public const AI_DISCLOSURE_DESCRIPTIONS = [
+        'none' => 'Contenuto interamente umano.',
+        'assisted' => 'L\'AI è stata usata per ricerca, editing o suggerimenti. La stesura è umana.',
+        'generated' => 'Contenuto generato con AI e rivisto da un giornalista.',
+        'edited' => 'Contenuto umano con revisione linguistica/stilistica assistita da AI.',
+    ];
+
     protected $fillable = [
         'title', 'slug', 'excerpt', 'content', 'featured_image',
         'status', 'published_at', 'author_id', 'category_id',
@@ -30,6 +49,7 @@ class Article extends Model implements HasMedia
         'breaking_type', 'breaking_bg_color', 'breaking_text_color', 'breaking_show_badge',
         'content_raw',
         'highlight_policy_id', 'highlight_settings', 'highlight_until', 'highlight_locked',
+        'ai_disclosure', 'ai_disclosure_note',
     ];
 
     protected $casts = [
@@ -49,6 +69,7 @@ class Article extends Model implements HasMedia
         'highlight_settings' => 'array',
         'highlight_until' => 'datetime',
         'highlight_locked' => 'boolean',
+        'ai_disclosure' => 'string',
     ];
 
     // ============================================================
@@ -657,4 +678,29 @@ class Article extends Model implements HasMedia
 
         return null;
     }
+
+    // ============================================================
+    // AI DISCLOSURE — Helper
+    // ============================================================
+
+    public function getAiDisclosureLabelAttribute(): string
+    {
+        return self::AI_DISCLOSURE_LABELS[$this->ai_disclosure] ?? 'Sconosciuto';
+    }
+
+    public function getAiDisclosureDescriptionAttribute(): string
+    {
+        return self::AI_DISCLOSURE_DESCRIPTIONS[$this->ai_disclosure] ?? '';
+    }
+
+    public function hasAiDisclosure(): bool
+    {
+        return $this->ai_disclosure && $this->ai_disclosure !== 'none';
+    }
+
+    public function scopeWithAiDisclosure($query)
+    {
+        return $query->where('ai_disclosure', '!=', 'none');
+    }
+
 }

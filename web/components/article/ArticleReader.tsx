@@ -13,6 +13,7 @@ import { CuratedReads } from '@/components/article/CuratedReads';
 import { SaveButton } from '@/components/article/SaveButton';
 import { AudioPlayerClient } from '@/components/article/AudioPlayerClient';
 import { ShareButtons } from '@/components/article/ShareButtons';
+import { AiDisclosureBadge } from '@/components/article/AiDisclosureBadge';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
 
@@ -29,6 +30,10 @@ type Props = {
     category_name: string | null;
     published_at: string | null;
     reading_time: number | null;
+    ai_disclosure?: 'none' | 'assisted' | 'generated' | 'edited';
+    ai_disclosure_label?: string;
+    ai_disclosure_description?: string;
+    ai_disclosure_note?: string | null;
   };
 };
 
@@ -109,6 +114,13 @@ function ArticleReaderInner({
           />
 
           <ArticleBody html={content} />
+
+          <AiDisclosureBadge
+            disclosure={article.ai_disclosure ?? 'none'}
+            label={article.ai_disclosure_label}
+            description={article.ai_disclosure_description}
+            note={article.ai_disclosure_note}
+          />
         </div>
 
         <ArticleCorrections articleSlug={articleSlug} />
@@ -164,6 +176,13 @@ function ArticleReaderInner({
         />
 
         <ArticleBody html={content} />
+
+          <AiDisclosureBadge
+            disclosure={article.ai_disclosure ?? 'none'}
+            label={article.ai_disclosure_label}
+            description={article.ai_disclosure_description}
+            note={article.ai_disclosure_note}
+          />
         <HighlightLayer
           containerRef={containerRef}
           onHighlightClick={handleHighlightClick}

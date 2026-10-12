@@ -477,6 +477,29 @@ class ArticleResource extends Resource
                         ->label('Permetti commenti')
                         ->default(true),
                 ]),
+
+            Forms\Components\Section::make('🤖 Trasparenza AI')
+                ->description("Dichiara in modo trasparente l'uso di intelligenza artificiale in questo articolo.")
+                ->icon('heroicon-o-sparkles')
+                ->collapsible()
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Select::make('ai_disclosure')
+                        ->label('Livello di uso AI')
+                        ->options(\App\Models\Article::AI_DISCLOSURE_LABELS)
+                        ->default('none')
+                        ->required()
+                        ->live()
+                        ->helperText(fn (\Filament\Forms\Get $get) => \App\Models\Article::AI_DISCLOSURE_DESCRIPTIONS[$get('ai_disclosure')] ?? ''),
+
+                    Forms\Components\Textarea::make('ai_disclosure_note')
+                        ->label('Nota integrativa (opzionale)')
+                        ->placeholder('Es. "Bozza generata con GPT-4, fact-checking e riscrittura umana."')
+                        ->rows(3)
+                        ->visible(fn (\Filament\Forms\Get $get) => $get('ai_disclosure') !== 'none')
+                        ->columnSpanFull(),
+                ])
+                ->columns(2),
         ]);
     }
 

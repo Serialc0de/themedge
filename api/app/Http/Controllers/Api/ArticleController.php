@@ -140,6 +140,10 @@ class ArticleController extends Controller
             'is_featured' => $article->is_featured,
             'is_breaking' => $article->isBreakingActive(),
             'breaking_priority' => $article->breaking_priority ?? 0,
+            'ai_disclosure' => $article->ai_disclosure ?? 'none',
+            'ai_disclosure_label' => $article->ai_disclosure_label,
+            'ai_disclosure_description' => $article->ai_disclosure_description,
+            'ai_disclosure_note' => $article->ai_disclosure_note,
             'category' => $article->category ? [
                 'id' => $article->category->id,
                 'name' => $article->category->name,
