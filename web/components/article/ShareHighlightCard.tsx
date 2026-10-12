@@ -156,10 +156,10 @@ export function ShareHighlightCard({ highlight, onClose }: Props) {
             ref={cardRef}
             style={{
               width: '100%',
-              maxWidth: 400,
+              maxWidth: 'min(400px, calc(100vw - 56px))',
               aspectRatio: '1 / 1',
               background: '#fafaf9',  // stone-50, hardcoded
-              padding: '2rem 1.75rem',
+              padding: 'clamp(1rem, 4vw, 2rem) clamp(1rem, 4vw, 1.75rem)',
               display: 'flex',
               flexDirection: 'column',
               gap: '1.25rem',
@@ -220,7 +220,7 @@ export function ShareHighlightCard({ highlight, onClose }: Props) {
                   padding: '1rem 1.25rem',
                   borderRadius: '0 0.375rem 0.375rem 0',
                   fontStyle: 'italic',
-                  fontSize: '1.125rem',
+                  fontSize: 'clamp(0.95rem, 4vw, 1.125rem)',
                   lineHeight: 1.4,
                   color: accent.text,
                   width: '100%',

@@ -209,28 +209,41 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           )}
 
           {/* Meta: autore, data, tempo lettura */}
-          <div className="mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-gray-300 pb-8 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-400">
+          <div className="mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-gray-300 pb-8 text-xs text-gray-600 sm:text-sm dark:border-gray-700 dark:text-gray-400">
             {article.author && (
               <span className="whitespace-nowrap">
                 di <strong className="text-gray-900 dark:text-gray-100">{article.author.name}</strong>
               </span>
             )}
-            <span aria-hidden="true" className="text-gray-400">·</span>
+
+            {article.author && <span aria-hidden="true" className="text-gray-400">·</span>}
             <time className="whitespace-nowrap">
               {new Date(article.published_at).toLocaleDateString('it-IT', {
                 day: 'numeric',
-                month: 'long',
+                month: 'short',
                 year: 'numeric',
               })}
             </time>
-            <span aria-hidden="true" className="text-gray-400">·</span>
-            <span className="whitespace-nowrap">{readTime} min di lettura</span>
+
+            <span aria-hidden="true" className="hidden text-gray-400 sm:inline">·</span>
+            <span className="hidden whitespace-nowrap sm:inline">{readTime} min di lettura</span>
             {article.views > 0 && (
-              <>
-                <span aria-hidden="true" className="text-gray-400">·</span>
-                <span className="whitespace-nowrap">{article.views} visualizzazioni</span>
-              </>
+              <span className="hidden whitespace-nowrap sm:inline">
+                <span aria-hidden="true" className="mr-2 text-gray-400">·</span>
+                {article.views} visualizzazioni
+              </span>
             )}
+
+            {/* Mobile: riga 2 con lettura + visualizzazioni */}
+            <span className="w-full text-gray-500 sm:hidden">
+              {readTime} min di lettura
+              {article.views > 0 && (
+                <>
+                  {' · '}
+                  {article.views} visualizzazioni
+                </>
+              )}
+            </span>
           </div>
 
           {/* Immagine */}

@@ -118,14 +118,14 @@ export function ShareButtons({ url, title, variant = 'full' }: Props) {
         <span>Condividi questo articolo</span>
       </h2>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
         {/* Web Share API (mobile nativo) */}
         {supportsNativeShare && (
           <button
             type="button"
             onClick={handleNativeShare}
             disabled={sharing}
-            className="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-gray-200"
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-black px-4 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-gray-200"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342A3 3 0 106 11a3 3 0 002.684 2.342zm0 0a3.001 3.001 0 010 3.316m0-3.316l6.632 3.316m0 0a3 3 0 11.001 5.999 3 3 0 01-.001-5.999zm0-3.316L8.684 6.342m0 0a3 3 0 11-.001-5.999 3 3 0 01.001 5.999zm6.632 3.316A3 3 0 1021 13a3 3 0 01-2.684-2.342z" />
@@ -138,7 +138,7 @@ export function ShareButtons({ url, title, variant = 'full' }: Props) {
         <button
           type="button"
           onClick={handleCopyLink}
-          className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+          className={`inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition ${
             copied
               ? 'border-green-500 bg-green-50 text-green-700 dark:border-green-600 dark:bg-green-950/50 dark:text-green-400'
               : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'
@@ -171,7 +171,7 @@ export function ShareButtons({ url, title, variant = 'full' }: Props) {
             rel="noopener noreferrer"
             aria-label={`Condividi su ${s.label}`}
             title={`Condividi su ${s.label}`}
-            className={`inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 ${s.bg}`}
+            className={`inline-flex h-11 items-center gap-2 rounded-full border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 ${s.bg}`}
           >
             {s.icon}
             {variant === 'full' && <span className="hidden sm:inline">{s.label}</span>}

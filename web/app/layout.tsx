@@ -172,32 +172,32 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <header className="border-b-4 border-black dark:border-gray-100">
           <div className="max-w-7xl mx-auto px-4 py-4 md:py-10">
             <div className="flex items-center justify-between gap-4">
-              {/* Hamburger (mobile only) */}
-              <div className="md:hidden">
+              {/* Hamburger (mobile + tablet) */}
+              <div className="xl:hidden">
                 <MobileMenu />
               </div>
 
               {/* Logo (centrato) */}
               <div className="flex-1 text-center">
                 <Link href="/" className="inline-block group">
-                  <h1 className="font-serif text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-none group-hover:text-red-700 transition-colors duration-300">
+                  <h1 className="font-serif font-black tracking-tighter leading-none group-hover:text-red-700 transition-colors duration-300" style={{ fontSize: 'clamp(1.875rem, 4vw + 1rem, 6rem)' }}>
                     {seoSettings.site_name}
                   </h1>
                 </Link>
-                <p className="mt-2 text-sm italic font-serif text-gray-600 md:mt-3 md:text-base lg:text-lg dark:text-gray-400">
+                <p className="mt-2 italic font-serif text-gray-600 md:mt-3 dark:text-gray-400" style={{ fontSize: 'clamp(0.875rem, 1.5vw, 1.125rem)' }}>
                   {seoSettings.site_tagline}
                 </p>
               </div>
 
               {/* Spacer (mobile) per centrare il logo */}
-              <div className="w-10 md:hidden" aria-hidden="true" />
+              <div className="w-10 xl:hidden" aria-hidden="true" />
             </div>
           </div>
         </header>
 
-        <nav className="hidden border-b border-gray-300 bg-white shadow-sm md:block md:sticky md:top-0 md:z-50 dark:border-gray-800 dark:bg-gray-950">
+        <nav className="hidden border-b border-gray-300 bg-white shadow-sm xl:block xl:sticky xl:top-0 xl:z-50 dark:border-gray-800 dark:bg-gray-950">
           <div className="max-w-7xl mx-auto px-4">
-            <ul className="flex justify-center gap-x-6 py-3 text-xs font-bold uppercase tracking-widest lg:gap-x-8">
+            <ul className="flex justify-center gap-x-4 py-3 text-xs font-bold uppercase tracking-widest 2xl:gap-x-6">
               <li><Link href="/" className="hover:text-red-700 transition">Home</Link></li>
               <li>
                 <Link href="/ultimora" className="text-red-700 hover:text-red-800 transition flex items-center gap-1.5">
@@ -226,8 +226,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
         <footer className="border-t-4 border-black dark:border-gray-100 bg-gray-50 dark:bg-gray-900 mt-16">
           <div className="max-w-7xl mx-auto px-4 py-12">
-            <div className="grid md:grid-cols-5 gap-8 mb-8">
-              <div className="md:col-span-2">
+            <div className="grid gap-8 mb-8 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="sm:col-span-2 lg:col-span-2">
                 <h3 className="font-serif text-3xl font-black mb-3">{seoSettings.site_name}</h3>
                 <p className="text-gray-600 dark:text-gray-400 font-serif italic mb-3">{seoSettings.site_tagline}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{seoSettings.site_description}</p>

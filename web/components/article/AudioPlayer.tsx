@@ -156,7 +156,7 @@ export function AudioPlayer({ title, contentHtml, authorName }: Props) {
                   key={s}
                   type="button"
                   onClick={() => tts.setSpeed(s as SpeedOption)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  className={`inline-flex h-9 min-w-12 items-center justify-center rounded-full px-3 text-xs font-semibold transition ${
                     tts.speed === s
                       ? 'bg-black text-white dark:bg-white dark:text-black'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
@@ -181,7 +181,7 @@ export function AudioPlayer({ title, contentHtml, authorName }: Props) {
               type="button"
               onClick={tts.stop}
               disabled={tts.status === 'idle'}
-              className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="inline-flex h-10 items-center rounded-md bg-gray-100 px-4 text-xs font-semibold text-gray-700 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               ⏹ Ferma
             </button>
