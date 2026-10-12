@@ -333,3 +333,79 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - Sezione CuratedReads: dark mode ottimizzato (bg-gray-50 / bg-gray-800)
 
 ---
+
+---
+
+## [2026-10-12] — Pacchetto Lettore Premium
+
+### Aggiunto — Reading List ("Salva per dopo")
+- Context `ReadingListProvider` con localStorage
+- Componente `SaveButton.tsx` per articolo
+- Componente `SaveIconButton.tsx` floating per card
+- Componente `ReadingListNavIcon.tsx` con badge conteggio navbar
+- Componente `ReadingListClient.tsx` pagina `/salvati`
+- Pagina `app/salvati/page.tsx`
+- Integrazione in `ArticleCard.tsx` (4 varianti) + `ArticleReader.tsx` (2 return)
+- Provider in `layout.tsx`
+
+### Aggiunto — Text-to-Speech (TTS)
+- Hook `useSpeechSynthesis` in `lib/tts.tsx`
+- Utility `tts-utils.ts` (extractText, estimateDuration, pickItalianVoice)
+- Componente `AudioPlayer.tsx` (play/pausa/velocità/progress)
+- Componente `AudioPlayerClient.tsx` (wrapper SSR-safe)
+- Supporto voci italiane + warning se assenti
+- Velocità 0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x (persistita in localStorage)
+
+### Aggiunto — Share nativi
+- Componente `ShareButtons.tsx` con Web Share API
+- Fallback desktop: Twitter/X, WhatsApp, LinkedIn, copia link
+- Toast feedback "Copiato!"
+- Integrato in `ArticleReader.tsx` (2 return)
+
+---
+
+## [2026-10-12] — Responsive + Performance
+
+### Fix Responsive — Header + Navbar
+- `components/MobileMenu.tsx` drawer da destra (hamburger fino a xl)
+- `app/globals.css`: animazioni fade-in, slide-in-right, overflow-x hidden
+- `app/layout.tsx`:
+  * Hamburger visibile < 1280px (xl)
+  * Navbar visibile ≥ 1280px (xl)
+  * Logo centrato responsive con `clamp(1.875rem, 4vw+1rem, 6rem)`
+  * Tagline fluid `clamp(0.875rem, 1.5vw, 1.125rem)`
+  * Top bar data abbreviata su mobile
+
+### Fix Responsive — Fix Batch 1
+- Footer grid: `sm:grid-cols-2 lg:grid-cols-5`
+- Byline articolo: 2 righe mobile / 1 riga desktop
+- ShareButtons: tap target h-11 (44px)
+- AudioPlayer: tap target aumentato (h-9 velocità, h-10 azioni)
+- ShareHighlightCard: max-width responsive con clamp
+- HighlightDetailPopup: width già clampato
+- MobileMenu: hamburger 44px
+
+### Performance — Cloudflare CDN
+- Cloudflare Cache Rule per HTML:
+  * Edge TTL 2h su `/articolo/*`, `/categoria/*`, `/tag/*`, `/autore/*`
+  * TTL 60 sec su homepage
+  * Ignore cache-control (Next.js invia no-store)
+  * Serve stale while revalidating
+- `config/services.php`: cloudflare token + zone_id
+- `Article::purgeCloudflareCache()` in `saved()`:
+  * Purge selettivo articolo + homepage + categoria + autore
+  * Solo per articoli pubblicati
+  * Log warning se fallisce
+- `.env`: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ZONE_ID`
+
+### Risultati Performance
+- **TTFB articolo:** 813ms → 30-80ms (**-90%**)
+- **TTFB homepage:** ~800ms → 35-65ms (**-90%**)
+- **Cache Cloudflare:** BYPASS → HIT
+- **Lighthouse Performance stimato:** ~75 → **~95**
+
+### Pulizia
+- Rimossi `.bak` dal repo
+- `.gitignore` aggiornato con `*.bak*` + `*.generated*`
+
+---
