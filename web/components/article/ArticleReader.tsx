@@ -15,6 +15,7 @@ import { AudioPlayerClient } from '@/components/article/AudioPlayerClient';
 import { ShareButtons } from '@/components/article/ShareButtons';
 import { AiDisclosureBadge } from '@/components/article/AiDisclosureBadge';
 import { ArticleFactChecks } from '@/components/article/ArticleFactChecks';
+import { ArticleKnowledgeBox } from '@/components/article/ArticleKnowledgeBox';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
 
@@ -132,6 +133,8 @@ function ArticleReaderInner({
 
       <ArticleFactChecks articleSlug={articleSlug} />
 
+      <ArticleKnowledgeBox articleSlug={articleSlug} />
+
       <ShareButtons
         url={`https://themedge.com/articolo/${articleSlug}`}
         title={article.title}
@@ -200,6 +203,8 @@ function ArticleReaderInner({
       <CuratedReads articleSlug={articleSlug} />
 
       <ArticleFactChecks articleSlug={articleSlug} />
+
+      <ArticleKnowledgeBox articleSlug={articleSlug} />
 
       <ShareButtons
         url={`https://themedge.com/articolo/${articleSlug}`}

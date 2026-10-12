@@ -483,6 +483,47 @@ class ArticleResource extends Resource
                         ->defaultItems(0),
                 ])
                 ->columns(1),
+            Forms\Components\Section::make('🧠 Cosa sappiamo / non sappiamo')
+                ->description('Struttura l\'informazione in 3 blocchi: fatti confermati, domande aperte, verifiche in corso.')
+                ->icon('heroicon-o-light-bulb')
+                ->collapsible()
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('knowledgeItems')
+                        ->relationship()
+                        ->label('Punti di conoscenza')
+                        ->schema([
+                            Forms\Components\Select::make('type')
+                                ->label('Tipo')
+                                ->options(\App\Models\ArticleKnowledgeItem::TYPE_LABELS)
+                                ->required()
+                                ->default('known'),
+
+                            Forms\Components\TextInput::make('order')
+                                ->label('Ordine')
+                                ->numeric()
+                                ->default(0),
+
+                            Forms\Components\Textarea::make('content')
+                                ->label('Contenuto')
+                                ->required()
+                                ->rows(2)
+                                ->columnSpanFull(),
+
+                            Forms\Components\TextInput::make('source')
+                                ->label('Fonte (opzionale)')
+                                ->maxLength(200)
+                                ->columnSpanFull()
+                                ->placeholder('Es. Comunicato ufficiale, Ministero, testimone...'),
+                        ])
+                        ->columns(2)
+                        ->reorderable('order')
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): ?string => isset($state['content']) && $state['content'] !== '' ? mb_substr($state['content'], 0, 60) . (mb_strlen($state['content']) > 60 ? '…' : '') : 'Nuovo punto')
+                        ->addActionLabel('Aggiungi punto')
+                        ->defaultItems(0),
+                ])
+                ->columns(1),
             Forms\Components\Section::make('🎯 Highlight Policy')
                 ->description('Controlla come gli utenti possono evidenziare il testo di questo articolo.')
                 ->columns(2)

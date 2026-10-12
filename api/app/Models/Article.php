@@ -717,4 +717,27 @@ class Article extends Model implements HasMedia
         return $this->factChecks()->exists();
     }
 
+    // ============================================================
+    // KNOWLEDGE ITEMS — Relazione
+    // ============================================================
+
+    public function knowledgeItems(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ArticleKnowledgeItem::class)->ordered();
+    }
+
+    public function hasKnowledgeItems(): bool
+    {
+        return $this->knowledgeItems()->exists();
+    }
+
+    public function knowledgeItemsByType(): array
+    {
+        return [
+            'known' => $this->knowledgeItems()->ofType('known')->get(),
+            'unknown' => $this->knowledgeItems()->ofType('unknown')->get(),
+            'verifying' => $this->knowledgeItems()->ofType('verifying')->get(),
+        ];
+    }
+
 }

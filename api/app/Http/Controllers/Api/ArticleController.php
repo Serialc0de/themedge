@@ -101,6 +101,48 @@ class ArticleController extends Controller
     }
 
     /**
+     * Punti di conoscenza di un articolo (cosa sappiamo / non sappiamo / stiamo verificando).
+     */
+    public function knowledge(string $slug): \Illuminate\Http\JsonResponse
+    {
+        $article = Article::where('slug', $slug)->first();
+        if (!$article) {
+            return response()->json(['error' => 'Articolo non trovato'], 404);
+        }
+
+        $items = $article->knowledgeItems()
+            ->ordered()
+            ->get()
+            ->map(fn ($item) => [
+                'id' => $item->id,
+                'type' => $item->type,
+                'type_label' => $item->type_label,
+                'type_icon' => $item->type_icon,
+                'type_color' => $item->type_color,
+                'type_description' => $item->type_description,
+                'content' => $item->content,
+                'source' => $item->source,
+                'order' => $item->order,
+            ]);
+
+        // Raggruppa per tipo per il frontend
+        $grouped = [
+            'known' => $items->where('type', 'known')->values()->all(),
+            'unknown' => $items->where('type', 'unknown')->values()->all(),
+            'verifying' => $items->where('type', 'verifying')->values()->all(),
+        ];
+
+        return response()->json([
+            'data' => $grouped,
+            'flat' => $items->values()->all(),
+            'counts' => [
+                'known' => count($grouped['known']),
+                'unknown' => count($grouped['unknown']),
+                'verifying' => count($grouped['verifying']),
+            ],
+        ]);
+    }
+    /**
      * Fact-check di un articolo.
      */
     public function factChecks(string $slug): \Illuminate\Http\JsonResponse

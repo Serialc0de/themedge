@@ -22,6 +22,7 @@ Route::get('/articles/{slug}', [ArticleController::class, 'show']);
 Route::get('/articles/{slug}/sources', [ArticleController::class, 'sources']);
 Route::get('/articles/{slug}/curated', [ArticleController::class, 'curated']);
 Route::get('/articles/{slug}/fact-checks', [ArticleController::class, 'factChecks']);
+Route::get('/articles/{slug}/knowledge', [ArticleController::class, 'knowledge']);
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/categories/{slug}', [CategoryController::class, 'show']);
 Route::get('/tags', [TagController::class, 'index']);
