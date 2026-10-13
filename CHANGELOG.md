@@ -711,3 +711,37 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - Match fuzzy: 5 strategie (slug, nome, alias, contenimento, parole)
 - RAM cleanup necessario post-job
 
+
+---
+
+## [2026-10-13] — 🎯 AI SEO Optimizer + Fix UX + ActionGroup
+
+### Aggiunto
+- **AI SEO Optimizer** con LLM locale (Ollama):
+  - `SeoOptimizer` (servizio)
+  - `GenerateSeoSuggestions` Job (async, retry modelli)
+  - Migration `ai_seo_suggestions` (JSON)
+  - Model `Article`: helper `hasSeoSuggestions()`, `seo_score`, `isSeoStale()`
+  - Filament Action **"🎯 Ottimizza SEO (AI)"**
+  - Componente Livewire `SeoSuggestionsPanel` con 4 bottoni:
+    - 📌 Applica SEO Title
+    - 📝 Applica Meta Description
+    - 🔗 Applica Slug (con redirect 301 automatico)
+    - ⚡ Applica tutti
+  - Sezione **"🎯 SEO AI (suggerimenti)"** in `ArticleResource`
+  - Troncamento automatico (60 char title, 160 char description)
+
+### Fix UX
+- **ActionGroup** in `EditArticle` per raggruppare le azioni AI:
+  - UI pulita: 3 bottoni invece di 6
+  - Titolo non compresso
+  - Azioni AI raggruppate nel dropdown "🤖 AI Actions"
+- **Bottoni HTML nativi** con `wire:click` (più affidabili di `getAction()`)
+- **Redirect 301 automatico** quando SEO cambia slug (nessun link rotto)
+
+### Impatto
+- SEO ottimizzato in 1 click
+- UI admin pulita
+- Nessun link rotto dopo cambio slug
+- 100% locale, $0 costi
+

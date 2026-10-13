@@ -51,6 +51,7 @@ class Article extends Model implements HasMedia
         'ai_disclosure', 'ai_disclosure_note',
         'ai_summary', 'ai_summary_generated_at', 'ai_summary_model',
         'detected_entities',
+        'ai_seo_suggestions', 'ai_seo_generated_at', 'ai_seo_model',
     ];
 
     protected $casts = [
@@ -74,6 +75,8 @@ class Article extends Model implements HasMedia
         'ai_disclosure' => 'string',
         'ai_summary' => 'array',
         'detected_entities' => 'array',
+        'ai_seo_suggestions' => 'array',
+        'ai_seo_generated_at' => 'datetime',
         'ai_summary_generated_at' => 'datetime',
     ];
 
@@ -724,6 +727,26 @@ class Article extends Model implements HasMedia
             $this->detected_entities_list,
             fn ($e) => !empty($e['exists'])
         ));
+    }
+
+    // ============================================================
+    // AI SEO SUGGESTIONS
+    // ============================================================
+
+    public function hasSeoSuggestions(): bool
+    {
+        return !empty($this->ai_seo_suggestions['seo_title']);
+    }
+
+    public function getSeoScoreAttribute(): int
+    {
+        return (int) ($this->ai_seo_suggestions['seo_score'] ?? 0);
+    }
+
+    public function isSeoStale(): bool
+    {
+        if (!$this->ai_seo_generated_at) return true;
+        return $this->ai_seo_generated_at->lt($this->updated_at);
     }
 
     // ============================================================

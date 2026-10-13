@@ -699,6 +699,18 @@ class ArticleResource extends Resource
                         ->defaultItems(0),
                 ])
                 ->columns(1),
+            Forms\Components\Section::make('🎯 SEO AI (suggerimenti)')
+                ->description('Suggerimenti SEO generati dall\'AI. Clicca "Applica" per usarli.')
+                ->icon('heroicon-o-sparkles')
+                ->collapsible()
+                ->collapsed()
+                ->visible(fn ($record) => $record && $record->hasSeoSuggestions())
+                ->schema([
+                    Forms\Components\Livewire::make('seo_suggestions_panel')
+                        ->component(\App\Livewire\SeoSuggestionsPanel::class)
+                        ->columnSpanFull(),
+                ])
+                ->columns(1),
             Forms\Components\Section::make('🔍 Entità rilevate (AI)')
                 ->description('Entità trovate dall\'AI. Collega quelle esistenti o creane di nuove.')
                 ->icon('heroicon-o-sparkles')
