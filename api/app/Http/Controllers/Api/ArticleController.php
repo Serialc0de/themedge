@@ -312,6 +312,12 @@ class ArticleController extends Controller
             'is_breaking' => $article->isBreakingActive(),
             'breaking_priority' => $article->breaking_priority ?? 0,
             'has_scrolly' => $article->hasScrollySections(),
+            'ai_summary' => $article->hasAiSummary() ? [
+                'tldr' => $article->ai_tldr,
+                'key_points' => $article->ai_key_points,
+                'summary' => $article->ai_summary_text,
+                'generated_at' => $article->ai_summary_generated_at?->toIso8601String(),
+            ] : null,
             'entities' => $article->entities()->published()->ordered()->get()->map(fn ($e) => [
                 'id' => $e->id,
                 'type' => $e->type,

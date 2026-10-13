@@ -765,9 +765,101 @@ class ArticleResource extends Resource
                         ->columnSpanFull(),
                 ])
                 ->columns(2),
+            Forms\Components\Section::make('🤖 AI Summary (TL;DR)')
+                ->description('Riassunto generato automaticamente dall\'AI. Puoi modificarlo manualmente se necessario.')
+                ->icon('heroicon-o-sparkles')
+                ->collapsible()
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Placeholder::make('ai_summary_status')
+                        ->label('Stato')
+                        ->content(fn ($record) => $record && $record->hasAiSummary()
+                            ? new \Illuminate\Support\HtmlString(
+                                '<span style="color: #16a34a; font-weight: bold;">✅ Generato</span> '
+                                . '<span style="color: #6b7280; font-size: 0.85em;">'
+                                . 'il ' . $record->ai_summary_generated_at?->format('d/m/Y H:i')
+                                . ' con ' . e($record->ai_summary_model ?? 'N/A')
+                                . ($record->isAiSummaryStale() ? ' ⚠️ <em>da rigenerare</em>' : '')
+                                . '</span>'
+                            )
+                            : new \Illuminate\Support\HtmlString(
+                                '<span style="color: #dc2626;">❌ Non generato</span> '
+                                . '<span style="color: #6b7280; font-size: 0.85em;">Clicca "✨ Genera TL;DR" in alto a destra.</span>'
+                            ))
+                        ->columnSpanFull(),
+
+                    Forms\Components\Textarea::make('ai_summary.tldr')
+                        ->label('📌 TL;DR')
+                        ->rows(3)
+                        ->columnSpanFull()
+                        ->helperText('Frase breve (2-3 righe) che riassume l\'articolo.')
+                        ->visible(fn ($record) => $record && $record->hasAiSummary()),
+
+                    Forms\Components\TagsInput::make('ai_summary.key_points')
+                        ->label('🔑 Punti chiave')
+                        ->placeholder('Aggiungi un punto e premi Invio')
+                        ->columnSpanFull()
+                        ->helperText('3-5 punti chiave dell\'articolo.')
+                        ->visible(fn ($record) => $record && $record->hasAiSummary()),
+
+                    Forms\Components\Textarea::make('ai_summary.summary')
+                        ->label('📄 Sommario esteso')
+                        ->rows(5)
+                        ->columnSpanFull()
+                        ->helperText('Paragrafo di 3-4 frasi che riassume l\'articolo in modo più dettagliato.')
+                        ->visible(fn ($record) => $record && $record->hasAiSummary()),
+                ])
+                ->columns(1),
         ]);
     }
 
+    public static function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('generate_ai_summary')
+                ->label('✨ Genera TL;DR')
+                ->icon('heroicon-o-sparkles')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Genera TL;DR')
+                ->modalDescription('Verrà generato un riassunto in background con AI (llama3.1:8b). Potrebbe richiedere 2-4 minuti. Riceverai una notifica quando è pronto.')
+                ->modalSubmitActionLabel('Genera')
+                ->action(function ($record) {
+                    \App\Jobs\GenerateArticleSummary::dispatch(
+                        $record,
+                        auth()->id()
+                    );
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('✨ Generazione avviata')
+                        ->body('Il TL;DR verrà generato in background. Riceverai una notifica quando è pronto.')
+                        ->success()
+                        ->send();
+                })
+                ->visible(fn ($record) => $record !== null),
+
+            \Filament\Actions\Action::make('delete_ai_summary')
+                ->label('🗑️ Elimina TL;DR')
+                ->icon('heroicon-o-trash')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Eliminare il TL;DR?')
+                ->modalDescription('Il riassunto generato verrà rimosso. Potrai rigenerarlo in qualsiasi momento.')
+                ->action(function ($record) {
+                    $record->update([
+                        'ai_summary' => null,
+                        'ai_summary_generated_at' => null,
+                        'ai_summary_model' => null,
+                    ]);
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('🗑️ TL;DR eliminato')
+                        ->success()
+                        ->send();
+                })
+                ->visible(fn ($record) => $record && $record->hasAiSummary()),
+        ];
+    }
     public static function table(Table $table): Table
     {
         return $table

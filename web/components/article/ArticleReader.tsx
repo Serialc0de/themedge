@@ -18,6 +18,7 @@ import { ArticleFactChecks } from '@/components/article/ArticleFactChecks';
 import { ArticleKnowledgeBox } from '@/components/article/ArticleKnowledgeBox';
 import { ArticleTimeline } from '@/components/article/ArticleTimeline';
 import { ArticleEntities } from '@/components/article/ArticleEntities';
+import { ArticleTLDR } from '@/components/article/ArticleTLDR';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
 import { useGlossaryHighlighting } from '@/lib/use-glossary-highlighting';
@@ -40,6 +41,12 @@ type Props = {
     ai_disclosure_label?: string;
     ai_disclosure_description?: string;
     ai_disclosure_note?: string | null;
+    ai_summary?: {
+      tldr: string;
+      key_points: string[];
+      summary?: string | null;
+      generated_at?: string | null;
+    } | null;
   };
 };
 
@@ -125,6 +132,15 @@ function ArticleReaderInner({
             authorName={article.author_name}
           />
 
+          {(article as any).ai_summary?.tldr && (
+            <ArticleTLDR
+              tldr={(article as any).ai_summary.tldr}
+              keyPoints={(article as any).ai_summary.key_points ?? []}
+              summary={(article as any).ai_summary.summary}
+              generatedAt={(article as any).ai_summary.generated_at}
+            />
+          )}
+
           <ArticleBody html={content} />
 
           <AiDisclosureBadge
@@ -195,7 +211,16 @@ function ArticleReaderInner({
           authorName={article.author_name}
         />
 
-        <ArticleBody html={content} />
+        {(article as any).ai_summary?.tldr && (
+            <ArticleTLDR
+              tldr={(article as any).ai_summary.tldr}
+              keyPoints={(article as any).ai_summary.key_points ?? []}
+              summary={(article as any).ai_summary.summary}
+              generatedAt={(article as any).ai_summary.generated_at}
+            />
+          )}
+
+          <ArticleBody html={content} />
 
           <AiDisclosureBadge
             disclosure={article.ai_disclosure ?? 'none'}

@@ -45,4 +45,10 @@ return [
         'token' => env('CLOUDFLARE_API_TOKEN'),
         'zone_id' => env('CLOUDFLARE_ZONE_ID'),
     ],
+
+    'ollama' => [
+        'url' => env('OLLAMA_URL', 'http://localhost:11434'),
+        'model' => env('OLLAMA_MODEL', 'llama3.1:8b'),
+        'timeout' => (int) env('OLLAMA_TIMEOUT', 300),
+    ],
 ];

@@ -294,6 +294,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
               published_at: article.published_at ?? null,
               reading_time: null,
               ai_disclosure: article.ai_disclosure ?? 'none',
+              ai_summary: article.ai_summary ?? null,
               ai_disclosure_label: article.ai_disclosure_label ?? undefined,
               ai_disclosure_description: article.ai_disclosure_description ?? undefined,
               ai_disclosure_note: article.ai_disclosure_note ?? null,

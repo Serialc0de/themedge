@@ -50,6 +50,7 @@ class Article extends Model implements HasMedia
         'content_raw',
         'highlight_policy_id', 'highlight_settings', 'highlight_until', 'highlight_locked',
         'ai_disclosure', 'ai_disclosure_note',
+        'ai_summary', 'ai_summary_generated_at', 'ai_summary_model',
     ];
 
     protected $casts = [
@@ -70,6 +71,8 @@ class Article extends Model implements HasMedia
         'highlight_until' => 'datetime',
         'highlight_locked' => 'boolean',
         'ai_disclosure' => 'string',
+        'ai_summary' => 'array',
+        'ai_summary_generated_at' => 'datetime',
     ];
 
     // ============================================================
@@ -696,6 +699,41 @@ class Article extends Model implements HasMedia
     public function hasAiDisclosure(): bool
     {
         return $this->ai_disclosure && $this->ai_disclosure !== 'none';
+    }
+
+    // ============================================================
+    // AI SUMMARY
+    // ============================================================
+
+    public function hasAiSummary(): bool
+    {
+        return !empty($this->ai_summary['tldr']);
+    }
+
+    public function getAiTldrAttribute(): ?string
+    {
+        return $this->ai_summary['tldr'] ?? null;
+    }
+
+    public function getAiKeyPointsAttribute(): array
+    {
+        return $this->ai_summary['key_points'] ?? [];
+    }
+
+    public function getAiSummaryTextAttribute(): ?string
+    {
+        return $this->ai_summary['summary'] ?? null;
+    }
+
+    public function isAiSummaryStale(): bool
+    {
+        if (!$this->ai_summary_generated_at) return true;
+        return $this->ai_summary_generated_at->lt($this->updated_at);
+    }
+
+    public function scopeWithAiSummary($query)
+    {
+        return $query->whereNotNull('ai_summary');
     }
 
     public function scopeWithAiDisclosure($query)
