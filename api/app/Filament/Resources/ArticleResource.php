@@ -813,53 +813,6 @@ class ArticleResource extends Resource
         ]);
     }
 
-    public static function getHeaderActions(): array
-    {
-        return [
-            \Filament\Actions\Action::make('generate_ai_summary')
-                ->label('✨ Genera TL;DR')
-                ->icon('heroicon-o-sparkles')
-                ->color('success')
-                ->requiresConfirmation()
-                ->modalHeading('Genera TL;DR')
-                ->modalDescription('Verrà generato un riassunto in background con AI (llama3.1:8b). Potrebbe richiedere 2-4 minuti. Riceverai una notifica quando è pronto.')
-                ->modalSubmitActionLabel('Genera')
-                ->action(function ($record) {
-                    \App\Jobs\GenerateArticleSummary::dispatch(
-                        $record,
-                        auth()->id()
-                    );
-
-                    \Filament\Notifications\Notification::make()
-                        ->title('✨ Generazione avviata')
-                        ->body('Il TL;DR verrà generato in background. Riceverai una notifica quando è pronto.')
-                        ->success()
-                        ->send();
-                })
-                ->visible(fn ($record) => $record !== null),
-
-            \Filament\Actions\Action::make('delete_ai_summary')
-                ->label('🗑️ Elimina TL;DR')
-                ->icon('heroicon-o-trash')
-                ->color('danger')
-                ->requiresConfirmation()
-                ->modalHeading('Eliminare il TL;DR?')
-                ->modalDescription('Il riassunto generato verrà rimosso. Potrai rigenerarlo in qualsiasi momento.')
-                ->action(function ($record) {
-                    $record->update([
-                        'ai_summary' => null,
-                        'ai_summary_generated_at' => null,
-                        'ai_summary_model' => null,
-                    ]);
-
-                    \Filament\Notifications\Notification::make()
-                        ->title('🗑️ TL;DR eliminato')
-                        ->success()
-                        ->send();
-                })
-                ->visible(fn ($record) => $record && $record->hasAiSummary()),
-        ];
-    }
     public static function table(Table $table): Table
     {
         return $table

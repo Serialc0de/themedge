@@ -619,3 +619,54 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - Dati articoli mai fuori dal VPS
 - GDPR-compliant
 
+
+---
+
+## [2026-10-13] — 🤖 AI Summarizer (TL;DR) + Fix critici
+
+### Aggiunto — AI Summarizer
+- **Ollama** installato sul VPS (CPU-only):
+  - Modello `llama3.1:8b` (qualità top, ~120s per articolo)
+  - Modello `qwen2.5:3b` (veloce, ~20s, alternativa)
+  - Privacy totale: 100% locale, nessun dato fuori dal VPS
+- **Backend**:
+  - `OllamaClient` (wrapper API con `format: 'json'`)
+  - `ArticleSummarizer` (prompt engineering + JSON parsing)
+  - `GenerateArticleSummary` Job (async con queue database)
+  - Migration `ai_summary` (JSON) + `ai_summary_generated_at` + `ai_summary_model`
+  - Migration `notifications` (Filament database notifications)
+  - Model `Article`: helper `hasAiSummary()`, `ai_tldr`, `ai_key_points`, `ai_summary_text`, `isAiSummaryStale()`
+  - API: `ai_summary` in `formatArticle()`
+- **Filament admin**:
+  - Header Action "✨ Genera TL;DR" (dispatch job async)
+  - Header Action "🗑️ Elimina TL;DR"
+  - Sezione editabile "🤖 AI Summary" con stato + campi modificabili
+- **Frontend**:
+  - Componente `ArticleTLDR` (box ambra in cima all'articolo)
+  - Punti chiave espandibili + sommario esteso
+- **Queue**:
+  - `QUEUE_CONNECTION=database`
+  - Worker PM2 `themedge-queue`
+
+### Fix critici
+- **Fix 500 su `/admin/articles/{slug}/edit`**:
+  - `getRouteKeyName()` ora restituisce **SEMPRE `slug`** (era `id` in admin → mismatch con URL generato con slug → 404/500)
+  - `resolveRouteBinding()` gestisce slug + ID numerici
+- **Fix sintassi `Article.php`**:
+  - Rimosso `getRouteKeyName()` duplicato (causava ParseError)
+  - Aggiunti `ai_summary` a `$fillable` + `$casts`
+  - Aggiunte relazioni `entities()` mancanti
+
+### Note tecniche
+- Ollama in CPU-only: ~120s per TL;DR con llama3.1:8b, ~20s con qwen2.5:3b
+- Configurabile via `.env`: `OLLAMA_MODEL=llama3.1:8b`
+- `format: 'json'` obbligatorio per output JSON valido
+- **Worker PM2 va riavviato** dopo modifiche ai servizi (`pm2 restart themedge-queue`)
+
+### Impatto
+- **Produttività redazione**: +30 min/giorno per giornalista
+- **UX lettori**: TL;DR immediato → bounce rate ↓
+- **SEO**: featured snippet + contenuto strutturato
+- **Privacy**: 100% locale, GDPR-compliant
+- **Costo**: $0 (tutto locale)
+

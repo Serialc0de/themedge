@@ -18,7 +18,6 @@ class Article extends Model implements HasMedia
 {
     use SoftDeletes, InteractsWithMedia, Searchable, LogsActivity;
 
-
     // ============================================================
     // AI DISCLOSURE — Trasparenza uso AI
     // ============================================================
@@ -70,6 +69,7 @@ class Article extends Model implements HasMedia
         'highlight_settings' => 'array',
         'highlight_until' => 'datetime',
         'highlight_locked' => 'boolean',
+        // AI
         'ai_disclosure' => 'string',
         'ai_summary' => 'array',
         'ai_summary_generated_at' => 'datetime',
@@ -78,12 +78,12 @@ class Article extends Model implements HasMedia
     // ============================================================
     // BOOT
     // ============================================================
+
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($article) {
-            // Blocca creazione di articoli senza titolo (es. relazioni malformate)
             if (empty($article->title) && !$article->exists) {
                 throw new \InvalidArgumentException(
                     'Impossibile creare un articolo senza titolo.'
@@ -112,10 +112,9 @@ class Article extends Model implements HasMedia
                 );
             }
         });
-        // Sanitizza il content al salvataggio (difesa input)
+
         static::saving(function ($article) {
             if ($article->isDirty('content')) {
-                // Backup raw al primo salvataggio o se vuoto
                 if (empty($article->content_raw)) {
                     $original = $article->getOriginal('content');
                     $article->content_raw = !empty($original) ? $original : $article->content;
@@ -126,7 +125,6 @@ class Article extends Model implements HasMedia
             }
         });
 
-        // Purge cache Cloudflare quando articolo pubblicato/modificato
         static::saved(function ($article) {
             $article->purgeCloudflareCache();
         });
@@ -134,7 +132,6 @@ class Article extends Model implements HasMedia
 
     /**
      * Purge selettivo della cache Cloudflare per questo articolo.
-     * Invalida: URL articolo + homepage + categoria + sitemap.
      */
     public function purgeCloudflareCache(): void
     {
@@ -145,22 +142,19 @@ class Article extends Model implements HasMedia
             return;
         }
 
-        // Non purgare per bozze
         if ($this->status !== 'published') {
             return;
         }
 
         $urls = [
             'https://themedge.com/articolo/' . $this->slug,
-            'https://themedge.com/', // homepage
+            'https://themedge.com/',
         ];
 
-        // Categoria
         if ($this->category) {
             $urls[] = 'https://themedge.com/categoria/' . $this->category->slug;
         }
 
-        // Autore
         if ($this->author_id) {
             $urls[] = 'https://themedge.com/autore/' . $this->author_id;
         }
@@ -189,39 +183,27 @@ class Article extends Model implements HasMedia
     // ============================================================
     // HIGHLIGHT POLICY
     // ============================================================
+
     public function highlightPolicy(): BelongsTo
     {
         return $this->belongsTo(HighlightPolicy::class, 'highlight_policy_id');
     }
 
-    /**
-     * Risolve la policy effettiva per questo articolo.
-     * Ordine di priorità:
-     *   1. Kill switch globale (config)
-     *   2. highlight_settings JSON (override diretto)
-     *   3. highlight_policy_id specifico articolo
-     *   4. Ereditarietà da tag/categoria/autore (vince priority più alta)
-     *   5. Policy di default "full"
-     */
     public function resolveHighlightPolicy(): HighlightPolicy
     {
-        // 1. Kill switch globale
         if (!config('highlights.enabled', true)) {
             return HighlightPolicy::where('name', 'disabled')->first()
                 ?? $this->defaultPolicy();
         }
 
-        // 2. Override JSON diretto su articolo
         if (!empty($this->highlight_settings) && is_array($this->highlight_settings)) {
             return $this->policyFromSettings($this->highlight_settings);
         }
 
-        // 3. Policy esplicita articolo
         if ($this->highlight_policy_id && $this->highlightPolicy) {
             return $this->highlightPolicy;
         }
 
-        // 4. Ereditarietà da tag/categoria/autore
         $candidates = collect();
 
         if ($this->relationLoaded('category') || $this->category) {
@@ -251,7 +233,6 @@ class Article extends Model implements HasMedia
             }
         }
 
-        // 5. Default
         return $this->defaultPolicy();
     }
 
@@ -271,7 +252,6 @@ class Article extends Model implements HasMedia
 
     protected function policyFromSettings(array $settings): HighlightPolicy
     {
-        // Normalizza i valori: le stringhe "true"/"false" diventano booleani
         $normalized = [];
         foreach ($settings as $key => $value) {
             if (is_string($value)) {
@@ -297,17 +277,11 @@ class Article extends Model implements HasMedia
         ]);
     }
 
-    /**
-     * Scadenza temporale: se highlight_until è nel futuro, gli highlight sono bloccati.
-     */
     public function getHighlightsTemporarilyDisabledAttribute(): bool
     {
         return $this->highlight_until && $this->highlight_until->isFuture();
     }
 
-    /**
-     * Highlight sono permessi su questo articolo?
-     */
     public function highlightsAllowed(): bool
     {
         if ($this->highlights_temporarily_disabled) {
@@ -346,9 +320,6 @@ class Article extends Model implements HasMedia
         return $this->resolveHighlightPolicy()->rate_limit_per_day;
     }
 
-    /**
-     * Config completa per API.
-     */
     public function highlightConfig(): array
     {
         $policy = $this->resolveHighlightPolicy();
@@ -377,6 +348,7 @@ class Article extends Model implements HasMedia
     // ============================================================
     // ACTIVITY LOG
     // ============================================================
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
@@ -393,6 +365,7 @@ class Article extends Model implements HasMedia
     // ============================================================
     // RELAZIONI
     // ============================================================
+
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
@@ -425,9 +398,6 @@ class Article extends Model implements HasMedia
         return $this->hasMany(ArticleSource::class)->orderBy('order');
     }
 
-    /**
-     * Articoli correlati curati editorialmente.
-     */
     public function relatedCurated(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -440,7 +410,6 @@ class Article extends Model implements HasMedia
             ->withTimestamps()
             ->orderByPivot('order');
     }
-
 
     public function polls(): HasMany
     {
@@ -469,12 +438,14 @@ class Article extends Model implements HasMedia
     // ============================================================
     // ROUTING
     // ============================================================
+
     /**
-     * Backend Filament (/admin/*) usa ID, frontend usa slug.
+     * SEMPRE slug per coerenza tra generazione e risoluzione URL.
+     * Il resolveRouteBinding gestisce anche ID numerici.
      */
     public function getRouteKeyName(): string
     {
-        return request()->is('admin/*') ? 'id' : 'slug';
+        return 'slug';
     }
 
     public function resolveRouteBinding($value, $field = null)
@@ -489,6 +460,7 @@ class Article extends Model implements HasMedia
     // ============================================================
     // SCOPES
     // ============================================================
+
     public function scopePublished($query)
     {
         return $query->where('status', 'published')
@@ -528,35 +500,13 @@ class Article extends Model implements HasMedia
     // ============================================================
     // HELPERS — STATO
     // ============================================================
-    public function isDraft(): bool
-    {
-        return $this->status === 'draft';
-    }
 
-    public function isInReview(): bool
-    {
-        return $this->status === 'review';
-    }
-
-    public function isApproved(): bool
-    {
-        return $this->status === 'approved';
-    }
-
-    public function isPublished(): bool
-    {
-        return $this->status === 'published';
-    }
-
-    public function isArchived(): bool
-    {
-        return $this->status === 'archived';
-    }
-
-    public function isScheduled(): bool
-    {
-        return $this->status === 'scheduled';
-    }
+    public function isDraft(): bool { return $this->status === 'draft'; }
+    public function isInReview(): bool { return $this->status === 'review'; }
+    public function isApproved(): bool { return $this->status === 'approved'; }
+    public function isPublished(): bool { return $this->status === 'published'; }
+    public function isArchived(): bool { return $this->status === 'archived'; }
+    public function isScheduled(): bool { return $this->status === 'scheduled'; }
 
     public function canBeEditedBy(?User $user): bool
     {
@@ -576,6 +526,7 @@ class Article extends Model implements HasMedia
     // ============================================================
     // HELPERS — BREAKING NEWS
     // ============================================================
+
     public function isBreakingActive(): bool
     {
         if (! $this->is_breaking) {
@@ -637,6 +588,7 @@ class Article extends Model implements HasMedia
     // ============================================================
     // SEARCH
     // ============================================================
+
     public function toSearchableArray(): array
     {
         return [
@@ -662,6 +614,7 @@ class Article extends Model implements HasMedia
     // ============================================================
     // MEDIA
     // ============================================================
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('featured_image')->singleFile();
@@ -701,8 +654,13 @@ class Article extends Model implements HasMedia
         return $this->ai_disclosure && $this->ai_disclosure !== 'none';
     }
 
+    public function scopeWithAiDisclosure($query)
+    {
+        return $query->where('ai_disclosure', '!=', 'none');
+    }
+
     // ============================================================
-    // AI SUMMARY
+    // AI SUMMARY (TL;DR)
     // ============================================================
 
     public function hasAiSummary(): bool
@@ -736,16 +694,11 @@ class Article extends Model implements HasMedia
         return $query->whereNotNull('ai_summary');
     }
 
-    public function scopeWithAiDisclosure($query)
-    {
-        return $query->where('ai_disclosure', '!=', 'none');
-    }
-
     // ============================================================
     // FACT-CHECK — Relazione
     // ============================================================
 
-    public function factChecks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function factChecks(): HasMany
     {
         return $this->hasMany(ArticleFactCheck::class)->ordered();
     }
@@ -759,7 +712,7 @@ class Article extends Model implements HasMedia
     // KNOWLEDGE ITEMS — Relazione
     // ============================================================
 
-    public function knowledgeItems(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function knowledgeItems(): HasMany
     {
         return $this->hasMany(ArticleKnowledgeItem::class)->ordered();
     }
@@ -782,7 +735,7 @@ class Article extends Model implements HasMedia
     // TIMELINE — Relazione
     // ============================================================
 
-    public function timelineEvents(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function timelineEvents(): HasMany
     {
         return $this->hasMany(ArticleTimelineEvent::class)->chronological();
     }
@@ -792,7 +745,7 @@ class Article extends Model implements HasMedia
         return $this->timelineEvents()->exists();
     }
 
-    public function keyTimelineEvents(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function keyTimelineEvents(): HasMany
     {
         return $this->hasMany(ArticleTimelineEvent::class)->chronological()->keyEvents();
     }
@@ -801,7 +754,7 @@ class Article extends Model implements HasMedia
     // SCROLLY SECTIONS — Relazione
     // ============================================================
 
-    public function scrollySections(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function scrollySections(): HasMany
     {
         return $this->hasMany(ScrollySection::class)->ordered();
     }
@@ -812,10 +765,10 @@ class Article extends Model implements HasMedia
     }
 
     // ============================================================
-    // ENTITIES — Relazione
+    // ENTITIES — Knowledge Graph
     // ============================================================
 
-    public function entities(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function entities(): BelongsToMany
     {
         return $this->belongsToMany(Entity::class, 'article_entity')
             ->withPivot('mentions', 'context', 'order')
@@ -826,5 +779,4 @@ class Article extends Model implements HasMedia
     {
         return $this->entities()->exists();
     }
-
 }
