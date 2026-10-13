@@ -19,6 +19,16 @@ class OllamaClient
     }
 
     /**
+     * Ritorna una nuova istanza con il modello specificato.
+     */
+    public function withModel(string $model): self
+    {
+        $clone = clone $this;
+        $clone->model = $model;
+        return $clone;
+    }
+
+    /**
      * Genera una risposta dal modello.
      */
     public function generate(string $prompt, array $options = []): ?string
@@ -29,6 +39,7 @@ class OllamaClient
                     'model' => $this->model,
                     'prompt' => $prompt,
                     'stream' => false,
+                    'format' => 'json',
                     'options' => array_merge([
                         'temperature' => 0.3,      // Meno creatività, più precisione
                         'top_p' => 0.9,

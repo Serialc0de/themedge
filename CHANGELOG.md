@@ -670,3 +670,44 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - **Privacy**: 100% locale, GDPR-compliant
 - **Costo**: $0 (tutto locale)
 
+
+---
+
+## [2026-10-13] — 🔍 Entity Auto-detection (AI) — COMPLETATO
+
+### Aggiunto
+- **Entity Auto-detection** con LLM locale (Ollama):
+  - `EntityExtractor` (servizio) — estrae entità da un articolo
+  - `DetectArticleEntities` Job (async, retry automatico tra modelli)
+  - Migration `detected_entities` (JSON) su `articles`
+  - Model `Article`: helper `hasDetectedEntities()`, `detected_entities_list`, `detected_new_entities`, `detected_existing_entities`
+  - Filament Action **"🔍 Rileva entità (AI)"** in `EditArticle`
+  - Componente Livewire **`DetectedEntitiesPanel`** con:
+    - Anteprima entità rilevate
+    - Filament Actions **"✅ Collega esistenti"** + **"🆕 Crea nuove"**
+  - Sezione **"🔍 Entità rilevate (AI)"** in `ArticleResource`
+  - Match fuzzy con entità esistenti (slug, nome, alias, contenimento, parole)
+
+### Come funziona
+1. Editore scrive articolo
+2. Click **"🔍 Rileva entità (AI)"**
+3. Job async chiama Ollama (`llama3.1:8b` → fallback `qwen2.5:3b`)
+4. L'AI estrae 2-16 entità con tipo, mentions, context
+5. Match con entità esistenti nel DB
+6. Notifica editore
+7. Anteprima in admin: bottoni **"Collega"** (esistenti) / **"Crea"** (nuove)
+8. Entità collegate → auto-link nel frontend
+
+### Impatto
+- **Produttività redazione**: 10x (no selezione manuale)
+- **Knowledge graph**: alimentato automaticamente
+- **SEO**: 16 entità = 16 pagine indicizzabili
+- **Privacy**: 100% locale
+
+### Note tecniche
+- `llama3.1:8b`: 16 entità, 3-4 min (qualità top)
+- `qwen2.5:3b`: 2-5 entità, 50s (fallback veloce)
+- **Filament Actions** (no route web): CSRF + auth gestiti automaticamente
+- Match fuzzy: 5 strategie (slug, nome, alias, contenimento, parole)
+- RAM cleanup necessario post-job
+

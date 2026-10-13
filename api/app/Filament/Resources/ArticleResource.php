@@ -699,6 +699,17 @@ class ArticleResource extends Resource
                         ->defaultItems(0),
                 ])
                 ->columns(1),
+            Forms\Components\Section::make('🔍 Entità rilevate (AI)')
+                ->description('Entità trovate dall\'AI. Collega quelle esistenti o creane di nuove.')
+                ->icon('heroicon-o-sparkles')
+                ->collapsible()
+                ->visible(fn ($record) => $record && $record->hasDetectedEntities())
+                ->schema([
+                    Forms\Components\Livewire::make('detected_entities_panel')
+                        ->component(\App\Livewire\DetectedEntitiesPanel::class)
+                        ->columnSpanFull(),
+                ])
+                ->columns(1),
             Forms\Components\Section::make('🎯 Highlight Policy')
                 ->description('Controlla come gli utenti possono evidenziare il testo di questo articolo.')
                 ->columns(2)

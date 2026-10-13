@@ -50,6 +50,7 @@ class Article extends Model implements HasMedia
         'highlight_policy_id', 'highlight_settings', 'highlight_until', 'highlight_locked',
         'ai_disclosure', 'ai_disclosure_note',
         'ai_summary', 'ai_summary_generated_at', 'ai_summary_model',
+        'detected_entities',
     ];
 
     protected $casts = [
@@ -72,6 +73,7 @@ class Article extends Model implements HasMedia
         // AI
         'ai_disclosure' => 'string',
         'ai_summary' => 'array',
+        'detected_entities' => 'array',
         'ai_summary_generated_at' => 'datetime',
     ];
 
@@ -692,6 +694,36 @@ class Article extends Model implements HasMedia
     public function scopeWithAiSummary($query)
     {
         return $query->whereNotNull('ai_summary');
+    }
+
+    // ============================================================
+    // DETECTED ENTITIES (AI extraction)
+    // ============================================================
+
+    public function hasDetectedEntities(): bool
+    {
+        return !empty($this->detected_entities['entities']);
+    }
+
+    public function getDetectedEntitiesListAttribute(): array
+    {
+        return $this->detected_entities['entities'] ?? [];
+    }
+
+    public function getDetectedNewEntitiesAttribute(): array
+    {
+        return array_values(array_filter(
+            $this->detected_entities_list,
+            fn ($e) => empty($e['exists'])
+        ));
+    }
+
+    public function getDetectedExistingEntitiesAttribute(): array
+    {
+        return array_values(array_filter(
+            $this->detected_entities_list,
+            fn ($e) => !empty($e['exists'])
+        ));
     }
 
     // ============================================================

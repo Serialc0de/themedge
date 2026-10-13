@@ -67,6 +67,46 @@ class EditArticle extends EditRecord
                     $this->refreshFormData(['ai_summary']);
                 })
                 ->visible(fn () => $this->record->hasAiSummary()),
+
+            Actions\Action::make('detect_entities')
+                ->label('🔍 Rileva entità (AI)')
+                ->icon('heroicon-o-tag')
+                ->color('info')
+                ->requiresConfirmation()
+                ->modalHeading('Rileva entità con AI')
+                ->modalDescription('L\'AI analizzerà l\'articolo e rileverà le entità (persone, luoghi, organizzazioni, eventi). Potrebbe richiedere 3-4 minuti.')
+                ->modalSubmitActionLabel('Avvia')
+                ->action(function () {
+                    \App\Jobs\DetectArticleEntities::dispatch(
+                        $this->record,
+                        auth()->id()
+                    );
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('🔍 Rilevamento avviato')
+                        ->body('L\'AI analizzerà l\'articolo in background. Riceverai una notifica quando pronto.')
+                        ->success()
+                        ->send();
+                }),
+
+            Actions\Action::make('clear_detected_entities')
+                ->label('🗑️ Elimina entità rilevate')
+                ->icon('heroicon-o-x-circle')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->modalHeading('Eliminare le entità rilevate?')
+                ->modalDescription('Le entità rilevate dall\'AI verranno rimosse. Non verranno toccate le entità già collegate.')
+                ->action(function () {
+                    $this->record->update(['detected_entities' => null]);
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('🗑️ Entità rilevate eliminate')
+                        ->success()
+                        ->send();
+
+                    $this->refreshFormData(['detected_entities']);
+                })
+                ->visible(fn () => $this->record->hasDetectedEntities()),
         ];
     }
 
