@@ -145,18 +145,18 @@ export default async function DirettaPage({ params }: { params: Promise<{ slug: 
           </p>
         )}
 
-        <div className="flex flex-wrap items-center gap-4 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
-          <time>{formatDateRange(blog.started_at, blog.ended_at)}</time>
+        <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <time className="whitespace-nowrap">{formatDateRange(blog.started_at, blog.ended_at)}</time>
           {blog.author && (
             <>
-              <span>·</span>
-              <span>di <strong>{blog.author.name}</strong></span>
+              <span aria-hidden="true" className="text-gray-400">·</span>
+              <span className="whitespace-nowrap">di <strong>{blog.author.name}</strong></span>
             </>
           )}
-          <span>·</span>
-          <span>{blog.updates_count} aggiornamenti</span>
-          <span>·</span>
-          <span>{blog.views} visualizzazioni</span>
+          <span aria-hidden="true" className="text-gray-400">·</span>
+          <span className="whitespace-nowrap">{blog.updates_count} aggiornamenti</span>
+          <span aria-hidden="true" className="text-gray-400">·</span>
+          <span className="whitespace-nowrap">{blog.views} visualizzazioni</span>
         </div>
       </header>
 

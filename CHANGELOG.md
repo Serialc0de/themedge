@@ -492,3 +492,71 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - `suppressHydrationWarning` su `ArticleCorrections`
 - `useGlossaryHighlighting`: delay 2s
 
+
+---
+
+## [2026-10-13] — 🎬 Scrollytelling
+
+### Aggiunto
+- **Sistema scrollytelling** per articoli narrativi:
+  - Migration `article_scrolly_sections` (11 tipi: hero, text, image, sticky-image, sticky-text, video, chart, map, quote, stat, timeline)
+  - Model `ScrollySection` con helper e cast JSON
+  - Relazione `scrollySections()` su `Article`
+  - Filament Repeater in `ArticleResource` (con preview + reorderable)
+  - API `GET /api/articles/{slug}/scrolly`
+  - Pagina dedicata `/articolo/[slug]/scrolly`
+- **Componenti React**:
+  - `ScrollyArticle` (wrapper con fetch + orchestratore)
+  - `ScrollySection` (dispatcher per tipo)
+  - `useScrollAnimation` (hook IntersectionObserver)
+- **Sezioni implementate**:
+  - `HeroSection` — apertura fullscreen con immagine + scroll hint
+  - `TextSection` — testo con fade-up
+  - `ImageSection` — immagine fullwidth con caption
+  - `StickyImageSection` — immagine sticky + testo scrollabile
+  - `QuoteSection` — citazione grande su sfondo nero
+  - `StatSection` — numero count-up con easing (easeOutExpo)
+  - `ChartSection` — grafico Recharts (line, bar, area, pie)
+  - `VideoSection` — YouTube/Vimeo embed o video locale
+  - `TimelineSection` — timeline verticale con eventi
+- **Dipendenze**: `gsap`, `recharts`, `react-intersection-observer`
+
+### Come funziona
+1. L'editore crea un articolo normale + sezioni scrollytelling in admin
+2. Un link "Versione scrollytelling" appare sull'articolo normale
+3. La pagina `/articolo/[slug]/scrolly` mostra la storia animata
+
+
+---
+
+## [2026-10-13] — 🏷️ Entity Tagging (Knowledge Graph)
+
+### Aggiunto
+- **Sistema entità** stile NYT (knowledge graph):
+  - Migration `entities` (8 tipi: person, organization, location, event, concept, product, publication, work)
+  - Migration `article_entity` (pivot con mentions, context, order)
+  - Model `Entity` con auto-slug, aliases, metadata JSON
+  - Relazione `entities()` su `Article` (BelongsToMany)
+  - Filament `EntityResource` (CRUD completo, filtri per tipo)
+  - Filament Repeater "🏷️ Entità collegate" in `ArticleResource`
+  - API `GET /api/entities`, `GET /api/entities/{slug}`
+  - Entità incluse in `formatArticle()`
+
+- **Frontend entità**:
+  - `EntityBadge` (badge colorato per tipo)
+  - `EntityCard` (card con foto, bio, conteggio articoli)
+  - `ArticleEntities` (sezione badge nell'articolo)
+  - `useEntityAutolink` (auto-link entità nel contenuto, come glossario)
+  - Pagina `/entita` (elenco con filtri per tipo + ricerca)
+  - Pagina `/entita/[slug]` (bio + articoli correlati + entità correlate)
+  - Integrazione in `ArticleReader`
+
+### Impatto
+- **SEO**: ogni entità è una pagina indicizzabile → +50% pagine indicizzate
+- **Retention**: l'utente naviga da articolo a entità a entità → +tempo sul sito
+- **Autorevolezza**: knowledge graph come il NYT → +credibilità
+- **Data journalism**: base per future feature (mappe, dashboard, analisi)
+
+### Bug fix
+- Fix 500 su `/admin/articles/{id}/edit` — Select `entity_id` non poteva usare `relationship()` su pivot BelongsToMany con campi extra, sostituita con `options()` diretto
+

@@ -151,6 +151,56 @@ class ArticleController extends Controller
         ]);
     }
     /**
+     * Sezioni scrollytelling di un articolo.
+     */
+    public function scrolly(string $slug): \Illuminate\Http\JsonResponse
+    {
+        $article = Article::where('slug', $slug)->first();
+        if (!$article) {
+            return response()->json(['error' => 'Articolo non trovato'], 404);
+        }
+
+        $sections = $article->scrollySections()
+            ->ordered()
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'order' => $s->order,
+                'type' => $s->type,
+                'type_label' => $s->type_label,
+                'content' => $s->content,
+                'media_url' => $s->media_url,
+                'media_alt' => $s->media_alt,
+                'data' => $s->data ?? [],
+                'settings' => [
+                    'animation' => $s->animation,
+                    'duration' => $s->duration,
+                    'delay' => $s->delay,
+                ],
+            ]);
+
+        return response()->json([
+            'data' => [
+                'article' => [
+                    'id' => $article->id,
+                    'title' => $article->title,
+                    'slug' => $article->slug,
+                    'excerpt' => $article->excerpt,
+                    'featured_image' => $article->featured_image_url,
+                    'published_at' => $article->published_at?->toIso8601String(),
+                    'author' => $article->author ? [
+                        'id' => $article->author->id,
+                        'name' => $article->author->name,
+                    ] : null,
+                ],
+                'sections' => $sections->values()->all(),
+            ],
+            'counts' => [
+                'total' => $sections->count(),
+            ],
+        ]);
+    }
+    /**
      * Punti di conoscenza di un articolo (cosa sappiamo / non sappiamo / stiamo verificando).
      */
     public function knowledge(string $slug): \Illuminate\Http\JsonResponse
@@ -261,6 +311,18 @@ class ArticleController extends Controller
             'is_featured' => $article->is_featured,
             'is_breaking' => $article->isBreakingActive(),
             'breaking_priority' => $article->breaking_priority ?? 0,
+            'has_scrolly' => $article->hasScrollySections(),
+            'entities' => $article->entities()->published()->ordered()->get()->map(fn ($e) => [
+                'id' => $e->id,
+                'type' => $e->type,
+                'type_label' => $e->type_label,
+                'type_icon' => $e->type_icon,
+                'type_color' => $e->type_color,
+                'name' => $e->name,
+                'slug' => $e->slug,
+                'url' => $e->url,
+                'mentions' => $e->pivot->mentions ?? 1,
+            ])->values(),
             'ai_disclosure' => $article->ai_disclosure ?? 'none',
             'ai_disclosure_label' => $article->ai_disclosure_label,
             'ai_disclosure_description' => $article->ai_disclosure_description,

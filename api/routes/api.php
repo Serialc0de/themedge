@@ -24,6 +24,11 @@ Route::get('/articles/{slug}/curated', [ArticleController::class, 'curated']);
 Route::get('/articles/{slug}/fact-checks', [ArticleController::class, 'factChecks']);
 Route::get('/articles/{slug}/knowledge', [ArticleController::class, 'knowledge']);
 Route::get('/articles/{slug}/timeline', [ArticleController::class, 'timeline']);
+Route::get('/articles/{slug}/scrolly', [ArticleController::class, 'scrolly']);
+
+// Entità (knowledge graph)
+Route::get('/entities', [\App\Http\Controllers\Api\EntityController::class, 'index']);
+Route::get('/entities/{slug}', [\App\Http\Controllers\Api\EntityController::class, 'show']);
 
 // Glossario
 Route::get('/glossary', [\App\Http\Controllers\Api\GlossaryController::class, 'index']);

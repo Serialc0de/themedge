@@ -17,9 +17,11 @@ import { AiDisclosureBadge } from '@/components/article/AiDisclosureBadge';
 import { ArticleFactChecks } from '@/components/article/ArticleFactChecks';
 import { ArticleKnowledgeBox } from '@/components/article/ArticleKnowledgeBox';
 import { ArticleTimeline } from '@/components/article/ArticleTimeline';
+import { ArticleEntities } from '@/components/article/ArticleEntities';
 import { useToast } from '@/lib/toast';
 import { useHighlightConfig } from '@/lib/use-highlight-config';
 import { useGlossaryHighlighting } from '@/lib/use-glossary-highlighting';
+import { useEntityAutolink } from '@/lib/use-entity-autolink';
 
 type Props = {
   articleId: number;
@@ -85,6 +87,9 @@ function ArticleReaderInner({
   // Auto-link del glossario sui termini tecnici
   useGlossaryHighlighting(containerRef);
 
+  // Auto-link delle entità (persone, organizzazioni, luoghi) nel contenuto
+  useEntityAutolink(containerRef);
+
   const handleHighlightClick = useCallback(
     (highlight: any, x: number, y: number) => {
       setClickedHighlightId({ id: highlight.id, x, y });
@@ -141,6 +146,8 @@ function ArticleReaderInner({
       <ArticleKnowledgeBox articleSlug={articleSlug} />
 
       <ArticleTimeline articleSlug={articleSlug} />
+
+      <ArticleEntities articleSlug={articleSlug} />
 
       <ShareButtons
         url={`https://themedge.com/articolo/${articleSlug}`}
@@ -214,6 +221,8 @@ function ArticleReaderInner({
       <ArticleKnowledgeBox articleSlug={articleSlug} />
 
       <ArticleTimeline articleSlug={articleSlug} />
+
+      <ArticleEntities articleSlug={articleSlug} />
 
       <ShareButtons
         url={`https://themedge.com/articolo/${articleSlug}`}

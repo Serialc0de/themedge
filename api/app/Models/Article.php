@@ -759,4 +759,34 @@ class Article extends Model implements HasMedia
         return $this->hasMany(ArticleTimelineEvent::class)->chronological()->keyEvents();
     }
 
+    // ============================================================
+    // SCROLLY SECTIONS — Relazione
+    // ============================================================
+
+    public function scrollySections(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ScrollySection::class)->ordered();
+    }
+
+    public function hasScrollySections(): bool
+    {
+        return $this->scrollySections()->exists();
+    }
+
+    // ============================================================
+    // ENTITIES — Relazione
+    // ============================================================
+
+    public function entities(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Entity::class, 'article_entity')
+            ->withPivot('mentions', 'context', 'order')
+            ->withTimestamps();
+    }
+
+    public function hasEntities(): bool
+    {
+        return $this->entities()->exists();
+    }
+
 }

@@ -168,17 +168,23 @@ export default async function UltimoraPage() {
                         )}
                       </Link>
 
-                      <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
                         {item.author && (
-                          <span>di <strong>{item.author.name}</strong></span>
+                          <>
+                            <span className="whitespace-nowrap">di <strong>{item.author.name}</strong></span>
+                            <span aria-hidden="true" className="text-gray-400">·</span>
+                          </>
                         )}
-                        <span title={formatDate(item.published_at)}>
+                        <span className="whitespace-nowrap" title={formatDate(item.published_at)}>
                           {timeAgo(item.published_at)}
                         </span>
                         {!isActive && item.expired_at && (
-                          <span className="text-gray-400">
-                            Scaduta {timeAgo(item.expired_at)}
-                          </span>
+                          <>
+                            <span aria-hidden="true" className="text-gray-400">·</span>
+                            <span className="whitespace-nowrap text-gray-400">
+                              Scaduta {timeAgo(item.expired_at)}
+                            </span>
+                          </>
                         )}
                       </div>
                     </div>

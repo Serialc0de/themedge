@@ -577,6 +577,128 @@ class ArticleResource extends Resource
                         ->defaultItems(0),
                 ])
                 ->columns(1),
+            Forms\Components\Section::make('🎬 Scrollytelling')
+                ->description('Storia visiva con animazioni allo scroll. Ogni sezione appare quando l\'utente scrolla.')
+                ->icon('heroicon-o-sparkles')
+                ->collapsible()
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('scrollySections')
+                        ->relationship()
+                        ->label('Sezioni scrollytelling')
+                        ->schema([
+                            Forms\Components\Select::make('type')
+                                ->label('Tipo sezione')
+                                ->options(\App\Models\ScrollySection::TYPE_LABELS)
+                                ->required()
+                                ->default('text')
+                                ->live(),
+
+                            Forms\Components\TextInput::make('order')
+                                ->label('Ordine')
+                                ->numeric()
+                                ->default(0),
+
+                            Forms\Components\Textarea::make('content')
+                                ->label('Contenuto (HTML)')
+                                ->rows(4)
+                                ->columnSpanFull()
+                                ->helperText('Testo della sezione. Supporta HTML: <p>, <strong>, <em>, <br>.'),
+
+                            Forms\Components\TextInput::make('media_url')
+                                ->label('Media URL')
+                                ->url()
+                                ->maxLength(500)
+                                ->columnSpanFull()
+                                ->helperText('URL immagine/video (per tipi: image, sticky-image, video, hero).'),
+
+                            Forms\Components\TextInput::make('media_alt')
+                                ->label('Alt text')
+                                ->maxLength(300)
+                                ->columnSpanFull(),
+
+                            Forms\Components\KeyValue::make('data')
+                                ->label('Dati aggiuntivi (JSON)')
+                                ->keyLabel('Chiave')
+                                ->valueLabel('Valore')
+                                ->addActionLabel('Aggiungi dato')
+                                ->columnSpanFull()
+                                ->helperText('Per chart: data=[{x,y}...], per stat: value=1000, per timeline: events=[...]'),
+
+                            Forms\Components\Select::make('settings.animation')
+                                ->label('Animazione')
+                                ->options(\App\Models\ScrollySection::ANIMATION_LABELS)
+                                ->default('fade-up'),
+
+                            Forms\Components\TextInput::make('settings.duration')
+                                ->label('Durata (ms)')
+                                ->numeric()
+                                ->default(800)
+                                ->minValue(100)
+                                ->maxValue(3000),
+
+                            Forms\Components\TextInput::make('settings.delay')
+                                ->label('Delay (ms)')
+                                ->numeric()
+                                ->default(0)
+                                ->minValue(0)
+                                ->maxValue(2000),
+                        ])
+                        ->columns(2)
+                        ->reorderable('order')
+                        ->collapsible()
+                        ->itemLabel(function (array $state): ?string {
+                            $type = \App\Models\ScrollySection::TYPE_LABELS[$state['type'] ?? 'text'] ?? 'Sezione';
+                            $content = $state['content'] ?? '';
+                            $preview = $content ? mb_substr(strip_tags($content), 0, 50) : '';
+                            return $type . ($preview ? ' — ' . $preview : '');
+                        })
+                        ->addActionLabel('Aggiungi sezione scrollytelling')
+                        ->defaultItems(0),
+                ])
+                ->columns(1),
+            Forms\Components\Section::make('🏷️ Entità collegate')
+                ->description('Persone, organizzazioni, luoghi citati nell\'articolo. Diventeranno link cliccabili.')
+                ->icon('heroicon-o-tag')
+                ->collapsible()
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('entities')
+                        ->relationship()
+                        ->label('Entità')
+                        ->schema([
+                            Forms\Components\Select::make('entity_id')
+                                ->label('Entità')
+                                ->options(fn () => \App\Models\Entity::query()->published()->ordered()->pluck('name', 'id')->toArray())
+                                ->searchable()
+                                ->required()
+                                ->columnSpan(2),
+
+                            Forms\Components\TextInput::make('mentions')
+                                ->label('Menzioni')
+                                ->numeric()
+                                ->default(1)
+                                ->minValue(1),
+
+                            Forms\Components\TextInput::make('order')
+                                ->label('Ordine')
+                                ->numeric()
+                                ->default(0),
+
+                            Forms\Components\Textarea::make('context')
+                                ->label('Contesto (opzionale)')
+                                ->rows(2)
+                                ->columnSpanFull()
+                                ->helperText('Frase in cui appare l\'entità (per riferimento editoriale).'),
+                        ])
+                        ->columns(3)
+                        ->reorderable('order')
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): ?string => '🏷️ ' . ($state['entity_id'] ?? 'Entità'))
+                        ->addActionLabel('Collega entità')
+                        ->defaultItems(0),
+                ])
+                ->columns(1),
             Forms\Components\Section::make('🎯 Highlight Policy')
                 ->description('Controlla come gli utenti possono evidenziare il testo di questo articolo.')
                 ->columns(2)

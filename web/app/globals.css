@@ -471,3 +471,50 @@ html, body {
   overflow-x: hidden;
   max-width: 100vw;
 }
+
+/* ============================================================ */
+/* SCROLLYTELLING                                              */
+/* ============================================================ */
+
+html {
+  scroll-behavior: smooth;
+}
+
+.scrolly-page {
+  overflow-x: hidden;
+}
+
+.scrolly-article {
+  position: relative;
+}
+
+/* Migliora la leggibilità su sezioni hero */
+.scrolly-article .prose {
+  --tw-prose-body: #1f2937;
+  --tw-prose-headings: #111827;
+}
+
+.dark .scrolly-article .prose {
+  --tw-prose-body: #e5e7eb;
+  --tw-prose-headings: #f9fafb;
+}
+
+/* Tabular numbers per count-up */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sticky sections: assicura che non ci siano overflow */
+@media (min-width: 768px) {
+  .scrolly-article .sticky {
+    will-change: transform;
+  }
+}
+
+/* Reduced motion: disabilita animazioni lunghe */
+@media (prefers-reduced-motion: reduce) {
+  .scrolly-article * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -196,6 +196,29 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
             {article.title}
           </h1>
 
+          {/* Banner Scrollytelling */}
+          {(article as any).has_scrolly && (
+            <div className="my-8 p-5 sm:p-6 rounded-lg border-2 border-red-200 dark:border-red-800 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/30 dark:to-orange-950/30">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <span className="text-4xl flex-shrink-0" aria-hidden="true">🎬</span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">
+                    Versione scrollytelling disponibile
+                  </h3>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    Questo articolo ha una versione visiva con animazioni, grafici e timeline interattive.
+                  </p>
+                </div>
+                <Link
+                  href={`/articolo/${article.slug}/scrolly`}
+                  className="flex-shrink-0 px-5 py-3 bg-red-700 hover:bg-red-600 text-white text-xs sm:text-sm font-bold uppercase tracking-wider rounded transition"
+                >
+                  Guarda →
+                </Link>
+              </div>
+            </div>
+          )}
+
           {/* Excerpt */}
           {article.excerpt && (
             <p className="text-xl text-gray-700 italic mb-8 border-l-4 border-black pl-4 font-serif">
