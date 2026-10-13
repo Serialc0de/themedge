@@ -745,3 +745,38 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - Nessun link rotto dopo cambio slug
 - 100% locale, $0 costi
 
+
+---
+
+## [2026-10-13] — 🧹 Sistema produzione: cron, backup, cleanup
+
+### Aggiunto
+- **Cron jobs**:
+  - Analytics snapshot (ogni ora)
+  - Backup Themedge (4:00 daily) — DB + Laravel + Web + Config
+  - Cleanup log (3:00 domenica) — Laravel, PM2, Nginx, journalctl
+  - Cleanup Ollama RAM (15 min)
+  - Check PHP-FPM (2 min)
+  - Check disco (ogni ora, con notifica Filament)
+- **Script in `/root/`**:
+  - `backup-themedge.sh` — backup completo con retention 7gg
+  - `cleanup-logs.sh` — pulizia log automatica
+  - `cleanup-ollama.sh` — libera RAM modelli AI
+  - `check-disk.sh` — alert disco >80%
+
+### Pulizia disco (80% → 66%)
+- Eliminati sorgenti Nginx: 2.0 GB
+- Eliminati test MySQL: 253 MB
+- Eliminati backup aaPanel vecchi: 478 MB
+- Pulita cache npm: 787 MB
+- Eliminata test-app dismessa: 119 MB
+- Puliti backup-panel-data + old-backups: 92 MB
+- **Totale: ~4.5 GB liberati**
+
+### Impatto
+- **Backup automatico** giornaliero (retention 7gg)
+- **Alert disco** automatico (>80%)
+- **Log rotation** automatica
+- **RAM Ollama** liberata ogni 15 min
+- **Disco sicuro**: 66% (era 80%)
+
