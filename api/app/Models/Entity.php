@@ -17,6 +17,7 @@ class Entity extends Model
         'slug',
         'bio',
         'photo_url',
+        'wikipedia_url', 'wikipedia_text', 'wikipedia_lang', 'wikipedia_fetched_at', 'wikipedia_status',
         'aliases',
         'metadata',
         'is_published',
@@ -28,9 +29,19 @@ class Entity extends Model
         'metadata' => 'array',
         'is_published' => 'boolean',
         'order' => 'integer',
+        'wikipedia_fetched_at' => 'datetime',
     ];
 
     // ============================================================
+    // ============================================================
+    // RELAZIONI
+    // ============================================================
+
+    public function wikipediaChunks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(WikipediaChunk::class)->orderBy('chunk_index');
+    }
+
     // TYPES — Costanti
     // ============================================================
 

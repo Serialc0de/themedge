@@ -6,13 +6,15 @@ use App\Models\Article;
 use App\Models\Entity;
 use App\Models\WikiPage;
 use App\Services\Llm\OllamaClient;
+use App\Services\Wiki\WikipediaRagService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class WikiGenerator
 {
     public function __construct(
-        protected OllamaClient $ollama
+        protected OllamaClient $ollama,
+        protected WikipediaRagService $wikiRag,
     ) {}
 
     /**
@@ -45,19 +47,24 @@ class WikiGenerator
                 'title' => $entity->name,
                 'subtitle' => $this->buildSubtitle($entity),
                 'type' => $this->mapEntityTypeToWikiType($entity->type),
-                'summary' => $generated['summary'] ?? null,
-                'content' => $generated['content'] ?? null,
-                'infobox' => $generated['infobox'] ?? null,
-                'aliases' => $entity->aliases ?? [],
+                'summary' => $generated['summary'] ?? ($existing->summary ?? null),
+                'content' => $this->pickBestContent($existing, $generated),
+                'infobox' => $this->pickBestInfobox($existing, $generated),
+                'aliases' => $entity->aliases ?? ($existing->aliases ?? []),
                 'icon' => $this->getTypeIcon($entity->type),
                 'is_ai_generated' => true,
-                'ai_model' => config('services.ollama.model', 'llama3.1:8b'),
+                'ai_model' => config('services.ollama.model', 'qwen2.5:3b'),
                 'ai_generated_at' => now(),
                 'entity_id' => $entity->id,
                 'articles_count' => $articles->count(),
             ];
 
             if ($existing) {
+                // Preserva featured_image se nuova è vuota
+                if (empty($entity->photo_url) && !empty($existing->featured_image)) {
+                    $data['featured_image'] = $existing->featured_image;
+                }
+                // Status preservato automaticamente (non incluso in $data)
                 $existing->update($data);
                 $page = $existing;
             } else {
@@ -120,6 +127,7 @@ class WikiGenerator
         ];
         $typeLabel = $typeLabels[$entity->type] ?? 'entità';
 
+        $wikipediaSection = $this->buildWikipediaSection($entity);
         $prompt = <<<PROMPT
 Sei un redattore enciclopedico. Devi scrivere una voce di wiki per un giornale online italiano.
 
@@ -127,7 +135,9 @@ ENTITÀ: {$entity->name}
 TIPO: {$typeLabel}
 BIO ESISTENTE: {$entity->bio}
 
-ARTICOLI CHE NE PARLANO (estratti):
+{$wikipediaSection}
+
+ARTICOLI DEL GIORNALE (eventi recenti):
 {$articlesContext}
 
 Scrivi una voce wiki in italiano, stile enciclopedico ma giornalistico, con:
@@ -135,22 +145,37 @@ Scrivi una voce wiki in italiano, stile enciclopedico ma giornalistico, con:
 2. Un CONTENUTO in markdown con sezioni pertinenti al tipo (es. per persona: Biografia, Ruolo, Eventi recenti; per luogo: Descrizione, Rilevanza, Eventi)
 3. Un INFOBOX con dati strutturati (JSON) pertinenti al tipo
 
-Rispondi SOLO con JSON valido:
+Rispondi SOLO con JSON valido (nessun testo prima o dopo):
 {
   "summary": "Breve sommario in 1-2 frasi...",
   "content": "## Sezione 1\n\nTesto...\n\n## Sezione 2\n\nTesto...",
   "infobox": {
-    "chiave1": "valore1",
-    "chiave2": "valore2"
+    "Nome": "Valore leggibile",
+    "Data di nascita": "25 gennaio 1978",
+    "Luogo di nascita": "Roma"
   }
 }
 
 REGOLE:
-- Non inventare fatti non presenti negli articoli o nella bio
-- Se un dato non è disponibile, ometti la chiave dall'infobox
+- Usa WIKIPEDIA come fonte primaria per i fatti (nascita, carriera, ruolo)
+- Usa ARTICOLI DEL GIORNALE per eventi recenti e attualità
+- NON copiare Wikipedia letteralmente: riscrivi con parole tue, sintetizza
+- NON inventare fatti non presenti in Wikipedia o negli articoli
 - Tono neutro, enciclopedico
-- Massimo 500 parole per il content
+- Massimo 600 parole per il content
 - Il content DEVE essere markdown valido
+
+REGOLE IMPORTANTI PER L'INFOBOX:
+- Le chiavi dell'infobox DEVONO essere in italiano, leggibili, con l'iniziale maiuscola e spazi tra le parole
+- ESEMPIO CORRETTO: "Data di nascita", "Luogo di nascita", "Carica", "Partito politico"
+- ESEMPIO SBAGLIATO: "data_di_nascita", "luogo_nascita", "chiave1"
+- NON inserire chiavi con valore "sconosciuto", "sconosciuta", "N/A", "-", "non disponibile", "non noto"
+- Se un dato non è disponibile, OMETTI completamente la chiave dall'infobox
+- Massimo 5-7 chiavi pertinenti al tipo di entità:
+  * persona: Nome, Data di nascita, Luogo di nascita, Carica, Partito politico
+  * luogo: Nome, Paese, Regione, Popolazione, Superficie
+  * organizzazione: Nome, Tipo, Fondazione, Sede, Leader
+  * evento: Nome, Data, Luogo, Partecipanti
 PROMPT;
 
         $ollama = $this->ollama->withModel(config('services.ollama.model', 'llama3.1:8b'));
@@ -172,60 +197,79 @@ PROMPT;
      * Parsa la risposta JSON di Ollama.
      */
     protected function parseResponse(string $response, Entity $entity): array
-    {
-        // Caso 1: JSON completo valido
-        if (preg_match('/\{[\s\S]*\}/', $response, $matches)) {
-            $data = json_decode($matches[0], true);
-            if (is_array($data)) {
-                return [
-                    'summary' => $data['summary'] ?? null,
-                    'content' => $data['content'] ?? null,
-                    'infobox' => $data['infobox'] ?? null,
-                ];
-            }
-        }
+{
+    // Log raw response per debug
+    \Log::info('WikiGenerator parseResponse START', [
+        'entity_id' => $entity->id,
+        'response_length' => strlen($response),
+        'response_start' => mb_substr($response, 0, 200),
+    ]);
 
-        // Caso 2: risposta sembra JSON ma è troncata → prova repair
-        if (str_starts_with(trim($response), '{')) {
-            Log::warning('Wiki response sembra JSON troncato, provo repair', [
-                'entity_id' => $entity->id,
-                'response_len' => mb_strlen($response),
-            ]);
-
-            $repaired = $this->tryRepairTruncatedJson($response);
-            if (is_array($repaired) && !empty($repaired['summary'])) {
-                Log::info('Wiki JSON troncato riparato con successo', [
-                    'entity_id' => $entity->id,
-                ]);
-                return [
-                    'summary' => $repaired['summary'] ?? null,
-                    'content' => $repaired['content'] ?? null,
-                    'infobox' => $repaired['infobox'] ?? null,
-                ];
-            }
-
-            // Repair fallito: NON salvare JSON grezzo come content
-            Log::warning('Wiki repair fallito, uso fallback bio', [
-                'entity_id' => $entity->id,
-            ]);
-            return [
-                'summary' => $entity->bio ? mb_substr(strip_tags($entity->bio), 0, 200) : null,
-                'content' => $entity->bio ? "## Descrizione\n\n{$entity->bio}" : null,
-                'infobox' => null,
-            ];
-        }
-
-        // Caso 3: risposta non-JSON → salva come content (ma logga)
-        Log::warning('Wiki response non-JSON', [
+    // Estrai JSON (multiline)
+    if (!preg_match('/\{[\s\S]{10,50000}\}/', $response, $matches)) {
+        \Log::warning('WikiGenerator: JSON non trovato', [
             'entity_id' => $entity->id,
-            'response' => mb_substr($response, 0, 300),
+            'response_preview' => mb_substr($response, 0, 500),
         ]);
         return [
-            'summary' => $entity->bio ? mb_substr(strip_tags($entity->bio), 0, 200) : null,
+            'summary' => null,
             'content' => $response,
             'infobox' => null,
         ];
     }
+
+    $json = $matches[0];
+    $data = json_decode($json, true);
+
+    // Se json_decode fallisce, prova a pulire
+    if (!is_array($data)) {
+        \Log::warning('WikiGenerator: json_decode fallito, provo a pulire', [
+            'entity_id' => $entity->id,
+            'json_error' => json_last_error_msg(),
+            'json_length' => strlen($json),
+        ]);
+
+        // Rimuovi trailing commas
+        $json = preg_replace('/,\s*([\}\]])/', '', $json);
+
+        // Rimuovi caratteri di controllo (eccetto newline/tab)
+        $json = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $json);
+
+        $data = json_decode($json, true);
+    }
+
+    if (!is_array($data)) {
+        \Log::error('WikiGenerator: impossibile parsare JSON', [
+            'entity_id' => $entity->id,
+        ]);
+        return [
+            'summary' => null,
+            'content' => $response,
+            'infobox' => null,
+        ];
+    }
+
+    // Estrai infobox
+    $infobox = $data['infobox'] ?? null;
+    if (is_array($infobox)) {
+        // Filtra valori nulli/vuoti
+        $infobox = array_filter($infobox, fn ($v) => $v !== null && $v !== '' && $v !== []);
+    }
+
+    \Log::info('WikiGenerator parseResponse OK', [
+        'entity_id' => $entity->id,
+        'has_summary' => !empty($data['summary']),
+        'content_length' => strlen($data['content'] ?? ''),
+        'has_infobox' => is_array($infobox) && !empty($infobox),
+        'infobox_keys' => is_array($infobox) ? count($infobox) : 0,
+    ]);
+
+    return [
+        'summary' => $data['summary'] ?? null,
+        'content' => $data['content'] ?? null,
+        'infobox' => is_array($infobox) && !empty($infobox) ? $infobox : null,
+    ];
+}
 
     /**
      * Prova a riparare un JSON troncato (chiuso a metà da Ollama).
@@ -286,6 +330,40 @@ PROMPT;
         }
 
         return null;
+    }
+
+    /**
+     * Costruisce la sezione Wikipedia per il prompt (con RAG se disponibile).
+     */
+    protected function buildWikipediaSection(Entity $entity): string
+    {
+        if ($entity->wikipedia_status !== 'ready') {
+            return "WIKIPEDIA: non disponibile per questa entità.\n";
+        }
+
+        $typeLabels = [
+            'person' => 'persona',
+            'organization' => 'organizzazione',
+            'location' => 'luogo',
+            'event' => 'evento',
+            'concept' => 'concetto',
+        ];
+        $typeLabel = $typeLabels[$entity->type] ?? 'entità';
+
+        $query = trim($entity->name . ' ' . $typeLabel . ' ' . mb_substr($entity->bio ?? '', 0, 300));
+        $context = $this->wikiRag->buildContext($entity, $query, limit: 5);
+
+        if (empty($context)) {
+            Log::warning('WikiGenerator: Wikipedia context vuoto', ['entity_id' => $entity->id]);
+            return "WIKIPEDIA: non disponibile per questa entità.\n";
+        }
+
+        Log::info('WikiGenerator: Wikipedia context costruito', [
+            'entity_id' => $entity->id,
+            'chars' => mb_strlen($context),
+        ]);
+
+        return "WIKIPEDIA (fonte verificata, usa per i fatti principali):\n{$context}\n";
     }
 
     /**
@@ -390,5 +468,66 @@ PROMPT;
             'event' => 'Evento',
             default => null,
         };
+    }
+
+    /**
+     * Sceglie il content migliore: nuovo se valido, esistente se nuovo è troppo corto.
+     */
+    protected function pickBestContent(?WikiPage $existing, array $generated): ?string
+    {
+        $new = $generated['content'] ?? null;
+
+        // Se non c'è esistente, usa nuovo
+        if (!$existing || empty($existing->content)) {
+            return $new;
+        }
+
+        // Se nuovo è vuoto, usa esistente
+        if (empty($new)) {
+            Log::info('WikiGenerator: content nuovo vuoto, uso esistente', [
+                'wiki_id' => $existing->id,
+            ]);
+            return $existing->content;
+        }
+
+        // Se nuovo è < 50% dell'esistente, usa esistente
+        $oldLen = mb_strlen($existing->content);
+        $newLen = mb_strlen($new);
+
+        if ($newLen < $oldLen * 0.5) {
+            Log::warning('WikiGenerator: content nuovo troppo corto, uso esistente', [
+                'wiki_id' => $existing->id,
+                'old_len' => $oldLen,
+                'new_len' => $newLen,
+                'ratio' => round($newLen / $oldLen, 2),
+            ]);
+            return $existing->content;
+        }
+
+        return $new;
+    }
+
+    /**
+     * Sceglie l'infobox migliore: nuovo se valido, esistente se nuovo è vuoto.
+     */
+    protected function pickBestInfobox(?WikiPage $existing, array $generated): ?array
+    {
+        $new = $generated['infobox'] ?? null;
+
+        // Se nuovo valido, usa nuovo
+        if (is_array($new) && !empty($new)) {
+            return $new;
+        }
+
+        // Altrimenti, preserva esistente
+        if ($existing && !empty($existing->infobox)) {
+            Log::info('WikiGenerator: infobox preservato', [
+                'wiki_id' => $existing->id,
+                'keys_count' => count($existing->infobox),
+            ]);
+            return $existing->infobox;
+        }
+
+        return null;
     }
 }
