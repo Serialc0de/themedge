@@ -92,7 +92,7 @@ export function ArticleSources({ articleSlug }: Props) {
                   </h3>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
                     {source.publisher && <span className="font-medium">{source.publisher}</span>}
-                    {source.published_at && <span>{new Date(source.published_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
+                    {source.published_at && <span suppressHydrationWarning>{new Date(source.published_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
                     <span className="font-mono text-[10px] text-gray-400 dark:text-gray-500">{source.domain}</span>
                   </div>
                   {source.note && (

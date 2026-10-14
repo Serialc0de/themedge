@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useToast } from '@/lib/toast';
 
 // ============================================================
@@ -22,6 +22,13 @@ export function ShareButtons({ url, title, variant = 'full' }: Props) {
   const toast = useToast();
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // ⚠️ SSR-safe: calcola 'supportsNativeShare' SOLO dopo l'hydration
+  // per evitare React error #418 (hydration mismatch).
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ----------------------------------------------------------
   // Web Share API (mobile nativo)
@@ -105,8 +112,10 @@ export function ShareButtons({ url, title, variant = 'full' }: Props) {
   // ----------------------------------------------------------
   // RENDER
   // ----------------------------------------------------------
+  // Server: sempre false → struttura identica server/client
+  // Client (dopo mount): valore reale
   const supportsNativeShare =
-    typeof window !== 'undefined' && 'share' in navigator;
+    mounted && typeof navigator !== 'undefined' && 'share' in navigator;
 
   return (
     <section

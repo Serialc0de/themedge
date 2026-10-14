@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 
 type Props = {
   src: string;
@@ -41,12 +40,12 @@ export function VideoEmbed({ src, title = 'Video', aspect = '16/9', posterUrl }:
             aria-label={`Riproduci ${title}`}
           >
             {thumb ? (
-              <Image
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={thumb}
                 alt={title}
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 800px"
-                className="object-cover opacity-80 transition-opacity group-hover:opacity-100"
+                className="absolute inset-0 h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
+                loading="lazy"
               />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
@@ -60,7 +59,6 @@ export function VideoEmbed({ src, title = 'Video', aspect = '16/9', posterUrl }:
               {title}
             </span>
           </button>
-          {/* Fallback SEO + no-JS: carica l'iframe se JS è disabilitato */}
           <noscript>
             <iframe
               src={src}

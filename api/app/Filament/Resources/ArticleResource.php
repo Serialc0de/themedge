@@ -65,7 +65,7 @@ class ArticleResource extends Resource
                         ->columnSpanFull()
                         ->live(onBlur: true)
                         ->fileAttachmentsDisk('public')
-                        ->fileAttachmentsDirectory('articles/content'),
+                        ->fileAttachmentsDirectory('articles/content')
                 ]),
 
             Forms\Components\Section::make('Classificazione')
@@ -994,7 +994,7 @@ class ArticleResource extends Resource
                     ->visible(fn () => ! Auth::user()->hasRole(['super_admin', 'editor'])),
             ])
             ->actions([
-                \App\Filament\Actions\InsertEmbedAction::make(),
+                // RIMOSSO: InsertEmbedAction (spostato nel RichEditor)
                 Tables\Actions\Action::make('preview')
                     ->label('Anteprima')
                     ->icon('heroicon-o-arrow-top-right-on-square')

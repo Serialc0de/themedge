@@ -29,7 +29,7 @@ export function ArticleTLDR({ tldr, keyPoints, summary, generatedAt }: ArticleTL
             TL;DR
           </h2>
           {generatedAt && (
-            <span className="text-[10px] uppercase tracking-wider text-amber-700/70 dark:text-amber-300/60 whitespace-nowrap">
+            <span className="text-[10px] uppercase tracking-wider text-amber-700/70 dark:text-amber-300/60 whitespace-nowrap" suppressHydrationWarning>
               AI · {new Date(generatedAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
             </span>
           )}
