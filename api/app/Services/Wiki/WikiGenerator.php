@@ -50,7 +50,6 @@ class WikiGenerator
                 'infobox' => $generated['infobox'] ?? null,
                 'aliases' => $entity->aliases ?? [],
                 'icon' => $this->getTypeIcon($entity->type),
-                'featured_image' => $entity->photo_url,
                 'is_ai_generated' => true,
                 'ai_model' => config('services.ollama.model', 'llama3.1:8b'),
                 'ai_generated_at' => now(),
@@ -63,6 +62,9 @@ class WikiGenerator
                 $page = $existing;
             } else {
                 $data['status'] = 'draft';
+                if ($entity->photo_url) {
+                    $data['featured_image'] = $entity->photo_url;
+                }
                 $page = WikiPage::create($data);
             }
 
