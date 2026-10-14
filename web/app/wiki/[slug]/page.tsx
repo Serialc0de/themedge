@@ -4,6 +4,7 @@ import Image from 'next/image';
 import type { Metadata } from 'next';
 import { getWikiPage, WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from '@/lib/wiki';
 import { WikiContent } from '@/components/wiki/WikiContent';
+import { WikiImageAttribution } from '@/components/wiki/WikiImageAttribution';
 import { WikiInfobox } from '@/components/wiki/WikiInfobox';
 import { WikiArticles } from '@/components/wiki/WikiArticles';
 import { WikiEntities } from '@/components/wiki/WikiEntities';
@@ -186,6 +187,7 @@ export default async function WikiPageDetail({ params }: { params: Promise<{ slu
                     {page.featured_image_caption}
                   </figcaption>
                 )}
+                <WikiImageAttribution page={page} variant="caption" className="text-center" />
               </figure>
             )}
 

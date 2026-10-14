@@ -20,7 +20,8 @@ class WikiController extends Controller
         $query = WikiPage::published()
             ->select([
                 'id', 'slug', 'title', 'subtitle', 'type', 'status',
-                'summary', 'icon', 'featured_image', 'articles_count', 'views',
+                'summary', 'icon', 'featured_image', 'featured_image_caption', 'articles_count', 'views',
+                'image_license', 'image_author', 'image_attribution', 'image_source_url', 'image_status',
                 'published_at',
             ])
             ->orderByDesc('articles_count')
@@ -134,6 +135,11 @@ class WikiController extends Controller
                 'icon' => $page->icon,
                 'featured_image' => $page->featured_image_url,
                 'featured_image_caption' => $page->featured_image_caption,
+                'image_license' => $page->image_license,
+                'image_author' => $page->image_author,
+                'image_attribution' => $page->image_attribution,
+                'image_source_url' => $page->image_source_url,
+                'image_status' => $page->image_status,
                 'articles_count' => $page->articles_count,
                 'views' => $page->views,
                 'is_ai_generated' => $page->is_ai_generated,

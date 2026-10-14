@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { WikiPageListItem } from '@/lib/wiki';
 import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from '@/lib/wiki';
+import { WikiImageAttribution } from './WikiImageAttribution';
 
 type Props = {
   page: WikiPageListItem;
@@ -77,6 +78,7 @@ export function WikiCard({ page, variant = 'default' }: Props) {
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover transition duration-500 group-hover:scale-105"
           />
+          <WikiImageAttribution page={page} variant="overlay" />
         </div>
       ) : (
         <div className={`flex aspect-video items-center justify-center ${colors.bg}`}>

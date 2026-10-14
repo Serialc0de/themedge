@@ -27,6 +27,8 @@ class WikiPage extends Model
         'is_ai_generated', 'ai_model', 'ai_generated_at',
         'created_by', 'updated_by', 'published_at', 'last_reviewed_at',
         'entity_id',
+        'image_source_url', 'image_license', 'image_author',
+        'image_attribution', 'image_fetched_at', 'image_status',
     ];
 
     protected $casts = [
@@ -42,6 +44,7 @@ class WikiPage extends Model
         'ai_generated_at' => 'datetime',
         'published_at' => 'datetime',
         'last_reviewed_at' => 'datetime',
+        'image_fetched_at' => 'datetime',
     ];
 
     // ============================================================
@@ -228,6 +231,19 @@ class WikiPage extends Model
             return $this->featured_image;
         }
         return config('app.public_asset_url', config('app.url')) . '/storage/' . ltrim($this->featured_image, '/');
+    }
+
+    /**
+     * Testo di attribuzione per l'immagine (autore, licenza, fonte).
+     */
+    public function getImageAttributionHtmlAttribute(): ?string
+    {
+        if (empty($this->image_attribution)) return null;
+        $text = e($this->image_attribution);
+        if ($this->image_source_url) {
+            $text .= ' <a href="' . e($this->image_source_url) . '" target="_blank" rel="noopener nofollow">(fonte)</a>';
+        }
+        return $text;
     }
 
 }

@@ -22,6 +22,11 @@ export type WikiPageListItem = {
   articles_count: number;
   views: number;
   published_at: string | null;
+  image_license: string | null;
+  image_author: string | null;
+  image_attribution: string | null;
+  image_source_url: string | null;
+  image_status: string | null;
 };
 
 export type WikiPageDetail = WikiPageListItem & {
