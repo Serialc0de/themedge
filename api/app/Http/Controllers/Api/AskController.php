@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AskQuery;
 use App\Services\Rag\RagPromptBuilder;
 use App\Services\Rag\RagSearchService;
 use Illuminate\Http\Request;
@@ -27,16 +28,18 @@ class AskController extends Controller
 
         $question = trim($data['question']);
         $stream = $data['stream'] ?? true;
+        $sessionId = $request->header('X-Session-Id');
+        $questionHash = AskQuery::hashQuestion($question);
 
         // 1. Ricerca vettoriale
         $startTime = microtime(true);
-        $context = $this->search->search($question, limit: 1, minScore: 0.5);
-        $searchDuration = round((microtime(true) - $startTime) * 1000);
+        $context = $this->search->search($question, limit: 2, minScore: 0.4);
+        $searchMs = (int) round((microtime(true) - $startTime) * 1000);
 
         Log::info('Ask query', [
             'question' => mb_substr($question, 0, 100),
             'results_count' => count($context),
-            'search_ms' => $searchDuration,
+            'search_ms' => $searchMs,
         ]);
 
         // 2. Costruzione prompt
@@ -44,18 +47,50 @@ class AskController extends Controller
 
         // 3. Streaming o risposta completa
         if ($stream) {
-            return $this->streamResponse($question, $context, $prompt);
+            return $this->streamResponse($question, $context, $prompt, $questionHash, $searchMs, $sessionId);
         }
 
-        return $this->fullResponse($question, $context, $prompt);
+        return $this->fullResponse($question, $context, $prompt, $questionHash, $searchMs, $sessionId);
     }
 
     /**
-     * Streaming SSE con fopen (più affidabile di Guzzle stream).
+     * Streaming SSE con fopen.
      */
-    protected function streamResponse(string $question, array $context, string $prompt)
+    protected function streamResponse(string $question, array $context, string $prompt, string $questionHash, int $searchMs, ?string $sessionId)
     {
-        return response()->stream(function () use ($question, $context, $prompt) {
+        $ollamaUrl = config('services.ollama.url', 'http://localhost:11434');
+        $model = config('services.ollama.model', 'llama3.1:8b');
+        $timeout = config('services.ollama.timeout', 300);
+
+        return response()->stream(function () use ($question, $context, $prompt, $questionHash, $searchMs, $sessionId, $ollamaUrl, $model, $timeout) {
+            $startTime = microtime(true);
+            $fullAnswer = '';
+
+            // Pre-crea AskQuery per avere l'ID
+            $askQuery = null;
+            try {
+                $askQuery = \App\Models\AskQuery::create([
+                    'question' => $question,
+                    'question_hash' => $questionHash,
+                    'answer' => '',
+                    'answer_length' => 0,
+                    'sources_count' => count($context),
+                    'sources' => collect($context)->map(fn ($r) => [
+                        'id' => $r['id'], 'title' => $r['title'],
+                        'kind' => $r['kind'], 'url' => $r['url'], 'score' => $r['score'],
+                    ])->toArray(),
+                    'model' => $model,
+                    'search_ms' => $searchMs,
+                    'total_ms' => 0,
+                    'ip' => request()->ip(),
+                    'session_id' => $sessionId,
+                    'user_agent' => request()->userAgent(),
+                    'was_cached' => false,
+                ]);
+            } catch (\Throwable $e) {
+                \Log::warning('Failed to pre-create AskQuery', ['error' => $e->getMessage()]);
+            }
+
             // Disabilita buffering
             @ini_set('zlib.output_compression', '0');
             @ini_set('output_buffering', '0');
@@ -81,13 +116,12 @@ class AskController extends Controller
                 ];
             })->toArray();
 
-            $this->sendSse('sources', ['sources' => $sources]);
+            $this->sendSse('sources', [
+                'sources' => $sources,
+                'query_id' => $askQuery?->id,
+            ]);
 
-            // 2. Stream da Ollama via fopen
-            $ollamaUrl = config('services.ollama.url', 'http://localhost:11434');
-            $model = config('services.ollama.model', 'llama3.1:8b');
-            $timeout = config('services.ollama.timeout', 300);
-
+            // 2. Prepara payload
             $payload = json_encode([
                 'model' => $model,
                 'prompt' => $prompt,
@@ -113,10 +147,12 @@ class AskController extends Controller
 
             if (!$stream) {
                 $this->sendSse('error', ['message' => 'Impossibile connettersi a Ollama']);
+
+                $this->saveAskQuery($question, $questionHash, '', $context, $model, $searchMs, $startTime, $sessionId, false);
                 return;
             }
 
-            // 3. Leggi NDJSON riga per riga
+            // 3. Leggi NDJSON
             while (!feof($stream)) {
                 $line = fgets($stream);
                 if ($line === false) break;
@@ -128,6 +164,7 @@ class AskController extends Controller
                 if (!is_array($json)) continue;
 
                 if (isset($json['response']) && $json['response'] !== '') {
+                    $fullAnswer .= $json['response'];
                     $this->sendSse('token', ['text' => $json['response']]);
                 }
 
@@ -137,6 +174,19 @@ class AskController extends Controller
             }
 
             @fclose($stream);
+
+            // 4. Aggiorna analytics
+            if ($askQuery) {
+                try {
+                    $askQuery->update([
+                        'answer' => $fullAnswer,
+                        'answer_length' => mb_strlen($fullAnswer),
+                        'total_ms' => (int) round((microtime(true) - $startTime) * 1000),
+                    ]);
+                } catch (\Throwable $e) {
+                    \Log::warning('Failed to update AskQuery', ['error' => $e->getMessage()]);
+                }
+            }
 
             $this->sendSse('done', ['ok' => true]);
         }, 200, [
@@ -162,10 +212,52 @@ class AskController extends Controller
     }
 
     /**
+     * Salva AskQuery nel DB (best-effort, non blocca la risposta).
+     */
+    protected function saveAskQuery(
+        string $question,
+        string $questionHash,
+        string $answer,
+        array $context,
+        string $model,
+        int $searchMs,
+        float $startTime,
+        ?string $sessionId,
+        bool $wasCached
+    ): void {
+        try {
+            AskQuery::create([
+                'question' => $question,
+                'question_hash' => $questionHash,
+                'answer' => $answer,
+                'answer_length' => mb_strlen($answer),
+                'sources_count' => count($context),
+                'sources' => collect($context)->map(fn ($r) => [
+                    'id' => $r['id'],
+                    'title' => $r['title'],
+                    'kind' => $r['kind'],
+                    'url' => $r['url'],
+                    'score' => $r['score'],
+                ])->toArray(),
+                'model' => $model,
+                'search_ms' => $searchMs,
+                'total_ms' => (int) round((microtime(true) - $startTime) * 1000),
+                'ip' => request()->ip(),
+                'session_id' => $sessionId,
+                'user_agent' => request()->userAgent(),
+                'was_cached' => $wasCached,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to save AskQuery', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Risposta completa (non-streaming).
      */
-    protected function fullResponse(string $question, array $context, string $prompt)
+    protected function fullResponse(string $question, array $context, string $prompt, string $questionHash, int $searchMs, ?string $sessionId)
     {
+        $startTime = microtime(true);
         $ollamaUrl = config('services.ollama.url', 'http://localhost:11434');
         $model = config('services.ollama.model', 'llama3.1:8b');
         $timeout = config('services.ollama.timeout', 300);
@@ -215,6 +307,9 @@ class AskController extends Controller
                     'published_at' => $r['published_at'],
                 ];
             })->toArray();
+
+            // Salva analytics
+            $this->saveAskQuery($question, $questionHash, $answer, $context, $model, $searchMs, $startTime, $sessionId, false);
 
             return response()->json([
                 'question' => $question,

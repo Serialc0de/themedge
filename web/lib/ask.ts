@@ -26,13 +26,15 @@ export type AskMessage = {
   role: 'user' | 'assistant';
   content: string;
   sources?: AskSource[];
+  queryId?: number;
   status?: 'streaming' | 'done' | 'error';
   error?: string;
   timestamp: number;
+  feedback?: 1 | -1; // voto già inviato
 };
 
 export type AskCallbacks = {
-  onSources: (sources: AskSource[]) => void;
+  onSources: (sources: AskSource[], queryId?: number) => void;
   onToken: (text: string) => void;
   onDone: () => void;
   onError: (message: string) => void;
@@ -130,7 +132,7 @@ function parseSseEvent(raw: string, callbacks: AskCallbacks) {
 
   switch (eventName) {
     case 'sources':
-      callbacks.onSources(data.sources ?? []);
+      callbacks.onSources(data.sources ?? [], data.query_id);
       break;
     case 'token':
       if (data.text) callbacks.onToken(data.text);
@@ -167,4 +169,40 @@ export function extractCitations(text: string): number[] {
     nums.add(parseInt(m[1], 10));
   }
   return Array.from(nums).sort((a, b) => a - b);
+}
+
+// ============================================================
+// FEEDBACK
+// ============================================================
+
+export type FeedbackVote = 1 | -1;
+
+export type FeedbackResult = {
+  ok: boolean;
+  message: string;
+  feedback_id?: number;
+};
+
+/**
+ * Invia feedback 👍/👎 per una risposta.
+ */
+export async function sendFeedback(
+  queryId: number,
+  vote: FeedbackVote,
+  comment?: string
+): Promise<FeedbackResult> {
+  try {
+    const res = await fetch(`${API_URL}/ask/feedback`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query_id: queryId, vote, comment }),
+    });
+
+    const data = await res.json();
+    return data;
+  } catch (err: any) {
+    return { ok: false, message: err.message || 'Errore di rete' };
+  }
 }

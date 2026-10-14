@@ -140,3 +140,6 @@ Route::prefix('wiki')->group(function () {
 // ============================================================
 Route::post('/ask', [\App\Http\Controllers\Api\AskController::class, 'ask'])
     ->middleware('throttle:10,1');
+
+Route::post('/ask/feedback', [\App\Http\Controllers\Api\FeedbackController::class, 'store'])
+    ->middleware('throttle:30,1');
