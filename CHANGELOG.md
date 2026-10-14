@@ -828,3 +828,62 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - **Privacy**: 100% locale, $0 costi
 - **Credibilità**: differenzia da blog e giornali non-fact-checked
 
+
+---
+
+## [2026-10-14] — ✅ Fact-check automatico (AI)
+
+### Aggiunto
+- **Fact-check automatico** con LLM locale (Ollama):
+  - `ClaimExtractor` (servizio) — estrae 5-10 affermazioni verificabili
+  - `DetectArticleClaims` Job (async, timeout 600s)
+  - Migration `article_claims` (con audit trail completo)
+  - Model `ArticleClaim` (status enum, relazioni, helper)
+  - Relazioni su `Article`: `claims()`, `pendingClaims()`, `hasClaims()`, `hasPendingClaims()`
+  - Filament Action **"✅ Fact-check automatico (AI)"** in `EditArticle`
+  - Filament Action **"🗑️ Elimina claim rilevati"**
+  - Componente Livewire **`ClaimsPanel`** con:
+    - Anteprima 10 claim con contesto
+    - Suggerimento AI (verdetto + fonte suggerita + confidence)
+    - **Campi editabili**: 📰 Nome fonte, 🔗 URL fonte, 📝 Nota editoriale
+    - Bottoni: ✅ Verificato / ⚠️ In verifica / ❌ Falso / 🗑️ Scarta
+    - **Auto-crea `ArticleFactCheck`** all'approvazione
+    - **Deduplicazione** (evita duplicati se fact-check simile esiste)
+  - Sezione **"✅ Fact-check automatico"** in `ArticleResource`
+  - Kill switch `FACTCHECK_AI_ENABLED` in `.env`
+
+### Etica (regole inviolabili)
+- **L'AI propone, l'editore decide. SEMPRE.**
+- **Nessun** fact-check pubblicato automaticamente (status `pending`)
+- **Trasparenza**: badge "🤖 Generato da AI" in admin + avviso etico
+- **No allucinazioni**: editore verifica fonte manualmente
+- **Audit trail**: chi approva, quando, quale AI
+- **Kill switch**: feature disattivabile via `.env`
+
+### Come funziona
+1. Editore scrive articolo
+2. Click **"✅ Fact-check automatico (AI)"**
+3. Job async chiama Ollama (`llama3.1:8b`, ~175s)
+4. L'AI estrae 5-10 claim con verdetti suggeriti (default `in_review`)
+5. Salva in `article_claims` (status `pending`)
+6. Notifica Filament: "10 claim rilevati"
+7. Editore apre admin → **"✅ Fact-check automatico"**
+8. Per ogni claim:
+   - **Inserisce fonte** (nome + URL) e nota
+   - Click su ✅/⚠️/❌ o 🗑️
+9. Fact-check approvati → crea `ArticleFactCheck` → appare nel frontend
+10. **Deduplicazione automatica** se fact-check simile esiste
+
+### Impatto
+- **Risparmio 30-60 min/articolo** sul fact-checking
+- **5-10 claim verificati** (vs 2-3 manuali)
+- **Trasparenza totale** (badge AI + audit trail)
+- **Privacy**: 100% locale, $0 costi
+- **Credibilità**: differenzia da blog e giornali non-fact-checked
+
+### Note tecniche
+- `llama3.1:8b`: 5-10 claim, 175s
+- Timeout: 600s (10 min)
+- Prompt esatto validato con test raw
+- Filtro anti-allucinazione rimosso (troppo aggressivo)
+

@@ -11,15 +11,27 @@ use Livewire\Component;
 class ClaimsPanel extends Component
 {
     public ?Article $record = null;
+    
+    /** Campi editabili per ogni claim (key = claim_id) */
+    public array $editing = [];
 
     public function mount(Article $record): void
     {
         $this->record = $record;
+        $this->loadEditing();
     }
 
-    /**
-     * Approva un claim con un verdetto specifico.
-     */
+    protected function loadEditing(): void
+    {
+        foreach ($this->record->claims()->get() as $claim) {
+            $this->editing[$claim->id] = [
+                'source_name' => $claim->source_name ?? $claim->ai_suggested_source_name ?? '',
+                'source_url' => $claim->source_url ?? $claim->ai_suggested_source_url ?? '',
+                'note' => $claim->note ?? '',
+            ];
+        }
+    }
+
     public function approveClaim(int $claimId, string $verdict): void
     {
         if (!in_array($verdict, ['verified', 'in_review', 'false'], true)) {
@@ -36,48 +48,76 @@ class ClaimsPanel extends Component
             return;
         }
 
-        // Crea il fact-check pubblico
-        $factCheck = ArticleFactCheck::create([
-            'article_id' => $this->record->id,
-            'claim' => $claim->claim_text,
-            'verdict' => $verdict,
-            'source_url' => $claim->source_url ?? $claim->ai_suggested_source_url,
-            'source_name' => $claim->source_name ?? $claim->ai_suggested_source_name,
-            'note' => $claim->note,
-            'order' => $claim->order,
-        ]);
+        // Prendi i dati editati
+        $editData = $this->editing[$claimId] ?? [];
+
+        // DEDUPLICAZIONE: cerca un fact-check esistente con claim simile
+        $existing = ArticleFactCheck::where('article_id', $this->record->id)
+            ->where(function ($q) use ($claim) {
+                // Match esatto del claim
+                $q->where('claim', $claim->claim_text);
+                // O match fuzzy (prime 30 char)
+                $q->orWhere('claim', 'like', '%' . mb_substr($claim->claim_text, 0, 30) . '%');
+            })
+            ->first();
+
+        if ($existing) {
+            // Aggiorna il fact-check esistente
+            $existing->update([
+                'verdict' => $verdict,
+                'source_url' => $editData['source_url'] ?: $existing->source_url,
+                'source_name' => $editData['source_name'] ?: $existing->source_name,
+                'note' => $editData['note'] ?: $existing->note,
+            ]);
+
+            $factCheck = $existing;
+
+            Notification::make()
+                ->title('✅ Fact-check aggiornato')
+                ->body('Esisteva già un fact-check simile. Aggiornato invece di duplicare.')
+                ->success()
+                ->send();
+        } else {
+            // Crea il fact-check pubblico con i dati dell'editore
+            $factCheck = ArticleFactCheck::create([
+                'article_id' => $this->record->id,
+                'claim' => $claim->claim_text,
+                'verdict' => $verdict,
+                'source_url' => $editData['source_url'] ?: null,
+                'source_name' => $editData['source_name'] ?: null,
+                'note' => $editData['note'] ?: null,
+                'order' => $claim->order,
+            ]);
+
+            Notification::make()
+                ->title('✅ Fact-check approvato')
+                ->body('Il claim è ora pubblicato come ' . $claim->status_label)
+                ->success()
+                ->send();
+        }
 
         // Aggiorna il claim
         $claim->update([
             'status' => $verdict,
+            'source_url' => $editData['source_url'] ?: null,
+            'source_name' => $editData['source_name'] ?: null,
+            'note' => $editData['note'] ?: null,
             'approved_by' => auth()->id(),
             'approved_at' => now(),
             'fact_check_id' => $factCheck->id,
         ]);
 
-        Notification::make()
-            ->title('✅ Fact-check approvato')
-            ->body('Il claim è ora pubblicato come ' . $claim->status_label)
-            ->success()
-            ->send();
-
         $this->record->refresh();
         $this->dispatch('$refresh');
     }
 
-    /**
-     * Scarta un claim (non verrà pubblicato).
-     */
     public function discardClaim(int $claimId): void
     {
         $claim = ArticleClaim::where('id', $claimId)
             ->where('article_id', $this->record->id)
             ->first();
 
-        if (!$claim) {
-            Notification::make()->title('Claim non trovato')->danger()->send();
-            return;
-        }
+        if (!$claim) return;
 
         $claim->update([
             'status' => 'discarded',
@@ -92,31 +132,6 @@ class ClaimsPanel extends Component
 
         $this->record->refresh();
         $this->dispatch('$refresh');
-    }
-
-    /**
-     * Salva le modifiche manuali ai campi fonte/nota di un claim.
-     */
-    public function saveClaim(int $claimId, array $data): void
-    {
-        $claim = ArticleClaim::where('id', $claimId)
-            ->where('article_id', $this->record->id)
-            ->first();
-
-        if (!$claim) return;
-
-        $claim->update([
-            'source_url' => $data['source_url'] ?? $claim->source_url,
-            'source_name' => $data['source_name'] ?? $claim->source_name,
-            'note' => $data['note'] ?? $claim->note,
-        ]);
-
-        Notification::make()
-            ->title('💾 Claim aggiornato')
-            ->success()
-            ->send();
-
-        $this->record->refresh();
     }
 
     public function render()

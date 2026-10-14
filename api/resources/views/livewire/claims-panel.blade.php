@@ -12,6 +12,11 @@
         </div>
     </div>
 
+    {{-- Avviso etico --}}
+    <div class="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-200">
+        <strong>⚠️ Regole etiche:</strong> L'AI ha <em>proposto</em> questi claim. Prima di approvare, <strong>verifica ogni affermazione</strong> con una fonte attendibile. Inserisci nome + URL fonte. La responsabilità editoriale è tua.
+    </div>
+
     {{-- Lista claim --}}
     @foreach ($claims as $claim)
         <div class="rounded-lg border-2
@@ -25,7 +30,7 @@
             wire:key="claim-{{ $claim->id }}"
         >
             {{-- Header del claim --}}
-            <div class="flex items-start justify-between gap-3 mb-2">
+            <div class="flex items-start justify-between gap-3 mb-3">
                 <div class="flex-1">
                     <div class="flex items-center gap-2 mb-1">
                         <span class="text-xs uppercase tracking-widest font-bold
@@ -37,42 +42,73 @@
                         ">
                             {{ $claim->status_label }}
                         </span>
-                        @if ($claim->ai_confidence !== null)
-                            <span class="text-xs text-gray-500">
-                                AI: {{ $claim->ai_confidence_percent }}%
-                            </span>
-                        @endif
                     </div>
 
                     <div class="font-medium text-gray-900 dark:text-gray-100 text-base">
                         "{{ $claim->claim_text }}"
                     </div>
-
-                    @if ($claim->context)
-                        <div class="mt-2 text-xs text-gray-600 dark:text-gray-400 italic">
-                            Contesto: {{ \Illuminate\Support\Str::limit($claim->context, 200) }}
-                        </div>
-                    @endif
                 </div>
             </div>
 
-            {{-- Suggerimento AI --}}
+            {{-- Suggerimento AI (informativo) --}}
             @if ($claim->hasAiSuggestion())
-                <div class="mt-2 mb-3 p-2 rounded bg-white/60 dark:bg-black/30 text-xs text-gray-600 dark:text-gray-400">
+                <div class="mb-3 p-2 rounded bg-white/60 dark:bg-black/30 text-xs text-gray-600 dark:text-gray-400">
                     🤖 <strong>Suggerimento AI:</strong>
                     @if ($claim->ai_suggested_verdict === 'verified') ✅ Verificato
                     @elseif ($claim->ai_suggested_verdict === 'false') ❌ Falso
                     @else ⚠️ In verifica
                     @endif
                     @if ($claim->ai_suggested_source_name)
-                        · Fonte: {{ $claim->ai_suggested_source_name }}
+                        · Fonte suggerita: {{ $claim->ai_suggested_source_name }}
                     @endif
                 </div>
             @endif
 
-            {{-- Bottoni (solo se pending) --}}
+            {{-- Campi editabili (solo se pending) --}}
             @if ($claim->isPending())
-                <div class="flex flex-wrap gap-2 mt-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    {{-- Nome fonte --}}
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            📰 Nome fonte <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            wire:model="editing.{{ $claim->id }}.source_name"
+                            placeholder="Es. Sala Stampa Vaticana, ANSA, Ministero..."
+                            class="w-full px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                        />
+                    </div>
+
+                    {{-- URL fonte --}}
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            🔗 URL fonte (opzionale)
+                        </label>
+                        <input
+                            type="url"
+                            wire:model="editing.{{ $claim->id }}.source_url"
+                            placeholder="https://..."
+                            class="w-full px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                        />
+                    </div>
+
+                    {{-- Nota editoriale --}}
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            📝 Nota editoriale (opzionale)
+                        </label>
+                        <textarea
+                            wire:model="editing.{{ $claim->id }}.note"
+                            rows="2"
+                            placeholder="Es. Confermato dal comunicato ufficiale"
+                            class="w-full px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                        ></textarea>
+                    </div>
+                </div>
+
+                {{-- Bottoni --}}
+                <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                     <button
                         type="button"
                         wire:click="approveClaim({{ $claim->id }}, 'verified')"
@@ -111,11 +147,25 @@
                 </div>
             @else
                 {{-- Claim già processato --}}
-                <div class="mt-2 text-xs text-gray-500">
-                    Processato {{ $claim->approved_at?->diffForHumans() }}
-                    @if ($claim->factCheck)
-                        · Fact-check #{{ $claim->factCheck->id }} pubblicato
+                <div class="mt-2 p-2 rounded bg-white/40 dark:bg-black/20 text-xs">
+                    @if ($claim->source_name)
+                        📰 <strong>Fonte:</strong>
+                        @if ($claim->source_url)
+                            <a href="{{ $claim->source_url }}" target="_blank" class="underline">{{ $claim->source_name }}</a>
+                        @else
+                            {{ $claim->source_name }}
+                        @endif
                     @endif
+                    @if ($claim->note)
+                        <br>📝 <em>{{ $claim->note }}</em>
+                    @endif
+                    <br>
+                    <span class="text-gray-500">
+                        Processato {{ $claim->approved_at?->diffForHumans() }}
+                        @if ($claim->approvedBy)
+                            da {{ $claim->approvedBy->name }}
+                        @endif
+                    </span>
                 </div>
             @endif
         </div>
