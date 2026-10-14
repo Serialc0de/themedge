@@ -37,6 +37,7 @@ class Article extends Model implements HasMedia
     ];
 
     protected $fillable = [
+        'audio_path', 'audio_duration_seconds', 'audio_status', 'audio_model', 'audio_error', 'audio_generated_at',
         'title', 'slug', 'excerpt', 'content', 'featured_image',
         'status', 'published_at', 'author_id', 'category_id',
         'views', 'is_featured', 'allow_comments',
@@ -55,6 +56,8 @@ class Article extends Model implements HasMedia
     ];
 
     protected $casts = [
+        'audio_generated_at' => 'datetime',
+        'audio_duration_seconds' => 'integer',
         'published_at' => 'datetime',
         'review_requested_at' => 'datetime',
         'approved_at' => 'datetime',
@@ -916,4 +919,57 @@ class Article extends Model implements HasMedia
     {
         return $this->pendingClaims()->exists();
     }
+
+    // ============================================================
+    // AUDIO — Accessor + Scopes
+    // ============================================================
+
+    /**
+     * URL pubblico dell'audio.
+     */
+    public function getAudioUrlAttribute(): ?string
+    {
+        if (!$this->audio_path) return null;
+        return \Storage::disk(config('tts.storage.disk', 'public'))->url($this->audio_path);
+    }
+
+    /**
+     * Durata formattata (m:ss).
+     */
+    public function getAudioDurationFormattedAttribute(): ?string
+    {
+        if (!$this->audio_duration_seconds) return null;
+        $m = intdiv($this->audio_duration_seconds, 60);
+        $s = $this->audio_duration_seconds % 60;
+        return sprintf('%d:%02d', $m, $s);
+    }
+
+    /**
+     * Ha audio pronto?
+     */
+    public function hasAudio(): bool
+    {
+        return $this->audio_status === 'ready' && !empty($this->audio_path);
+    }
+
+    /**
+     * Scope: solo articoli con audio pronto.
+     */
+    public function scopeWithAudio($query)
+    {
+        return $query->where('audio_status', 'ready')->whereNotNull('audio_path');
+    }
+
+    /**
+     * Scope: articoli pubblicati senza audio.
+     */
+    public function scopeWithoutAudio($query)
+    {
+        return $query->where('status', 'published')
+            ->where(function ($q) {
+                $q->whereNull('audio_path')
+                  ->orWhere('audio_status', '!=', 'ready');
+            });
+    }
+
 }

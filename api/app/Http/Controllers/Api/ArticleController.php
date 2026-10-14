@@ -359,4 +359,31 @@ class ArticleController extends Controller
 
         return $data;
     }
+
+    /**
+     * Ritorna i metadati dell'audio TTS dell'articolo.
+     */
+    public function audio(string $slug): \Illuminate\Http\JsonResponse
+    {
+        $article = \App\Models\Article::where('slug', $slug)->firstOrFail();
+
+        if (!$article->hasAudio()) {
+            return response()->json([
+                'data' => null,
+                'status' => $article->audio_status ?? 'pending',
+                'message' => 'Audio non ancora disponibile',
+            ], 404);
+        }
+
+        return response()->json([
+            'data' => [
+                'url' => $article->audio_url,
+                'duration_seconds' => $article->audio_duration_seconds,
+                'duration_formatted' => $article->audio_duration_formatted,
+                'model' => $article->audio_model,
+                'generated_at' => $article->audio_generated_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
 }

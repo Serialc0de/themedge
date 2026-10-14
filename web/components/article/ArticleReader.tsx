@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArticleBody } from '@/components/ArticleBody';
 import { ReaderProvider } from '@/lib/reader';
 import { HighlightsProvider } from '@/lib/highlight';
@@ -11,7 +11,7 @@ import { ArticleCorrections } from '@/components/article/ArticleCorrections';
 import { ArticleSources } from '@/components/article/ArticleSources';
 import { CuratedReads } from '@/components/article/CuratedReads';
 import { SaveButton } from '@/components/article/SaveButton';
-import { AudioPlayerClient } from '@/components/article/AudioPlayerClient';
+import { AudioPlayerPro } from '@/components/article/AudioPlayerPro';
 import { ShareButtons } from '@/components/article/ShareButtons';
 import { AiDisclosureBadge } from '@/components/article/AiDisclosureBadge';
 import { ArticleFactChecks } from '@/components/article/ArticleFactChecks';
@@ -87,6 +87,31 @@ function ArticleReaderInner({
     y: number;
   } | null>(null);
 
+  // ⚠️ AUDIO PRO: fetch URL audio TTS
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioDuration, setAudioDuration] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.themedge.com/api';
+    const url = apiUrl + '/articles/' + articleSlug + '/audio';
+
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (cancelled || !json || !json.data || !json.data.url) return;
+        setAudioUrl(json.data.url);
+        setAudioDuration(json.data.duration_seconds || null);
+      })
+      .catch(() => {
+        // ignora errori (articolo senza audio)
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [articleSlug]);
+
   const toast = useToast();
   const orphansNotifiedRef = useRef<Set<number>>(new Set());
   const hlConfig = useHighlightConfig(articleSlug);
@@ -126,10 +151,13 @@ function ArticleReaderInner({
             <SaveButton article={article} />
           </div>
 
-          <AudioPlayerClient
+          <AudioPlayerPro
+            articleSlug={articleSlug}
             title={article.title}
-            contentHtml={content}
             authorName={article.author_name}
+            coverUrl={article.featured_image}
+            audioUrl={audioUrl}
+            audioDuration={audioDuration}
           />
 
           {(article as any).ai_summary?.tldr && (
@@ -205,11 +233,14 @@ function ArticleReaderInner({
           <SaveButton article={article} />
         </div>
 
-        <AudioPlayerClient
-          title={article.title}
-          contentHtml={content}
-          authorName={article.author_name}
-        />
+        <AudioPlayerPro
+            articleSlug={articleSlug}
+            title={article.title}
+            authorName={article.author_name}
+            coverUrl={article.featured_image}
+            audioUrl={audioUrl}
+            audioDuration={audioDuration}
+          />
 
         {(article as any).ai_summary?.tldr && (
             <ArticleTLDR

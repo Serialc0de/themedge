@@ -25,6 +25,7 @@ Route::get('/articles/{slug}/fact-checks', [ArticleController::class, 'factCheck
 Route::get('/articles/{slug}/knowledge', [ArticleController::class, 'knowledge']);
 Route::get('/articles/{slug}/timeline', [ArticleController::class, 'timeline']);
 Route::get('/articles/{slug}/scrolly', [ArticleController::class, 'scrolly']);
+Route::get('/articles/{slug}/audio', [ArticleController::class, 'audio']);
 
 // Entità (knowledge graph)
 Route::get('/entities', [\App\Http\Controllers\Api\EntityController::class, 'index']);

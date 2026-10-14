@@ -851,6 +851,24 @@ class ArticleResource extends Resource
     {
         return $table
             ->columns([
+                \Filament\Tables\Columns\TextColumn::make('audio_status_col')
+                    ->label('Audio')
+                    ->getStateUsing(fn (\App\Models\Article $record) => match($record->audio_status) {
+                        'ready' => '✅ ' . ($record->audio_duration_formatted ?? 'pronto'),
+                        'generating' => '⏳ in corso',
+                        'failed' => '❌ errore',
+                        default => '—',
+                    })
+                    ->badge()
+                    ->color(fn (\App\Models\Article $record) => match($record->audio_status) {
+                        'ready' => 'success',
+                        'generating' => 'warning',
+                        'failed' => 'danger',
+                        default => 'gray',
+                    })
+                    ->toggleable()
+                    ->sortable(false),
+
                 Tables\Columns\ImageColumn::make('featured_image')
                     ->label('')
                     ->disk('public')
@@ -994,6 +1012,33 @@ class ArticleResource extends Resource
                     ->visible(fn () => ! Auth::user()->hasRole(['super_admin', 'editor'])),
             ])
             ->actions([
+                    \Filament\Tables\Actions\Action::make('genera_audio')
+                        ->label('🎙️ Genera audio')
+                        ->icon('heroicon-o-microphone')
+                        ->color('info')
+                        ->requiresConfirmation()
+                        ->modalHeading('Genera audio TTS')
+                        ->modalDescription('Verrà generato un file MP3 con la voce Paola (it-IT). Il processo richiede ~30s.')
+                        ->modalSubmitActionLabel('Genera')
+                        ->action(function (\App\Models\Article $record) {
+                            if ($record->audio_status === 'generating') {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Già in generazione')
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            \App\Jobs\GenerateArticleAudio::dispatch($record, force: true);
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Generazione avviata')
+                                ->body('Il file audio sarà pronto tra ~30 secondi.')
+                                ->success()
+                                ->send();
+                        })
+                        ->visible(fn (\App\Models\Article $record) => $record->status === 'published'),
+
                 // RIMOSSO: InsertEmbedAction (spostato nel RichEditor)
                 Tables\Actions\Action::make('preview')
                     ->label('Anteprima')
