@@ -125,6 +125,9 @@ class Article extends Model implements HasMedia
                     $article->content_raw = !empty($original) ? $original : $article->content;
                 }
 
+                // Auto-convert URL YouTube/Vimeo in iframe (PRIMA della sanitizzazione)
+                $article->content = self::autoEmbedUrls($article->content);
+
                 $sanitizer = app(\App\Services\HtmlSanitizer::class);
                 $article->content = $sanitizer->sanitize($article->content);
             }
@@ -136,8 +139,63 @@ class Article extends Model implements HasMedia
     }
 
     /**
-     * Purge selettivo della cache Cloudflare per questo articolo.
+     * Auto-converte URL YouTube/Vimeo in iframe embed.
+     *
+     * IMPORTANTE:
+     * - NON usa html_entity_decode globale (rompe i tag HTML)
+     * - Il boundary viene RI-MESSO nel risultato (non consumato)
+     * - Il carattere dopo l'URL è un lookahead (zero-width, non consumato)
+     * - Chiude il </p> prima dell'iframe e lo riapre dopo (iframe non è valido dentro <p>)
+     * - NON converte URL dentro href (per non rompere link esistenti)
      */
+    protected static function autoEmbedUrls(string $content): string
+    {
+        // Boundary: inizio stringa, spazio, newline, o chiusura tag
+        $boundary = '(?:^|[\s>])';
+
+        // --- Template iframe (con chiusura/riapertura <p>) ---
+        $ytIframe = '</p><figure class="embed-youtube"><iframe src="https://www.youtube-nocookie.com/embed/{ID}" width="560" height="315" frameborder="0" allowfullscreen loading="lazy" title="YouTube video"></iframe></figure><p>';
+        $vimeoIframe = '</p><figure class="embed-vimeo"><iframe src="https://player.vimeo.com/video/{ID}" width="560" height="315" frameborder="0" allowfullscreen loading="lazy" title="Vimeo video"></iframe></figure><p>';
+
+        // --- YouTube watch (?v= + parametri opzionali) ---
+        $content = preg_replace_callback(
+            '/(' . $boundary . ')https?:\/\/(?:www\.)?youtube\.com\/watch\?(?:[^\s"\'<>]*&amp;)?v=([a-zA-Z0-9_-]{11})(?=[&\s"\'<>]|$)/i',
+            function ($m) use ($ytIframe) {
+                return $m[1] . "\n" . str_replace('{ID}', $m[2], $ytIframe) . "\n";
+            },
+            $content
+        );
+
+        // --- YouTube short (youtu.be/XXX) ---
+        $content = preg_replace_callback(
+            '/(' . $boundary . ')https?:\/\/youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?&][^\s"\'<>]*)?(?=[&\s"\'<>]|$)/i',
+            function ($m) use ($ytIframe) {
+                return $m[1] . "\n" . str_replace('{ID}', $m[2], $ytIframe) . "\n";
+            },
+            $content
+        );
+
+        // --- YouTube embed già presente (normalizza a nocookie) ---
+        $content = preg_replace_callback(
+            '/(' . $boundary . ')https?:\/\/(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?&][^\s"\'<>]*)?(?=[&\s"\'<>]|$)/i',
+            function ($m) use ($ytIframe) {
+                return $m[1] . "\n" . str_replace('{ID}', $m[2], $ytIframe) . "\n";
+            },
+            $content
+        );
+
+        // --- Vimeo ---
+        $content = preg_replace_callback(
+            '/(' . $boundary . ')https?:\/\/(?:www\.)?vimeo\.com\/(\d+)(?:\/[^\s"\'<>]*)?(?=[&\s"\'<>]|$)/i',
+            function ($m) use ($vimeoIframe) {
+                return $m[1] . "\n" . str_replace('{ID}', $m[2], $vimeoIframe) . "\n";
+            },
+            $content
+        );
+
+        return $content;
+    }
+
     public function purgeCloudflareCache(): void
     {
         $token = config('services.cloudflare.token');

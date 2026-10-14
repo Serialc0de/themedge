@@ -33,32 +33,44 @@ export function VideoEmbed({ src, title = 'Video', aspect = '16/9', posterUrl }:
           referrerPolicy="strict-origin-when-cross-origin"
         />
       ) : (
-        <button
-          type="button"
-          onClick={() => setLoaded(true)}
-          className="group relative flex h-full w-full items-center justify-center"
-          aria-label={`Riproduci ${title}`}
-        >
-          {thumb ? (
-            <Image
-              src={thumb}
-              alt={title}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 800px"
-              className="object-cover opacity-80 transition-opacity group-hover:opacity-100"
+        <>
+          <button
+            type="button"
+            onClick={() => setLoaded(true)}
+            className="group relative flex h-full w-full items-center justify-center"
+            aria-label={`Riproduci ${title}`}
+          >
+            {thumb ? (
+              <Image
+                src={thumb}
+                alt={title}
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 800px"
+                className="object-cover opacity-80 transition-opacity group-hover:opacity-100"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
+            )}
+            <span className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-red-600 shadow-lg transition-transform group-hover:scale-110">
+              <svg viewBox="0 0 24 24" className="ml-1 h-8 w-8 fill-white">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+            <span className="absolute bottom-3 left-3 z-10 rounded bg-black/70 px-2 py-1 text-xs text-white">
+              {title}
+            </span>
+          </button>
+          {/* Fallback SEO + no-JS: carica l'iframe se JS è disabilitato */}
+          <noscript>
+            <iframe
+              src={src}
+              title={title}
+              className="h-full w-full"
+              allowFullScreen
+              loading="lazy"
             />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
-          )}
-          <span className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-red-600 shadow-lg transition-transform group-hover:scale-110">
-            <svg viewBox="0 0 24 24" className="ml-1 h-8 w-8 fill-white">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </span>
-          <span className="absolute bottom-3 left-3 z-10 rounded bg-black/70 px-2 py-1 text-xs text-white">
-            {title}
-          </span>
-        </button>
+          </noscript>
+        </>
       )}
     </div>
   );

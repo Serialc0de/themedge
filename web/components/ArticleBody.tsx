@@ -12,12 +12,11 @@ type Props = {
 
 /**
  * Renderizza il content dell'articolo:
- *  1. sanitizza l'HTML (difesa output)
- *  2. estrae iframe/blockquote noti e li sostituisce con i componenti React
+ *  1. sanitizza l'HTML (difesa output) — già fatto a monte in page.tsx
+ *  2. estrae iframe/blockquote/figure noti e li sostituisce con i componenti React
  *  3. il resto viene reso con dangerouslySetInnerHTML
  */
 export function ArticleBody({ html, className = '' }: Props) {
-  // HTML già sanificato da page.tsx (server-side)
   const segments = parseSegments(html);
 
   return (
@@ -59,11 +58,15 @@ type Segment =
 
 /**
  * Divide l'HTML in segmenti: HTML puro + embed riconosciuti.
+ *
+ * NOTA: il pattern principale cattura ANCHE il wrapper <figure>...</figure>
+ * quando contiene un iframe. Questo evita di spezzare il DOM a metà
+ * (causa di hydration mismatch React #418).
  */
 function parseSegments(html: string): Segment[] {
   const segments: Segment[] = [];
-  // Regex che cattura iframe e blockquote specifici
-  const regex = /(<iframe\b[^>]*>.*?<\/iframe>|<blockquote\b[^>]*class="[^"]*(twitter-tweet|instagram-media|tiktok-embed)[^"]*"[^>]*>[\s\S]*?<\/blockquote>)/gi;
+  const regex =
+    /(<figure[^>]*>\s*<iframe\b[^>]*>[\s\S]*?<\/iframe>\s*<\/figure>|<iframe\b[^>]*>[\s\S]*?<\/iframe>|<blockquote\b[^>]*class="[^"]*(twitter-tweet|instagram-media|tiktok-embed)[^"]*"[^>]*>[\s\S]*?<\/blockquote>)/gi;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -89,9 +92,12 @@ function parseSegments(html: string): Segment[] {
 }
 
 function classifyEmbed(raw: string): Segment | null {
-  // YouTube / Vimeo / Spotify iframe
-  if (raw.startsWith('<iframe')) {
-    const srcMatch = raw.match(/src=["']([^"']+)["']/i);
+  // Se il match include un <figure> wrapper, estrai l'iframe interno
+  const iframeMatch = raw.match(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/i);
+  const iframeRaw = iframeMatch ? iframeMatch[0] : raw;
+
+  if (iframeRaw.startsWith('<iframe')) {
+    const srcMatch = iframeRaw.match(/src=["']([^"']+)["']/i);
     if (!srcMatch) return null;
     const src = srcMatch[1];
 
@@ -102,7 +108,7 @@ function classifyEmbed(raw: string): Segment | null {
       return { type: 'vimeo', src, title: 'Vimeo video', aspect: '16/9' };
     }
     if (/open\.spotify\.com/.test(src)) {
-      const hMatch = raw.match(/height=["'](\d+)["']/i);
+      const hMatch = iframeRaw.match(/height=["'](\d+)["']/i);
       const height = hMatch ? parseInt(hMatch[1], 10) : 352;
       return { type: 'spotify', src, height };
     }
