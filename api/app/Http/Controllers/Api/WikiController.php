@@ -41,7 +41,33 @@ class WikiController extends Controller
             });
         }
 
-        return response()->json($query->paginate($perPage));
+        $paginator = $query->paginate($perPage);
+
+        $paginator->getCollection()->transform(function ($page) {
+            return [
+                'id' => $page->id,
+                'slug' => $page->slug,
+                'title' => $page->title,
+                'subtitle' => $page->subtitle,
+                'type' => $page->type,
+                'type_label' => $page->type_label,
+                'type_color' => $page->type_color,
+                'summary' => $page->summary,
+                'icon' => $page->icon,
+                'featured_image' => $page->featured_image_url,
+                'featured_image_caption' => $page->featured_image_caption,
+                'image_license' => $page->image_license,
+                'image_author' => $page->image_author,
+                'image_attribution' => $page->image_attribution,
+                'image_source_url' => $page->image_source_url,
+                'image_status' => $page->image_status,
+                'articles_count' => $page->articles_count,
+                'views' => $page->views,
+                'published_at' => $page->published_at?->toIso8601String(),
+            ];
+        });
+
+        return response()->json($paginator);
     }
 
     /**
