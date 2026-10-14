@@ -235,6 +235,22 @@ class WikipediaFetcherService
         foreach ($paragraphs as $p) {
             if (mb_strlen($p) < 50) continue; // ignora paragrafi troppo corti
 
+            // Se il singolo paragrafo è troppo lungo da solo, spezzalo
+            if (mb_strlen($p) > $maxChars) {
+                if (!empty(trim($current))) {
+                    $chunks[] = trim($current);
+                    $current = '';
+                }
+                $subChunks = mb_str_split($p, $maxChars - 200);
+                foreach ($subChunks as $sub) {
+                    $sub = trim($sub);
+                    if (mb_strlen($sub) >= 100) {
+                        $chunks[] = $sub;
+                    }
+                }
+                continue;
+            }
+
             if (mb_strlen($current) + mb_strlen($p) + 2 > $maxChars) {
                 if (!empty($current)) {
                     $chunks[] = trim($current);

@@ -29,7 +29,7 @@ class OllamaEmbeddingService
         if (empty($text)) return null;
 
         // Tronca a 8000 caratteri (limite modello)
-        $text = mb_substr($text, 0, 8000);
+        $text = mb_substr($text, 0, 6000);
 
         try {
             $response = Http::timeout($this->timeout)
