@@ -163,6 +163,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               ))}
             </span>
             <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+              <Link href="/chiedi" className="hidden md:inline-flex items-center gap-1 hover:text-black dark:hover:text-white transition font-semibold text-red-700 dark:text-red-400">
+                💬 Chiedi
+              </Link>
               <Link href="/chi-siamo" className="hidden md:inline hover:text-black dark:hover:text-white transition">Chi siamo</Link>
               <Link href="/contatti" className="hidden md:inline hover:text-black dark:hover:text-white transition">Contatti</Link>
               <ThemeToggle />
@@ -254,6 +257,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                   <li>
                     <Link href="/dirette" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">
                       📺 Dirette Live
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/chiedi" className="inline-flex items-center gap-2 font-semibold text-red-700 dark:text-red-400 hover:text-black dark:hover:text-white transition">
+                      💬 Chiedi a Themedge
                     </Link>
                   </li>
                   <li><Link href="/chi-siamo" className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">Chi siamo</Link></li>

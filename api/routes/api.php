@@ -134,3 +134,9 @@ Route::prefix('wiki')->group(function () {
     Route::get('/by-article/{articleSlug}', [\App\Http\Controllers\Api\WikiController::class, 'byArticle']);
     Route::get('/{slug}', [\App\Http\Controllers\Api\WikiController::class, 'show']);
 });
+
+// ============================================================
+// ASK (AI Chat RAG)
+// ============================================================
+Route::post('/ask', [\App\Http\Controllers\Api\AskController::class, 'ask'])
+    ->middleware('throttle:10,1');

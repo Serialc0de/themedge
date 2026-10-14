@@ -18,6 +18,7 @@ class WikiPage extends Model
     use HasFactory, SoftDeletes, Searchable, LogsActivity;
 
     protected $fillable = [
+        'embedding', 'embedding_model', 'embedding_generated_at',
         'slug', 'title', 'subtitle', 'type', 'status',
         'summary', 'content', 'infobox', 'aliases',
         'featured_image', 'featured_image_caption', 'icon',
@@ -29,6 +30,8 @@ class WikiPage extends Model
     ];
 
     protected $casts = [
+        'embedding' => 'array',
+        'embedding_generated_at' => 'datetime',
         'infobox' => 'array',
         'aliases' => 'array',
         'articles_count' => 'integer',

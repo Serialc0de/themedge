@@ -37,6 +37,7 @@ class Article extends Model implements HasMedia
     ];
 
     protected $fillable = [
+        'embedding', 'embedding_model', 'embedding_generated_at',
         'audio_path', 'audio_duration_seconds', 'audio_status', 'audio_model', 'audio_error', 'audio_generated_at',
         'title', 'slug', 'excerpt', 'content', 'featured_image',
         'status', 'published_at', 'author_id', 'category_id',
@@ -56,6 +57,8 @@ class Article extends Model implements HasMedia
     ];
 
     protected $casts = [
+        'embedding' => 'array',
+        'embedding_generated_at' => 'datetime',
         'audio_generated_at' => 'datetime',
         'audio_duration_seconds' => 'integer',
         'published_at' => 'datetime',
