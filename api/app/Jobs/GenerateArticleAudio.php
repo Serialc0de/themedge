@@ -62,7 +62,25 @@ class GenerateArticleAudio implements ShouldQueue
             $maxLength = config('tts.auto_generate.max_length', 50000);
 
             if (mb_strlen($text) < $minLength) {
-                throw new \RuntimeException("Articolo troppo corto (" . mb_strlen($text) . " char, min {$minLength})");
+                // Non è un errore tecnico: è una condizione di business.
+                // Marchiamo l'articolo come "skipped" e fail-iamo il job
+                // permanentemente (senza retry), così l'observer non lo
+                // ri-dispatcha più.
+                $article->update([
+                    'audio_status' => 'skipped',
+                    'audio_error' => 'Articolo troppo corto (' . mb_strlen($text) . " char, min {$minLength})",
+                ]);
+
+                Log::warning('Articolo troppo corto, TTS saltato', [
+                    'article_id' => $article->id,
+                    'length' => mb_strlen($text),
+                    'min' => $minLength,
+                ]);
+
+                $this->fail(new \RuntimeException(
+                    "Articolo troppo corto (" . mb_strlen($text) . " char, min {$minLength})"
+                ));
+                return;
             }
 
             if (mb_strlen($text) > $maxLength) {
@@ -104,10 +122,13 @@ class GenerateArticleAudio implements ShouldQueue
                 'error' => $e->getMessage(),
             ]);
 
-            $article->update([
-                'audio_status' => 'failed',
-                'audio_error' => mb_substr($e->getMessage(), 0, 500),
-            ]);
+            // Non sovrascrivere 'skipped' con 'failed' se è già stato gestito sopra
+            if ($article->fresh()->audio_status !== 'skipped') {
+                $article->update([
+                    'audio_status' => 'failed',
+                    'audio_error' => mb_substr($e->getMessage(), 0, 500),
+                ]);
+            }
 
             throw $e;
         }
@@ -115,14 +136,14 @@ class GenerateArticleAudio implements ShouldQueue
 
     public function failed(\Throwable $e): void
     {
+        // Se è già stato marcato come 'skipped' nel handle(), non ri-logghiamo
+        if ($this->article->fresh()->audio_status === 'skipped') {
+            return;
+        }
+
         Log::error('GenerateArticleAudio failed permanently', [
             'article_id' => $this->article->id,
             'error' => $e->getMessage(),
-        ]);
-
-        $this->article->update([
-            'audio_status' => 'failed',
-            'audio_error' => 'Job failed: ' . mb_substr($e->getMessage(), 0, 400),
         ]);
     }
 }
