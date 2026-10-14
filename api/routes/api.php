@@ -120,3 +120,16 @@ Route::middleware('throttle:120,1')->group(function () {
     Route::post('/highlights/{id}/react', [\App\Http\Controllers\Api\HighlightController::class, 'react']);
     Route::delete('/highlights/{id}/react', [\App\Http\Controllers\Api\HighlightController::class, 'unreact']);
 });
+
+// ============================================================
+// WIKI (Knowledge Engine)
+// ============================================================
+Route::prefix('wiki')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\WikiController::class, 'index']);
+    Route::get('/featured', [\App\Http\Controllers\Api\WikiController::class, 'featured']);
+    Route::get('/stats', [\App\Http\Controllers\Api\WikiController::class, 'stats']);
+    Route::get('/search', [\App\Http\Controllers\Api\WikiController::class, 'search']);
+    Route::get('/by-entity/{entitySlug}', [\App\Http\Controllers\Api\WikiController::class, 'byEntity']);
+    Route::get('/by-article/{articleSlug}', [\App\Http\Controllers\Api\WikiController::class, 'byArticle']);
+    Route::get('/{slug}', [\App\Http\Controllers\Api\WikiController::class, 'show']);
+});

@@ -372,7 +372,7 @@ class ArticleController extends Controller
                 'data' => null,
                 'status' => $article->audio_status ?? 'pending',
                 'message' => 'Audio non ancora disponibile',
-            ], 404);
+            ], 200);
         }
 
         return response()->json([

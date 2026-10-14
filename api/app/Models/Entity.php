@@ -160,4 +160,14 @@ class Entity extends Model
     {
         return $query->where('type', $type);
     }
+
+    // ============================================================
+    // WIKI
+    // ============================================================
+
+    public function wikiPages(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\WikiPage::class);
+    }
+
 }
