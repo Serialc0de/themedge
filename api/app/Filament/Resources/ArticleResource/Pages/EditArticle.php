@@ -126,6 +126,42 @@ class EditArticle extends EditRecord
                     $this->refreshFormData(['ai_seo_suggestions']);
                 })
                 ->visible(fn () => $this->record->hasSeoSuggestions()),
+
+            Actions\Action::make('detect_claims')
+                ->label('✅ Fact-check automatico (AI)')
+                ->icon('heroicon-o-check-badge')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Fact-check automatico')
+                ->modalDescription('L\'AI estrarrà le affermazioni verificabili dall\'articolo e le proporrà per la verifica. Nessun fact-check verrà pubblicato automaticamente: l\'editore decide sempre.')
+                ->modalSubmitActionLabel('Avvia analisi')
+                ->action(function () {
+                    \App\Jobs\DetectArticleClaims::dispatch(
+                        $this->record,
+                        auth()->id()
+                    );
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('✅ Analisi avviata')
+                        ->body('L\'AI analizzerà l\'articolo in background. Riceverai una notifica quando pronto.')
+                        ->success()
+                        ->send();
+                }),
+
+            Actions\Action::make('clear_claims')
+                ->label('🗑️ Elimina claim rilevati')
+                ->icon('heroicon-o-x-circle')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->action(function () {
+                    $this->record->claims()->where('status', 'pending')->delete();
+                    \Filament\Notifications\Notification::make()
+                        ->title('🗑️ Claim eliminati')
+                        ->success()
+                        ->send();
+                    $this->refreshFormData(['claims']);
+                })
+                ->visible(fn () => $this->record->hasPendingClaims()),
         ])
             ->label('🤖 AI Actions')
             ->icon('heroicon-o-sparkles')

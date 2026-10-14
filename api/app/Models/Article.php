@@ -834,4 +834,28 @@ class Article extends Model implements HasMedia
     {
         return $this->entities()->exists();
     }
+
+    // ============================================================
+    // CLAIMS (AI fact-check candidates)
+    // ============================================================
+
+    public function claims(): HasMany
+    {
+        return $this->hasMany(ArticleClaim::class)->ordered();
+    }
+
+    public function pendingClaims(): HasMany
+    {
+        return $this->hasMany(ArticleClaim::class)->pending()->ordered();
+    }
+
+    public function hasClaims(): bool
+    {
+        return $this->claims()->exists();
+    }
+
+    public function hasPendingClaims(): bool
+    {
+        return $this->pendingClaims()->exists();
+    }
 }

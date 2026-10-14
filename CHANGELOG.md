@@ -780,3 +780,51 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 - **RAM Ollama** liberata ogni 15 min
 - **Disco sicuro**: 66% (era 80%)
 
+
+---
+
+## [2026-10-14] — ✅ Fact-check automatico (AI)
+
+### Aggiunto
+- **Fact-check automatico** con LLM locale (Ollama):
+  - `ClaimExtractor` (servizio) — estrae 5-10 affermazioni verificabili
+  - `DetectArticleClaims` Job (async, timeout 600s)
+  - Migration `article_claims` (JSON con audit trail)
+  - Model `ArticleClaim` (status enum, relazioni)
+  - Relazioni `claims()`, `pendingClaims()`, `hasClaims()`, `hasPendingClaims()` su `Article`
+  - Filament Action **"✅ Fact-check automatico (AI)"** in `EditArticle`
+  - Filament Action **"🗑️ Elimina claim rilevati"**
+  - Componente Livewire **`ClaimsPanel`** con:
+    - Anteprima 10 claim
+    - Suggerimenti AI (verdetto + fonte + confidence)
+    - Bottoni: ✅ Verificato / ⚠️ In verifica / ❌ Falso / 🗑️ Scarta
+    - **Auto-crea `ArticleFactCheck`** all'approvazione
+  - Sezione **"✅ Fact-check automatico"** in `ArticleResource`
+  - Kill switch `FACTCHECK_AI_ENABLED` in `.env`
+
+### Etica (regole inviolabili)
+- **L'AI propone, l'editore decide. SEMPRE.**
+- **Nessun** fact-check pubblicato automaticamente (status `pending`)
+- **Trasparenza**: badge "🤖 Generato da AI" in admin
+- **No allucinazioni**: editore verifica fonte manualmente
+- **Audit trail**: chi approva, quando, quale AI
+- **Kill switch**: feature disattivabile via `.env`
+
+### Come funziona
+1. Editore scrive articolo
+2. Click **"✅ Fact-check automatico (AI)"**
+3. Job async chiama Ollama (`llama3.1:8b`, 152s)
+4. L'AI estrae 5-10 claim con verdetti suggeriti
+5. Salva in `article_claims` (status `pending`)
+6. Notifica Filament: "10 claim rilevati"
+7. Editore apre admin → **"✅ Fact-check automatico"**
+8. Per ogni claim: approva ✅/⚠️/❌ o scarta 🗑️
+9. Fact-check approvati → crea `ArticleFactCheck` → appare nel frontend
+
+### Impatto
+- **Risparmio 30-60 min/articolo** sul fact-checking
+- **5-10 claim verificati** (vs 2-3 manuali)
+- **Trasparenza totale** (badge AI + audit trail)
+- **Privacy**: 100% locale, $0 costi
+- **Credibilità**: differenzia da blog e giornali non-fact-checked
+

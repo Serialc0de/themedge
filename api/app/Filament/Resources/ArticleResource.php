@@ -699,6 +699,17 @@ class ArticleResource extends Resource
                         ->defaultItems(0),
                 ])
                 ->columns(1),
+            Forms\Components\Section::make('✅ Fact-check automatico (claim rilevati)')
+                ->description('Affermazioni estratta dall\'AI. Verifica manualmente e approva.')
+                ->icon('heroicon-o-check-badge')
+                ->collapsible()
+                ->visible(fn ($record) => $record && $record->hasClaims())
+                ->schema([
+                    Forms\Components\Livewire::make('claims_panel')
+                        ->component(\App\Livewire\ClaimsPanel::class)
+                        ->columnSpanFull(),
+                ])
+                ->columns(1),
             Forms\Components\Section::make('🎯 SEO AI (suggerimenti)')
                 ->description('Suggerimenti SEO generati dall\'AI. Clicca "Applica" per usarli.')
                 ->icon('heroicon-o-sparkles')
