@@ -43,7 +43,7 @@ class OllamaClient
                     'options' => array_merge([
                         'temperature' => 0.3,      // Meno creatività, più precisione
                         'top_p' => 0.9,
-                        'num_predict' => 1024,     // Max token output
+                        'num_predict' => 2048,     // Max token output (aumentato per wiki lunghe)
                     ], $options),
                 ]);
 

@@ -171,31 +171,119 @@ PROMPT;
      */
     protected function parseResponse(string $response, Entity $entity): array
     {
-        // Estrai il JSON
-        if (!preg_match('/\{[\s\S]*\}/', $response, $matches)) {
-            Log::warning('JSON non trovato nella risposta wiki', ['response' => mb_substr($response, 0, 300)]);
+        // Caso 1: JSON completo valido
+        if (preg_match('/\{[\s\S]*\}/', $response, $matches)) {
+            $data = json_decode($matches[0], true);
+            if (is_array($data)) {
+                return [
+                    'summary' => $data['summary'] ?? null,
+                    'content' => $data['content'] ?? null,
+                    'infobox' => $data['infobox'] ?? null,
+                ];
+            }
+        }
+
+        // Caso 2: risposta sembra JSON ma è troncata → prova repair
+        if (str_starts_with(trim($response), '{')) {
+            Log::warning('Wiki response sembra JSON troncato, provo repair', [
+                'entity_id' => $entity->id,
+                'response_len' => mb_strlen($response),
+            ]);
+
+            $repaired = $this->tryRepairTruncatedJson($response);
+            if (is_array($repaired) && !empty($repaired['summary'])) {
+                Log::info('Wiki JSON troncato riparato con successo', [
+                    'entity_id' => $entity->id,
+                ]);
+                return [
+                    'summary' => $repaired['summary'] ?? null,
+                    'content' => $repaired['content'] ?? null,
+                    'infobox' => $repaired['infobox'] ?? null,
+                ];
+            }
+
+            // Repair fallito: NON salvare JSON grezzo come content
+            Log::warning('Wiki repair fallito, uso fallback bio', [
+                'entity_id' => $entity->id,
+            ]);
             return [
-                'summary' => null,
-                'content' => $response,
+                'summary' => $entity->bio ? mb_substr(strip_tags($entity->bio), 0, 200) : null,
+                'content' => $entity->bio ? "## Descrizione\n\n{$entity->bio}" : null,
                 'infobox' => null,
             ];
         }
 
-        $data = json_decode($matches[0], true);
-
-        if (!is_array($data)) {
-            return [
-                'summary' => null,
-                'content' => $response,
-                'infobox' => null,
-            ];
-        }
-
+        // Caso 3: risposta non-JSON → salva come content (ma logga)
+        Log::warning('Wiki response non-JSON', [
+            'entity_id' => $entity->id,
+            'response' => mb_substr($response, 0, 300),
+        ]);
         return [
-            'summary' => $data['summary'] ?? null,
-            'content' => $data['content'] ?? null,
-            'infobox' => $data['infobox'] ?? null,
+            'summary' => $entity->bio ? mb_substr(strip_tags($entity->bio), 0, 200) : null,
+            'content' => $response,
+            'infobox' => null,
         ];
+    }
+
+    /**
+     * Prova a riparare un JSON troncato (chiuso a metà da Ollama).
+     * Restituisce l'array parsato o null se impossibile.
+     */
+    protected function tryRepairTruncatedJson(string $json): ?array
+    {
+        // Strategia 1: chiudi le graffe mancanti
+        $openBraces = substr_count($json, '{');
+        $closeBraces = substr_count($json, '}');
+        $repaired = $json;
+        for ($i = 0; $i < ($openBraces - $closeBraces); $i++) {
+            $repaired .= '}';
+        }
+
+        // Se il numero di doppi apici è dispari, c'è una stringa aperta: chiudila
+        $quotes = substr_count($repaired, '"');
+        if ($quotes % 2 !== 0) {
+            $repaired .= '"';
+            // Poi chiudi graffe di nuovo (fino a 3 livelli di annidamento)
+            for ($i = 0; $i < 3; $i++) {
+                $repaired .= '}';
+            }
+        }
+
+        // Prova il decode
+        $data = json_decode($repaired, true);
+        if (is_array($data) && isset($data['summary'])) {
+            return $data;
+        }
+
+        // Strategia 2: rimuovi l'ultimo campo troncato (dopo l'ultima virgola valida)
+        // e chiudi il JSON
+        if (preg_match('/^(.*"[a-z_]+"\s*:\s*"(?:[^"\\\\]|\\\\.)*)",?\s*$/', $repaired, $m)) {
+            // Tronca al campo incompleto
+            $truncated = rtrim($m[1], ',') . '"' . str_repeat('}', 3);
+            $data = json_decode($truncated, true);
+            if (is_array($data) && isset($data['summary'])) {
+                return $data;
+            }
+        }
+
+        // Strategia 3: prova a estrarre summary e content con regex dal JSON troncato
+        $summary = null;
+        $content = null;
+        if (preg_match('/"summary"\s*:\s*"((?:[^"\\\\]|\\\\.)*)"/', $json, $m)) {
+            $summary = json_decode('"' . $m[1] . '"');
+        }
+        if (preg_match('/"content"\s*:\s*"((?:[^"\\\\]|\\\\.)*)"/', $json, $m)) {
+            $content = json_decode('"' . $m[1] . '"');
+        }
+        if ($summary || $content) {
+            return [
+                'summary' => $summary,
+                'content' => $content,
+                'infobox' => null,
+            ];
+        }
+
+        return null;
     }
 
     /**
