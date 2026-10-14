@@ -17,19 +17,14 @@ class WikiGenerator
         protected WikipediaRagService $wikiRag,
     ) {}
 
-    /**
-     * Genera una bozza di pagina wiki da una Entity.
-     */
     public function generateFromEntity(Entity $entity, bool $force = false): ?WikiPage
     {
-        // Verifica se esiste già
         $existing = WikiPage::where('entity_id', $entity->id)->first();
         if ($existing && !$force) {
             Log::info('Wiki page già esistente', ['entity_id' => $entity->id, 'wiki_id' => $existing->id]);
             return $existing;
         }
 
-        // Trova articoli che menzionano questa entità
         $articles = $this->findRelatedArticles($entity);
 
         if ($articles->isEmpty()) {
@@ -38,10 +33,8 @@ class WikiGenerator
         }
 
         try {
-            // Genera contenuto con Ollama
             $generated = $this->generateContent($entity, $articles);
 
-            // Crea o aggiorna la pagina
             $data = [
                 'slug' => $this->buildSlug($entity),
                 'title' => $entity->name,
@@ -60,11 +53,9 @@ class WikiGenerator
             ];
 
             if ($existing) {
-                // Preserva featured_image se nuova è vuota
                 if (empty($entity->photo_url) && !empty($existing->featured_image)) {
                     $data['featured_image'] = $existing->featured_image;
                 }
-                // Status preservato automaticamente (non incluso in $data)
                 $existing->update($data);
                 $page = $existing;
             } else {
@@ -75,7 +66,6 @@ class WikiGenerator
                 $page = WikiPage::create($data);
             }
 
-            // Collega articoli
             $this->linkArticles($page, $articles, $entity);
 
             Log::info('Wiki page generata', [
@@ -94,9 +84,6 @@ class WikiGenerator
         }
     }
 
-    /**
-     * Trova articoli che menzionano l'entità.
-     */
     protected function findRelatedArticles(Entity $entity)
     {
         return Article::whereHas('entities', function ($q) use ($entity) {
@@ -108,9 +95,6 @@ class WikiGenerator
             ->get();
     }
 
-    /**
-     * Genera contenuto wiki con Ollama.
-     */
     protected function generateContent(Entity $entity, $articles): array
     {
         $articlesContext = $articles->map(function ($a) {
@@ -128,6 +112,7 @@ class WikiGenerator
         $typeLabel = $typeLabels[$entity->type] ?? 'entità';
 
         $wikipediaSection = $this->buildWikipediaSection($entity);
+
         $prompt = <<<PROMPT
 Sei un redattore enciclopedico. Devi scrivere una voce di wiki per un giornale online italiano.
 
@@ -162,7 +147,11 @@ REGOLE:
 - NON copiare Wikipedia letteralmente: riscrivi con parole tue, sintetizza
 - NON inventare fatti non presenti in Wikipedia o negli articoli
 - Tono neutro, enciclopedico
-- Massimo 600 parole per il content
+- Il content DEVE essere tra 1500 e 2500 CARATTERI (non parole)
+- Il content DEVE avere almeno 3 sezioni (##)
+- Ogni sezione DEVE essere 400-800 caratteri
+- Sii dettagliato: includi date, nomi, luoghi, numeri quando disponibili in Wikipedia
+- Se Wikipedia menziona eventi storici o dettagli, includili
 - Il content DEVE essere markdown valido
 
 REGOLE IMPORTANTI PER L'INFOBOX:
@@ -178,7 +167,7 @@ REGOLE IMPORTANTI PER L'INFOBOX:
   * evento: Nome, Data, Luogo, Partecipanti
 PROMPT;
 
-        $ollama = $this->ollama->withModel(config('services.ollama.model', 'llama3.1:8b'));
+        $ollama = $this->ollama->withModel(config('services.ollama.model', 'qwen2.5:3b'));
         $response = $ollama->generate($prompt);
 
         if (!$response) {
@@ -193,148 +182,67 @@ PROMPT;
         return $this->parseResponse($response, $entity);
     }
 
-    /**
-     * Parsa la risposta JSON di Ollama.
-     */
     protected function parseResponse(string $response, Entity $entity): array
-{
-    // Log raw response per debug
-    \Log::info('WikiGenerator parseResponse START', [
-        'entity_id' => $entity->id,
-        'response_length' => strlen($response),
-        'response_start' => mb_substr($response, 0, 200),
-    ]);
-
-    // Estrai JSON (multiline)
-    if (!preg_match('/\{[\s\S]{10,50000}\}/', $response, $matches)) {
-        \Log::warning('WikiGenerator: JSON non trovato', [
-            'entity_id' => $entity->id,
-            'response_preview' => mb_substr($response, 0, 500),
-        ]);
-        return [
-            'summary' => null,
-            'content' => $response,
-            'infobox' => null,
-        ];
-    }
-
-    $json = $matches[0];
-    $data = json_decode($json, true);
-
-    // Se json_decode fallisce, prova a pulire
-    if (!is_array($data)) {
-        \Log::warning('WikiGenerator: json_decode fallito, provo a pulire', [
-            'entity_id' => $entity->id,
-            'json_error' => json_last_error_msg(),
-            'json_length' => strlen($json),
-        ]);
-
-        // Rimuovi trailing commas
-        $json = preg_replace('/,\s*([\}\]])/', '', $json);
-
-        // Rimuovi caratteri di controllo (eccetto newline/tab)
-        $json = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $json);
-
-        $data = json_decode($json, true);
-    }
-
-    if (!is_array($data)) {
-        \Log::error('WikiGenerator: impossibile parsare JSON', [
-            'entity_id' => $entity->id,
-        ]);
-        return [
-            'summary' => null,
-            'content' => $response,
-            'infobox' => null,
-        ];
-    }
-
-    // Estrai infobox
-    $infobox = $data['infobox'] ?? null;
-    if (is_array($infobox)) {
-        // Filtra valori nulli/vuoti
-        $infobox = array_filter($infobox, fn ($v) => $v !== null && $v !== '' && $v !== []);
-    }
-
-    \Log::info('WikiGenerator parseResponse OK', [
-        'entity_id' => $entity->id,
-        'has_summary' => !empty($data['summary']),
-        'content_length' => strlen($data['content'] ?? ''),
-        'has_infobox' => is_array($infobox) && !empty($infobox),
-        'infobox_keys' => is_array($infobox) ? count($infobox) : 0,
-    ]);
-
-    return [
-        'summary' => $data['summary'] ?? null,
-        'content' => $data['content'] ?? null,
-        'infobox' => is_array($infobox) && !empty($infobox) ? $infobox : null,
-    ];
-}
-
-    /**
-     * Prova a riparare un JSON troncato (chiuso a metà da Ollama).
-     * Restituisce l'array parsato o null se impossibile.
-     */
-    protected function tryRepairTruncatedJson(string $json): ?array
     {
-        // Strategia 1: chiudi le graffe mancanti
-        $openBraces = substr_count($json, '{');
-        $closeBraces = substr_count($json, '}');
-        $repaired = $json;
-        for ($i = 0; $i < ($openBraces - $closeBraces); $i++) {
-            $repaired .= '}';
-        }
-
-        // Se il numero di doppi apici è dispari, c'è una stringa aperta: chiudila
-        $quotes = substr_count($repaired, '"');
-        if ($quotes % 2 !== 0) {
-            $repaired .= '"';
-            // Poi chiudi graffe di nuovo (fino a 3 livelli di annidamento)
-            for ($i = 0; $i < 3; $i++) {
-                $repaired .= '}';
-            }
-        }
-
-        // Prova il decode
-        $data = json_decode($repaired, true);
-        if (is_array($data) && isset($data['summary'])) {
-            return $data;
-        }
-
-        // Strategia 2: rimuovi l'ultimo campo troncato (dopo l'ultima virgola valida)
-        // e chiudi il JSON
-        if (preg_match('/^(.*"[a-z_]+"\s*:\s*"(?:[^"\\\\]|\\\\.)*)",?\s*$/', $repaired, $m)) {
-            // Tronca al campo incompleto
-            $truncated = rtrim($m[1], ',') . '"' . str_repeat('}', 3);
-            $data = json_decode($truncated, true);
-            if (is_array($data) && isset($data['summary'])) {
-                return $data;
-            }
-        }
-
-        // Strategia 3: prova a estrarre summary e content con regex dal JSON troncato
-        $summary = null;
-        $content = null;
-        if (preg_match('/"summary"\s*:\s*"((?:[^"\\\\]|\\\\.)*)"/', $json, $m)) {
-            $summary = json_decode('"' . $m[1] . '"');
-        }
-        if (preg_match('/"content"\s*:\s*"((?:[^"\\\\]|\\\\.)*)"/', $json, $m)) {
-            $content = json_decode('"' . $m[1] . '"');
-        }
-        if ($summary || $content) {
+        // Estrai JSON (multiline)
+        if (!preg_match('/\{[\s\S]{10,50000}\}/', $response, $matches)) {
+            Log::warning('WikiGenerator: JSON non trovato', [
+                'entity_id' => $entity->id,
+                'response_preview' => mb_substr($response, 0, 500),
+            ]);
             return [
-                'summary' => $summary,
-                'content' => $content,
+                'summary' => null,
+                'content' => $response,
                 'infobox' => null,
             ];
         }
 
-        return null;
+        $json = $matches[0];
+        $data = json_decode($json, true);
+
+        if (!is_array($data)) {
+            Log::warning('WikiGenerator: json_decode fallito, provo a pulire', [
+                'entity_id' => $entity->id,
+                'json_error' => json_last_error_msg(),
+                'json_length' => strlen($json),
+            ]);
+
+            $json = preg_replace('/,\s*([\}\]])/', '', $json);
+            $json = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $json);
+            $data = json_decode($json, true);
+        }
+
+        if (!is_array($data)) {
+            Log::error('WikiGenerator: impossibile parsare JSON', [
+                'entity_id' => $entity->id,
+            ]);
+            return [
+                'summary' => null,
+                'content' => $response,
+                'infobox' => null,
+            ];
+        }
+
+        $infobox = $data['infobox'] ?? null;
+        if (is_array($infobox)) {
+            $infobox = array_filter($infobox, fn ($v) => $v !== null && $v !== '' && $v !== []);
+        }
+
+        Log::info('WikiGenerator parseResponse OK', [
+            'entity_id' => $entity->id,
+            'has_summary' => !empty($data['summary']),
+            'content_length' => strlen($data['content'] ?? ''),
+            'has_infobox' => is_array($infobox) && !empty($infobox),
+            'infobox_keys' => is_array($infobox) ? count($infobox) : 0,
+        ]);
+
+        return [
+            'summary' => $data['summary'] ?? null,
+            'content' => $data['content'] ?? null,
+            'infobox' => is_array($infobox) && !empty($infobox) ? $infobox : null,
+        ];
     }
 
-    /**
-     * Costruisce la sezione Wikipedia per il prompt (con RAG se disponibile).
-     */
     protected function buildWikipediaSection(Entity $entity): string
     {
         if ($entity->wikipedia_status !== 'ready') {
@@ -351,7 +259,7 @@ PROMPT;
         $typeLabel = $typeLabels[$entity->type] ?? 'entità';
 
         $query = trim($entity->name . ' ' . $typeLabel . ' ' . mb_substr($entity->bio ?? '', 0, 300));
-        $context = $this->wikiRag->buildContext($entity, $query, limit: 5);
+        $context = $this->wikiRag->buildContext($entity, $query, limit: 2);
 
         if (empty($context)) {
             Log::warning('WikiGenerator: Wikipedia context vuoto', ['entity_id' => $entity->id]);
@@ -366,9 +274,6 @@ PROMPT;
         return "WIKIPEDIA (fonte verificata, usa per i fatti principali):\n{$context}\n";
     }
 
-    /**
-     * Collega articoli alla pagina wiki con calcolo di rilevanza.
-     */
     protected function linkArticles(WikiPage $page, $articles, Entity $entity): void
     {
         $page->articles()->detach();
@@ -385,33 +290,24 @@ PROMPT;
         $page->update(['articles_count' => $articles->count()]);
     }
 
-    /**
-     * Calcola rilevanza articolo ↔ entità (0-100).
-     */
     protected function computeRelevance(Article $article, Entity $entity): int
     {
         $score = 0;
 
-        // Titolo contiene il nome?
         if (mb_stripos($article->title, $entity->name) !== false) {
             $score += 50;
         }
 
-        // Excerpt contiene il nome?
         if ($article->excerpt && mb_stripos($article->excerpt, $entity->name) !== false) {
             $score += 20;
         }
 
-        // Content: quante volte appare?
         $mentions = substr_count(mb_strtolower($article->content ?? ''), mb_strtolower($entity->name));
         $score += min($mentions * 5, 30);
 
         return min($score, 100);
     }
 
-    /**
-     * Mappa tipo Entity → tipo Wiki.
-     */
     protected function mapEntityTypeToWikiType(string $entityType): string
     {
         return match ($entityType) {
@@ -424,9 +320,6 @@ PROMPT;
         };
     }
 
-    /**
-     * Icona per tipo.
-     */
     protected function getTypeIcon(string $type): string
     {
         return match ($type) {
@@ -439,9 +332,6 @@ PROMPT;
         };
     }
 
-    /**
-     * Slug unico per la pagina.
-     */
     protected function buildSlug(Entity $entity): string
     {
         $base = \Illuminate\Support\Str::slug($entity->name);
@@ -456,9 +346,6 @@ PROMPT;
         return $slug;
     }
 
-    /**
-     * Subtitle contestuale.
-     */
     protected function buildSubtitle(Entity $entity): ?string
     {
         return match ($entity->type) {
@@ -471,18 +358,30 @@ PROMPT;
     }
 
     /**
-     * Sceglie il content migliore: nuovo se valido, esistente se nuovo è troppo corto.
+     * Guard: rifiuta content vuoto o troppo corto.
      */
     protected function pickBestContent(?WikiPage $existing, array $generated): ?string
     {
         $new = $generated['content'] ?? null;
+        $newLen = $new ? mb_strlen($new) : 0;
 
-        // Se non c'è esistente, usa nuovo
+        // Guard 1: nuovo > 0 ma < 100 char → rifiuta
+        if ($newLen > 0 && $newLen < 100) {
+            Log::warning('WikiGenerator: content nuovo troppo corto (< 100 char)', [
+                'wiki_id' => $existing?->id,
+                'new_len' => $newLen,
+            ]);
+
+            if ($existing && !empty($existing->content)) {
+                return $existing->content;
+            }
+            return $new;
+        }
+
         if (!$existing || empty($existing->content)) {
             return $new;
         }
 
-        // Se nuovo è vuoto, usa esistente
         if (empty($new)) {
             Log::info('WikiGenerator: content nuovo vuoto, uso esistente', [
                 'wiki_id' => $existing->id,
@@ -490,9 +389,7 @@ PROMPT;
             return $existing->content;
         }
 
-        // Se nuovo è < 50% dell'esistente, usa esistente
         $oldLen = mb_strlen($existing->content);
-        $newLen = mb_strlen($new);
 
         if ($newLen < $oldLen * 0.5) {
             Log::warning('WikiGenerator: content nuovo troppo corto, uso esistente', [
@@ -507,19 +404,14 @@ PROMPT;
         return $new;
     }
 
-    /**
-     * Sceglie l'infobox migliore: nuovo se valido, esistente se nuovo è vuoto.
-     */
     protected function pickBestInfobox(?WikiPage $existing, array $generated): ?array
     {
         $new = $generated['infobox'] ?? null;
 
-        // Se nuovo valido, usa nuovo
         if (is_array($new) && !empty($new)) {
             return $new;
         }
 
-        // Altrimenti, preserva esistente
         if ($existing && !empty($existing->infobox)) {
             Log::info('WikiGenerator: infobox preservato', [
                 'wiki_id' => $existing->id,

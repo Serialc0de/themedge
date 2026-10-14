@@ -41,9 +41,13 @@ class OllamaClient
                     'stream' => false,
                     'format' => 'json',
                     'options' => array_merge([
-                        'temperature' => 0.3,      // Meno creatività, più precisione
+                        'temperature' => 0.6,        // Più creatività, meno loop
                         'top_p' => 0.9,
-                        'num_predict' => 2048,     // Max token output (aumentato per wiki lunghe)
+                        'top_k' => 40,
+                        'repeat_penalty' => 1.15,    // Penalizza ripetizioni (evita loop)
+                        'repeat_last_n' => 128,
+                        'num_ctx' => 8192,           // Context window (era 4096 default)
+                        'num_predict' => 2500,     // Da 2048
                     ], $options),
                 ]);
 
