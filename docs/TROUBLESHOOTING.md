@@ -1,334 +1,785 @@
-# 🔧 Troubleshooting — Problemi Noti e Fix
+# 🔧 Troubleshooting — Themedge
 
-Raccolta dei problemi riscontrati e delle soluzioni.
+Problemi comuni e soluzioni.
 
----
-
-## 🚨 Sito non funziona (502 Bad Gateway)
-
-Sintomo: tutte le pagine PHP danno 502.
-
-Causa: PHP-FPM crashato.
-
-Fix:
-
-# 1. Verifica
-ps aux | grep php-fpm | grep -v grep
-ls -la /tmp/php-cgi-84.sock
-
-# 2. Recovery
-pkill -9 -f "php-fpm: master"
-pkill -9 -f "php-fpm: pool"
-rm -f /tmp/php-cgi-84.sock
-/www/server/php/84/sbin/php-fpm --daemonize
-sleep 2
-
-# 3. Verifica
-curl -sI https://admin.themedge.com/admin/login | head -3
-
-Vedi PHP_FPM.md per i dettagli.
+**Ultimo aggiornamento:** 14 ottobre 2026
 
 ---
 
-## 🔴 PHP-FPM crash loop
+## 📑 Indice
 
-Sintomo:
-
-ERROR: Another FPM instance seems to already listen on /tmp/php-cgi-84.sock
-ERROR: FPM initialization failed
-
-Causa: tentativo di restart con systemctl (che è in conflitto).
-
-Fix:
-
-# 1. Stop di systemd
-systemctl stop php-fpm-84 2>/dev/null
-
-# 2. Uccidi tutti i processi
-pkill -QUIT -f "php-fpm: master" 2>/dev/null
-sleep 2
-pkill -9 -f "php-fpm: master" 2>/dev/null
-pkill -9 -f "php-fpm: pool" 2>/dev/null
-
-# 3. Rimuovi socket
-rm -f /tmp/php-cgi-84.sock
-
-# 4. Assicurati che systemd sia masked
-systemctl mask php-fpm-84 2>/dev/null
-
-# 5. Avvia
-/www/server/php/84/sbin/php-fpm --daemonize
-sleep 2
-
-# 6. Verifica
-ps aux | grep php-fpm | grep -v grep
+1. [React #418 — Hydration Mismatch](#react-418--hydration-mismatch)
+2. [Next.js — Errori build](#nextjs--errori-build)
+3. [Laravel — Errori comuni](#laravel--errori-comuni)
+4. [Ollama — Problemi RAM e lentezza](#ollama--problemi-ram-e-lentezza)
+5. [PHP-FPM — Crash loop](#php-fpm--crash-loop)
+6. [Permessi file](#permessi-file)
+7. [Cron — Sovrascrittura accidentale](#cron--sovrascrittura-accidentale)
+8. [Migration — Timestamp duplicati](#migration--timestamp-duplicati)
+9. [Path duplicati con cp -r](#path-duplicati-con-cp--r)
+10. [Terminale SSH bloccato](#terminale-ssh-bloccato)
+11. [Embed — Problemi](#embed--problemi)
+12. [Cloudflare — Cache stantia](#cloudflare--cache-stantia)
+13. [Filament — Errori admin](#filament--errori-admin)
+14. [Database — Problemi](#database--problemi)
 
 ---
 
-## 🖼️ Immagini non visibili (404)
+## React #418 — Hydration Mismatch
 
-Sintomo: le immagini del sito danno 404.
+### Sintomo
 
-Cause possibili:
-1. Symlink public/storage mancante o rotto
-2. Permessi sbagliati su storage/app/public
-3. Middleware/URL sbagliato
+```
+Uncaught Error: Minified React error #418;
+Hydration failed because the server rendered text didn't match the client.
+```
 
-Fix:
+In console browser (solo in produzione, minified).
 
+### Cause comuni
+
+| Causa | Esempio |
+|-------|---------|
+| `typeof window` | `const isMobile = typeof window !== 'undefined'` |
+| `navigator.*` | `const canShare = 'share' in navigator` |
+| `localStorage` | `const token = localStorage.getItem('x')` |
+| `Date.now()` | `const now = Date.now()` |
+| `Math.random()` | `const id = Math.random()` |
+| Date locale | `new Date().toLocaleDateString('it-IT')` |
+| `next/image` srcset | Immagine con `sizes` dinamico |
+
+### Fix — Pattern SSR-safe
+
+```tsx
+const [mounted, setMounted] = useState(false);
+useEffect(() => setMounted(true), []);
+
+// Usa mounted PRIMA di qualsiasi accesso browser-only
+const value = mounted && typeof window !== 'undefined' ? ... : fallback;
+```
+
+### Fix — Date
+
+```tsx
+<time suppressHydrationWarning>
+  {new Date(article.published_at).toLocaleDateString('it-IT')}
+</time>
+```
+
+### Debug
+
+**Build in dev mode** (NON su produzione):
+
+```bash
+cd /www/wwwroot/themedge.com/web
+NODE_ENV=development npm run build
+# Mostra errori non minified con componente esatto
+```
+
+---
+
+## Next.js — Errori build
+
+### "Could not find BUILD_ID"
+
+**Causa:** build incompleta o `.next` corrotta.
+
+**Fix:**
+
+```bash
+cd /www/wwwroot/themedge.com/web
+export PATH=/www/server/nodejs/v22.23.3/bin:$PATH
+
+pm2 stop themedge-web
+rm -rf .next
+npm run build
+pm2 restart themedge-web --update-env
+```
+
+### "Module not found"
+
+**Causa:** dipendenza mancante o path errato.
+
+**Fix:**
+
+```bash
+# Verifica import
+npx tsc --noEmit --project tsconfig.json 2>&1 | head -20
+
+# Reinstalla node_modules
+rm -rf node_modules package-lock.json
+npm install
+npm run build
+```
+
+### "Error: Turbopack build failed"
+
+**Causa:** errore sintassi TypeScript/JSX.
+
+**Fix:**
+
+```bash
+# TypeScript check
+npx tsc --noEmit --project tsconfig.json 2>&1 | head -30
+
+# Guarda l'errore esatto
+npm run build 2>&1 | tail -30
+```
+
+### 500 su una pagina specifica
+
+**Causa:** errore server-side in Server Component.
+
+**Fix:**
+
+```bash
+pm2 logs themedge-web --lines 50 --nostream
+```
+
+### Next.js non risponde (502 Nginx)
+
+**Causa:** Next.js crashato o porte occupate.
+
+**Fix:**
+
+```bash
+pm2 list
+pm2 restart themedge-web --update-env
+sleep 3
+curl -I http://127.0.0.1:3000/
+```
+
+---
+
+## Laravel — Errori comuni
+
+### "Storage path not writable"
+
+**Fix:**
+
+```bash
+chown -R www:www /www/wwwroot/themedge.com/api/storage
+chmod -R 775 /www/wwwroot/themedge.com/api/storage
+```
+
+### "Class not found"
+
+**Fix:**
+
+```bash
 cd /www/wwwroot/themedge.com/api
-
-# 1. Ricrea symlink
-rm -f public/storage
-php artisan storage:link
-
-# 2. Fix permessi
-chown -R www:www storage/app/public
-chmod -R 775 storage/app/public
-
-# 3. Verifica
-ls -la public/storage
-# Atteso: public/storage -> storage/app/public
-
-# 4. Test
-curl -sI https://admin.themedge.com/storage/articles/featured/test.jpg | head -3
-
----
-
-## 🔀 Redirect non funziona
-
-Sintomo: crei un redirect ma il vecchio URL dà ancora 404.
-
-Cause possibili:
-1. Middleware HandleRedirects non registrato
-2. Redirect disattivato (is_active = false)
-3. Path non corrispondente (es. con/senza slash iniziale)
-
-Fix:
-
-cd /www/wwwroot/themedge.com/api
-
-# 1. Verifica middleware registrato
-grep -n "HandleRedirects" bootstrap/app.php
-# Atteso: riga con $middleware->append(...)
-
-# 2. Verifica redirect nel DB
-php artisan tinker --execute="
-\$r = App\Models\Redirect::where('from', 'like', '%tuo-path%')->first();
-if (\$r) {
-    echo 'From: ' . \$r->from . PHP_EOL;
-    echo 'To: ' . \$r->to . PHP_EOL;
-    echo 'Active: ' . (\$r->is_active ? 'YES' : 'NO') . PHP_EOL;
-    echo 'Hits: ' . \$r->hits . PHP_EOL;
-}
-"
-
-# 3. Pulisci cache
+composer dump-autoload
 php artisan optimize:clear
-/root/fpm.sh
+```
 
-Nota: il middleware agisce solo se la risposta è 404. Se il frontend Next.js risponde 200, il redirect non parte.
+### "Config cache stale"
+
+**Fix:**
+
+```bash
+cd /www/wwwroot/themedge.com/api
+php artisan config:clear
+php artisan optimize:clear
+```
+
+### "SQLSTATE: Base table or view not found"
+
+**Causa:** migration non eseguita o tabella cancellata.
+
+**Fix:**
+
+```bash
+php artisan migrate:status
+php artisan migrate --force
+```
+
+### "Too many connections"
+
+**Causa:** troppe richieste PHP-FPM.
+
+**Fix:**
+
+```bash
+# Riavvia PHP-FPM
+[FPM_SCRIPT]
+
+# Verifica processi
+ps aux | grep php-fpm | wc -l
+```
+
+### "View cache stale"
+
+**Fix:**
+
+```bash
+php artisan view:clear
+php artisan optimize:clear
+```
 
 ---
 
-## 📝 Editor SEO non si aggiorna
+## Ollama — Problemi RAM e lentezza
 
-Sintomo: cambi il titolo ma l'anteprima Google non si aggiorna.
+### Sintomo: risposta dopo 2+ minuti
 
-Causa: i campi non hanno ->live(onBlur: true).
+**Causa:** modello troppo grande per la RAM disponibile → swap.
 
-Fix:
+**Diagnosi:**
 
+```bash
+free -h
+ollama ps
+```
+
+Se `Mem: used > 80%` o `Swap: used > 1 GB` → problema RAM.
+
+### Fix — Ferma modelli inutilizzati
+
+```bash
+ollama stop llama3.1:8b
+ollama stop qwen2.5:3b
+sleep 2
+free -h
+```
+
+### Fix — Usa modello più piccolo
+
+```bash
 cd /www/wwwroot/themedge.com/api
 
-# Verifica nel file
-grep -n "live(onBlur" app/Filament/Resources/ArticleResource.php
+# Backup
+cp .env ".env.bak-$(date +%s)"
 
-I campi title, slug, excerpt, content, meta_title, meta_description, featured_image devono avere ->live() o ->live(onBlur: true).
+# Modifica modello RAG
+sed -i 's/OLLAMA_MODEL=llama3.1:8b/OLLAMA_MODEL=qwen2.5:3b/' .env
+sed -i 's/OLLAMA_MODEL_EXTRACTION=qwen2.5:3b/OLLAMA_MODEL_EXTRACTION=qwen2.5:3b/' .env
+
+php artisan config:clear
+```
+
+### Fix — Forza kill
+
+```bash
+pkill -9 -f "llama-server"
+sleep 3
+systemctl restart ollama
+curl http://localhost:11434/api/tags
+```
+
+### Sintomo: Ollama non risponde
+
+```bash
+# Verifica servizio
+systemctl status ollama
+
+# Restart
+systemctl restart ollama
+
+# Test
+curl http://localhost:11434/api/tags
+```
+
+### Sintomo: "connection refused"
+
+```bash
+# Verifica porta
+ss -tlnp | grep 11434
+
+# Riavvia
+systemctl restart ollama
+```
+
+### Prevenzione — Cron cleanup
+
+```bash
+# Ferma modelli inattivi ogni 30 min
+*/30 * * * * ollama ps | grep -E "Minutes|Hours" | awk '{print $1}' | xargs -I{} ollama stop {} 2>/dev/null
+```
 
 ---
 
-## 🔍 Ricerca Meilisearch non funziona
+## PHP-FPM — Crash loop
 
-Sintomo: la ricerca restituisce 0 risultati.
+### Sintomo
 
-Fix:
+```
+502 Bad Gateway
+php-fpm-84.service: Start request repeated too quickly
+```
 
+### Causa
+
+`systemctl restart php-fpm-84` → servizio masked → crash loop.
+
+### Fix
+
+**MAI usare `systemctl`.** Usa `[FPM_SCRIPT]`.
+
+**Se già in crash loop:**
+
+```bash
+# 1. Stop
+/etc/init.d/php-fpm-84 stop
+
+# 2. Kill
+pkill -9 -f php-fpm
+
+# 3. Pulisci socket
+rm -f /tmp/php-cgi-84.sock
+
+# 4. Avvia manualmente
+/www/server/php/84/sbin/php-fpm --daemonize
+
+# 5. Verifica
+ps aux | grep php-fpm | head -5
+```
+
+### Prevenzione
+
+Usa **SEMPRE** `[FPM_SCRIPT]` per riavviare.
+
+---
+
+## Permessi file
+
+### Sintomo
+
+```
+RuntimeException: Could not open input file
+File not writable
+```
+
+### Diagnosi
+
+```bash
+find /www/wwwroot/themedge.com/api -not -user www 2>/dev/null | wc -l
+find /www/wwwroot/themedge.com/web -not -user www 2>/dev/null | wc -l
+```
+
+### Fix
+
+```bash
+# Owner
+chown -R www:www /www/wwwroot/themedge.com/api
+chown -R www:www /www/wwwroot/themedge.com/web
+
+# Permessi
+find /www/wwwroot/themedge.com/api -type d -exec chmod 755 {} \;
+find /www/wwwroot/themedge.com/api -type f -exec chmod 644 {} \;
+
+# Storage + cache (scrive)
+chmod -R 775 /www/wwwroot/themedge.com/api/storage
+chmod -R 775 /www/wwwroot/themedge.com/api/bootstrap/cache
+
+# .env
+chmod 640 /www/wwwroot/themedge.com/api/.env
+chmod 640 /www/wwwroot/themedge.com/web/.env.local
+```
+
+### Prevenzione
+
+**SEMPRE** dopo `cat > file` o `cp` da root:
+
+```bash
+chown -R www:www /percorso
+```
+
+---
+
+## Cron — Sovrascrittura accidentale
+
+### Sintomo
+
+Cron spariti.
+
+### Causa
+
+```bash
+echo "..." | crontab -   # ❌ SOVRASCRIVE TUTTO
+```
+
+### Fix — Ripristino
+
+```bash
+crontab -e
+```
+
+**Aggiungi:**
+
+```bash
+# Backup giornaliero
+0 3 * * * /root/backup-themedge.sh > /dev/null 2>&1
+
+# Cleanup log
+0 */6 * * * /root/cleanup-logs.sh > /dev/null 2>&1
+
+# Check disk
+0 * * * * /root/check-disk.sh > /dev/null 2>&1
+
+# Cleanup Ollama
+*/30 * * * * ollama ps | grep -E "Minutes|Hours" | awk '{print $1}' | xargs -I{} ollama stop {} 2>/dev/null
+
+# Fix permessi audio
+*/5 * * * * chown -R www:www /www/wwwroot/themedge.com/api/storage/app/public/audio/ > /dev/null 2>&1
+
+# Pulizia query RAG vecchie
+0 4 * * 0 cd /www/wwwroot/themedge.com/api && php artisan tinker --execute="App\Models\AskQuery::where('created_at', '<', now()->subDays(90))->delete();" > /dev/null 2>&1
+```
+
+### Prevenzione
+
+**SEMPRE** prima di modificare cron:
+
+```bash
+crontab -l > /root/crontab.backup.$(date +%s)
+```
+
+---
+
+## Migration — Timestamp duplicati
+
+### Sintomo
+
+```
+SQLSTATE[HY000]: General error: 1824 Failed to open the referenced table
+```
+
+### Causa
+
+Due migration con **stesso timestamp** → Laravel le ordina alfabeticamente.
+
+### Fix
+
+```bash
 cd /www/wwwroot/themedge.com/api
 
-# 1. Verifica Meilisearch attivo
-systemctl status meilisearch
-curl -s http://127.0.0.1:7700/health
+# 1. Rimuovi le migration problematiche
+rm -f database/migrations/2026_XX_XX_HHMMSS_*.php
 
-# 2. Reimporta indice
-php artisan scout:flush "App\Models\Article"
-php artisan scout:import "App\Models\Article"
+# 2. Drop tabelle se create
+php artisan tinker
+# In tinker:
+# Schema::dropIfExists('nome_tabella');
+
+# 3. Rimuovi entry migration
+php artisan tinker
+# In tinker:
+# DB::table('migrations')->where('migration', 'like', '%nome%')->delete();
+
+# 4. Ricrea con timestamp progressivi
+# usa 2026_10_14_120000, 2026_10_14_120001, ecc.
+
+# 5. Migrate
+php artisan migrate --force
+```
+
+### Prevenzione
+
+**Timestamp progressivi:**
+
+```bash
+TS1="2026_10_14_120000"
+TS2="2026_10_14_120001"
+```
+
+**Oppure `sleep 1` tra due `date +%Y_%m_%d_%H%M%S`.**
 
 ---
 
-## 🎨 Filament 500 dopo modifica
+## Path duplicati con `cp -r`
 
-Sintomo: dopo aver modificato un file Resource, la pagina dà errore 500.
+### Sintomo
 
-Causa: OPcache non ricarica i file PHP.
+```
+create mode 100644 web/components/ask/ask/AskChat.tsx
+```
 
-Fix:
+### Causa
 
+```bash
+cp -r src/ dest/   # se dest/src/ esiste → dest/src/src/
+```
+
+### Fix
+
+```bash
+cd /www/wwwroot/themedge-repo
+
+# Verifica
+find web/components/ask -type d
+
+# Rimuovi duplicato
+rm -rf web/components/ask/ask
+rm -rf web/app/wiki/wiki
+
+# Git cleanup
+git rm -r --cached web/components/ask/ask 2>/dev/null
+git rm -r --cached web/app/wiki/wiki 2>/dev/null
+
+git add .
+git commit -m "chore: rimozione path duplicati"
+git push origin main
+```
+
+### Prevenzione
+
+**Prima di `cp -r`**, verifica:
+
+```bash
+ls -la src/ dest/
+```
+
+**Oppure usa `rsync`** (gestisce meglio):
+
+```bash
+rsync -av src/ dest/
+```
+
+---
+
+## Terminale SSH bloccato
+
+### Sintomo 1: `>` prompt
+
+**Causa:** heredoc in attesa di chiusura.
+
+**Fix:** premi **`Ctrl+C`** sulla tastiera (non scrivere "Ctrl+C").
+
+### Sintomo 2: non copia più
+
+**Causa:** `php artisan tinker --execute="...\x27..."` ha lasciato la shell in stato quote.
+
+**Fix:** premi **`Ctrl+C`** + **`Enter`**.
+
+### Sintomo 3: comandi non trovati
+
+**Causa:** hai incollato **markdown** nel terminale invece di comandi bash.
+
+**Fix:** pulisci con `clear`, poi incolla solo **comandi**, non testo formattato.
+
+### Prevenzione
+
+**MAI** `tinker --execute` con `\x27`. Usa **file PHP temporanei**:
+
+```bash
+cat > /tmp/script.php << 'PHPEOF'
+<?php
+require ...;
+$app = require ...;
+$app->make(Kernel::class)->bootstrap();
+// codice
+PHPEOF
+php /tmp/script.php
+```
+
+---
+
+## Embed — Problemi
+
+### Iframe non appare
+
+**Cause:**
+
+1. HTML sanitizzato troppo aggressivo
+2. Iframe dentro `<p>` (HTML non valido)
+3. `sanitizeHtml` rimuove iframe
+
+**Fix:**
+
+- Verifica `sanitize.ts` in frontend abbia `iframe` in `ALLOWED_TAGS`
+- Verifica `autoEmbedUrls` chiuda `<p>` prima dell'iframe
+- Verifica il content nel DB contenga `<iframe>`
+
+```bash
+cd /www/wwwroot/themedge.com/api
+
+cat > /tmp/check_content.php << 'PHPEOF'
+<?php
+require __DIR__ . '/../../www/wwwroot/themedge.com/api/vendor/autoload.php';
+$app = require_once __DIR__ . '/../../www/wwwroot/themedge.com/api/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+$a = App\Models\Article::find(1);
+echo $a->content;
+PHPEOF
+
+php /tmp/check_content.php
+```
+
+### Video non parte al click
+
+**Causa:** `VideoEmbed` nasconde iframe fino al click.
+
+**Fix:** verifica che il bottone abbia `onClick={() => setLoaded(true)}`.
+
+### iframe rimosso da DOMPurify
+
+**Fix:** aggiungi `iframe` a `ALLOWED_TAGS` in `lib/sanitize.ts`:
+
+```ts
+const ALLOWED_TAGS = [
+  'p', 'br', ...,
+  'iframe', 'video', 'audio',
+];
+```
+
+---
+
+## Cloudflare — Cache stantia
+
+### Sintomo
+
+Modifiche non visibili.
+
+### Fix — Purge
+
+```bash
+cd /www/wwwroot/themedge.com/api
+
+ZONE=$(grep '^CLOUDFLARE_ZONE_ID=' .env | cut -d= -f2)
+TOKEN=$(grep '^CLOUDFLARE_API_TOKEN=' .env | cut -d= -f2)
+
+curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${ZONE}/purge_cache" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  --data '{"purge_everything":true}' \
+  -w "\nHTTP: %{http_code}\n"
+```
+
+### Fix — Bypassa cache in test
+
+```bash
+curl -s "https://themedge.com/articolo/slug?nocache=$(date +%s)" | grep -i "..."
+```
+
+### Fix — Verifica stato
+
+```bash
+curl -sI https://themedge.com/articolo/slug | grep -iE "cf-cache-status|age"
+```
+
+---
+
+## Filament — Errori admin
+
+### 500 su una Resource
+
+**Causa:** errore in `infolist`, `form`, o `table`.
+
+**Debug:**
+
+```bash
+tail -50 /www/wwwroot/themedge.com/api/storage/logs/laravel.log
+```
+
+**Fix comune:** rimuovi `ViewAction` se l'infolist causa timeout:
+
+```php
+Tables\Actions\ViewAction::make(),  // rimuovi questa
+```
+
+### Colonne non visibili
+
+**Fix:** verifica `->visible()` o `->hidden()`.
+
+### Azioni non funzionanti
+
+**Fix:** verifica permessi Shield:
+
+```bash
+php artisan shield:generate --all
+```
+
+### "Column not found"
+
+**Fix:** esegui migration + clear cache:
+
+```bash
+cd /www/wwwroot/themedge.com/api
+php artisan migrate --force
+php artisan optimize:clear
+php artisan filament:optimize-clear
+```
+
+---
+
+## Database — Problemi
+
+### "Cannot truncate a table referenced in a foreign key constraint"
+
+**Fix:**
+
+```php
+DB::statement('SET FOREIGN_KEY_CHECKS=0');
+AskFeedback::truncate();
+AskQuery::truncate();
+DB::statement('SET FOREIGN_KEY_CHECKS=1');
+```
+
+### "Duplicate entry for key"
+
+**Fix:** usa `updateOrCreate` invece di `create`.
+
+### Query lente
+
+**Fix:** aggiungi indici:
+
+```php
+$table->index('column_name');
+```
+
+### Connessione rifiutata
+
+```bash
+# Verifica MySQL
+systemctl status mysql
+mysql -u root -p -e "SELECT 1;"
+```
+
+---
+
+## Script di emergenza — Quick fix
+
+**Se tutto è rotto, esegui in ordine:**
+
+```bash
+# 1. Fix permessi
+chown -R www:www /www/wwwroot/themedge.com/api
+chown -R www:www /www/wwwroot/themedge.com/web
+
+# 2. PHP-FPM
+[FPM_SCRIPT]
+
+# 3. Cache Laravel
 cd /www/wwwroot/themedge.com/api
 php artisan optimize:clear
 php artisan filament:optimize-clear
-php artisan view:clear
-php artisan view:cache
-/root/fpm.sh
 
----
+# 4. Next.js rebuild
+cd /www/wwwroot/themedge.com/web
+export PATH=/www/server/nodejs/v22.23.3/bin:$PATH
+pm2 stop themedge-web
+rm -rf .next
+npm run build
+pm2 restart themedge-web --update-env
 
-## 📊 Audit Log non registra
+# 5. Queue worker
+pm2 restart themedge-queue
 
-Sintomo: le modifiche agli articoli non appaiono in /admin/activities.
-
-Causa: namespace sbagliato (v4 invece di v5).
-
-Fix — verifica namespace corretti:
-
+# 6. Purge Cloudflare
 cd /www/wwwroot/themedge.com/api
-grep -n "use Spatie" app/Models/Article.php
+ZONE=$(grep '^CLOUDFLARE_ZONE_ID=' .env | cut -d= -f2)
+TOKEN=$(grep '^CLOUDFLARE_API_TOKEN=' .env | cut -d= -f2)
+curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${ZONE}/purge_cache" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  --data '{"purge_everything":true}'
 
-Namespace v5 corretto:
-use Spatie\Activitylog\Models\Concerns\LogsActivity;
-use Spatie\Activitylog\Support\LogOptions;
-
-Namespace v4 (sbagliato, non usare):
-use Spatie\Activitylog\Traits\LogsActivity;
-use Spatie\Activitylog\LogOptions;
-
-Anche il metodo dontSubmitEmptyLogs() è stato rinominato in v5:
-→ dontLogEmptyChanges()
-
----
-
-## 🔐 Login admin non funziona
-
-Verifica:
-
-cd /www/wwwroot/themedge.com/api
-php artisan tinker --execute="
-\$u = App\Models\User::where('email', 'admin@themedge.com')->first();
-echo 'Email: ' . \$u->email . PHP_EOL;
-echo 'Active: ' . (\$u->is_active ? 'YES' : 'NO') . PHP_EOL;
-echo 'Roles: ' . \$u->getRoleNames()->implode(', ') . PHP_EOL;
-"
-
-Se is_active = false:
-
-php artisan tinker --execute="
-App\Models\User::where('email', 'admin@themedge.com')->update(['is_active' => true]);
-"
-
-Reset password:
-
-php artisan tinker --execute="
-\$u = App\Models\User::where('email', 'admin@themedge.com')->first();
-\$u->update(['password' => bcrypt('NuovaPassword123!')]);
-echo 'Password aggiornata';
-"
+# 7. Test
+curl -I https://themedge.com
+pm2 list
+```
 
 ---
 
-## ⏱️ Sito lento
-
-Cause possibili:
-1. PHP-FPM pool saturo
-2. MySQL query lente
-3. OPcache disabilitato
-4. Cache Laravel non attiva
-
-Fix:
-
-# Cache Laravel
-cd /www/wwwroot/themedge.com/api
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-
-# Verifica carico
-free -h
-df -h
-top
-
-# Verifica PHP-FPM
-ps aux | grep php-fpm | wc -l
-
----
-
-## 🚨 Emergenza: tutto down
-
-Procedura di recovery rapida:
-
-# 1. PHP-FPM
-pkill -9 -f "php-fpm: master"
-pkill -9 -f "php-fpm: pool"
-rm -f /tmp/php-cgi-84.sock
-/www/server/php/84/sbin/php-fpm --daemonize
-
-# 2. Nginx
-systemctl restart nginx
-
-# 3. MySQL
-systemctl restart mysql
-
-# 4. Redis
-systemctl restart redis
-
-# 5. PM2 (frontend)
-pm2 restart themedge-web
-
-# 6. Test
-curl -sI https://admin.themedge.com/admin/login | head -3
-curl -sI https://themedge.com | head -3
-curl -sI https://api.themedge.com/api/articles | head -3
-
----
-
-## 📞 Debug avanzato
-
-Log da controllare:
-
-# Laravel
-tail -100 /www/wwwroot/themedge.com/api/storage/logs/laravel.log
-
-# Nginx admin
-tail -50 /www/wwwlogs/admin.themedge.com.error.log
-
-# Nginx site
-tail -50 /www/wwwlogs/themedge.com.error.log
-
-# PHP-FPM
-tail -50 /www/server/php/84/var/log/php-fpm.log
-
-# PM2 frontend
-pm2 logs themedge-web --lines 50
-
-Test connessioni:
-
-# Database
-mysql -uthemedge_user -p$(cat /root/.laravel_db_password) themedge_db -e "SELECT 1;"
-
-# Redis
-redis-cli -a $(grep requirepass /www/server/redis/redis.conf | cut -d' ' -f2) ping
-
-# Meilisearch
-curl -s http://127.0.0.1:7700/health
-
-# PHP-FPM
-ls -la /tmp/php-cgi-84.sock
-
----
-
-## 💡 Best practice
-
-1. Dopo ogni modifica PHP in produzione: /root/fpm.sh
-2. Prima di modifiche rischiose: backup (/root/backup-themedge.sh)
-3. Test sempre con curl prima di dire "tutto ok"
-4. Log prima, fix dopo: leggi sempre i log prima di agire
-5. Non usare systemctl con PHP-FPM
+*Ultima modifica: 14 ottobre 2026*
