@@ -301,3 +301,23 @@ php -i | grep max_execution_time
 ---
 
 *Ultima modifica: 14 ottobre 2026*
+
+---
+
+## 📝 Log e incidenti
+
+⚠️ **Durante un incidente (loop, 500, errore ricorrente)**: **NON troncare**
+`storage/logs/laravel.log` prima di aver capito la causa. Copia il file, poi tronca.
+
+```bash
+# ✅ SEMPRE
+cp storage/logs/laravel.log /root/incident-$(date +%s).log
+> storage/logs/laravel.log
+```
+
+**Motivo:** troncare un log mentre si sta ancora verificando un problema
+distrugge le prove. Vedi `HANDOFF.md` regola #14.
+
+**Logrotate** è configurato per `laravel.log` in `/etc/logrotate.d/themedge-laravel`
+(rotazione giornaliera, 14 giorni di storico, compresso, `copytruncate` per
+non far crashare il worker).

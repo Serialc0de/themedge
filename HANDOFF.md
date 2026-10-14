@@ -73,6 +73,11 @@ Il worker PM2 `themedge-queue` gira in background.
 - ❌ Mai riavviarlo durante un job AI
 - ✅ Dopo modifiche → `pm2 restart themedge-queue`
 
+**⚠️ Sintomi di loop:** se `failed_jobs` cresce rapidamente o il log
+cresce di decine di MB in pochi minuti, fermare subito il worker
+(`pm2 stop themedge-queue`) e seguire
+`docs/TROUBLESHOOTING.md` → "Loop GenerateArticleAudio".
+
 ### 8. MAI `php artisan tinker --execute` con quote escape
 
 **Rompe il terminale SSH** (resta in attesa di chiusura quote).
@@ -111,6 +116,27 @@ Due migration con stesso secondo → Laravel le ordina alfabeticamente. Usare ti
 **Sovrascrive tutti i cron.** Usare `crontab -e`.
 
 **Backup prima:** `crontab -l > /root/crontab.bak.$(date +%s)`
+
+---
+
+### 14. Log — MAI troncare durante un incidente
+
+Se il log cresce troppo:
+
+```bash
+# ❌ MAI durante un debug attivo:
+> storage/logs/laravel.log
+
+# ✅ SEMPRE:
+cp storage/logs/laravel.log /root/incident-$(date +%s).log
+> storage/logs/laravel.log
+```
+
+**Motivo:** troncare un log mentre si sta ancora verificando un problema
+distrugge le prove. Copiare prima, poi troncare.
+
+**Logrotate:** già configurato per `laravel.log` in `/etc/logrotate.d/themedge-laravel`
+(14 giorni, compresso, `copytruncate` — niente restart worker).
 
 ---
 

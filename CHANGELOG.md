@@ -17,6 +17,64 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 
 ---
 
+## [2026-10-14g] — Hotfix: loop infinito GenerateArticleAudio
+
+### 🚨 Incident
+
+**Sintomo:**
+- **22.731 job** in coda (`jobs` table)
+- **2.845 job** falliti (`failed_jobs` table)
+- **60 MB** di log Laravel in poche ore
+- Worker `themedge-queue` online ma in loop per ~1 ora (16:02-17:57)
+
+**Root cause:**
+- `articles.audio_status` con default `pending` era **ambiguo**:
+  significava sia "mai generato" che "job in coda".
+- L`ArticleObserver::saved()` dispatchava un nuovo job ad **ogni** `save()`
+  di un articolo pubblicato, perché dopo il fallimento del job (articolo
+  troppo corto) lo stato restava `pending` → nuovo dispatch → loop.
+- Effetto valanga: 1 job/s → 20.000+ job in ~1 ora.
+
+**Trigger:**
+- `GenerateArticleAudio` fallisce per articoli < 200 char, ma nel `catch`
+  aggiornava `audio_status = failed` e **rilanciava** l`eccezione.
+  Il job veniva ritentato (`tries = 2`), falliva di nuovo, e ogni nuovo
+  `save()` dell`articolo ri-dispatchava.
+
+### ✅ Fix
+
+**1. Migration** `2026_10_14_181234_change_audio_status_default_in_articles`
+- Default DB: da `pending` a `` (stringa vuota = "mai generato")
+- Normalizzazione righe esistenti con `pending` e `audio_generated_at = NULL`
+
+**2. `ArticleObserver`** (riscrittura completa)
+- Dispatcha **solo** se `audio_status` è `` o `null`
+- Subito dopo il dispatch, marca l`articolo `pending` con `updateQuietly()`
+  (non triggera l`observer, evita il ri-dispatch da `save()` successivi)
+- `pending`, `generating`, `ready`, `skipped`, `failed` → **skip**
+
+**3. `GenerateArticleAudio`** (refactor)
+- Articoli < `min_length` → stato `skipped` + `$this->fail()`
+  (non più `throw` → niente retry inutili)
+- `failed()` non ri-logga se lo stato è già `skipped`
+
+### 🧪 Test (verificato)
+
+```
+1. Creato articolo nuovo (draft, audio_status=)     → 0 job
+2. Pubblicato (audio_status=pending)                → 1 job
+3. touch() (audio_status=pending)                   → 1 job (invariato)
+4. save() senza modifiche                             → 1 job (invariato)
+5. update(excerpt)                                    → 1 job (invariato)
+```
+
+### 📚 Riferimenti
+- `docs/TROUBLESHOOTING.md` → sezione "Loop GenerateArticleAudio"
+- `HANDOFF.md` → regola #14 (log e incidenti)
+- Commit: `f8542ec`
+
+---
+
 ## [2026-10-14f] — Feedback, Analytics e Admin AI
 
 ### Aggiunto — Feedback & Analytics RAG

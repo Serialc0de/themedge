@@ -783,3 +783,50 @@ pm2 list
 ---
 
 *Ultima modifica: 14 ottobre 2026*
+
+---
+
+## 🔁 Loop GenerateArticleAudio (job TTS infiniti)
+
+### Sintomo
+
+- `php artisan queue:monitor default` mostra **migliaia** di job pending
+- `storage/logs/laravel.log` cresce di **decine di MB** in pochi minuti
+- `failed_jobs` cresce con lo stesso errore ripetuto
+- Il worker `themedge-queue` è `online` ma processa solo job che falliscono
+- CPU e I/O aumentano senza traffico utente
+
+### Causa
+
+`articles.audio_status` con default `pending` era ambiguo (sia "mai generato" che
+"job in coda"). L'observer dispatchava un nuovo job ad ogni `save()` perché lo
+stato restava invariato dopo il fallimento → loop infinito.
+
+### Fix (commit `f8542ec`)
+
+1. **Migration** `2026_10_14_181234_change_audio_status_default_in_articles`
+2. **`ArticleObserver`**: dispatcha solo se `audio_status` è `''`/null, poi
+   marca subito `pending` con `updateQuietly()`
+3. **`GenerateArticleAudio`**: articoli corti → `skipped` + `$this->fail()` (no retry)
+
+### Recovery (se il loop si ripresenta)
+
+1. Fermare il worker: `pm2 stop themedge-queue`
+2. Svuotare la coda (dopo eventuale dump):
+   `mysql -D themedge_db -e "TRUNCATE TABLE jobs"`
+   `mysql -D themedge_db -e "TRUNCATE TABLE failed_jobs"`
+3. Clear cache + restart:
+   `php artisan optimize:clear`
+   `/root/fpm.sh`
+   `pm2 restart themedge-queue`
+4. Verificare: `php artisan queue:monitor default --max=100`
+
+### Prevenzione
+
+- **Non troncare mai un log durante un incidente** — copialo prima (vedi
+  `HANDOFF.md` regola #14)
+- Controllare `queue:monitor` periodicamente
+- La `queue` è un **sistema vivo**: non ignorarla
+- `logrotate` è già configurato per `laravel.log`
+- Attenzione agli stati ambigui nel DB: un default non dovrebbe mai significare
+  due cose diverse
