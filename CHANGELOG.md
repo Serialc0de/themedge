@@ -8,15 +8,229 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 
 ### Planned
 - Paywall / Abbonamenti (Stripe)
-- Newsletter Editor
-- Notifiche email automatiche
-- Reading list lettori
-- Text-to-Speech
+- Newsletter Editor + notifiche email
+- OAuth Google login
+- Podcast RSS auto-generato
+- Versioning UI Wiki (diff visuale)
 
 ---
 
 ---
 
+## [2026-10-14f] — Feedback, Analytics e Admin AI
+
+### Aggiunto — Feedback & Analytics RAG
+
+**Migration:**
+- `ask_queries` — ogni query AI con risposta, fonti, timing, IP, sessione
+- `ask_feedbacks` — voti 👍/👎 con commento opzionale, IP, moderazione
+
+**Modelli:**
+- `AskQuery` con hash domanda, scope `recent`, `withNegativeFeedback`, contatori feedback
+- `AskFeedback` con `vote_label`, `isPositive()`, `isNegative()`
+
+**Controller & API:**
+- `FeedbackController` con rate limiting (30/min, anti-spam 5 min per IP)
+- Endpoint `POST /api/ask/feedback`
+- `AskController` salva automaticamente ogni query (streaming + full)
+- Invio `query_id` all'inizio dello streaming (evento SSE `sources`)
+
+**Admin Filament:**
+- `AskQueryResource` (read-only) nel gruppo "AI"
+- Widget `AskStatsOverview`: query totali, % feedback positivi, tempo medio
+- Filtri: con feedback, con feedback negativo, ultime 24h, ultimi 7gg
+- Vista dettaglio con domanda, risposta, fonti, feedback
+
+**Frontend:**
+- Pulsanti 👍/👎 sotto ogni risposta AI
+- Feedback ottimistico con stato locale
+- Thank you message dinamico
+
+**Test:**
+- 5 feedback inviati (3👍, 2👎) → salvati correttamente
+- Commento "Risposta poco chiara" → salvato
+- Admin dashboard funzionante
+
+---
+
+## [2026-10-14e] — AI Chat "Chiedi a Themedge" (RAG)
+
+### Aggiunto — Assistente AI Editoriale
+
+**Backend (RAG con MySQL JSON):**
+- Migration: `articles.embedding` + `wiki_pages.embedding` (JSON 768 dim)
+- Servizio `OllamaEmbeddingService` (modello `nomic-embed-text`)
+- Servizio `RagSearchService` (cosine similarity in PHP)
+- Servizio `RagPromptBuilder` (prompt RAG con contesto + citazioni)
+- Job `GenerateArticleEmbedding` + `GenerateWikiEmbedding`
+- Comando `rag:embed-all` (batch, con `--sync` e `--force`)
+- Controller `AskController` con streaming SSE (via `fopen`, no Guzzle)
+- Endpoint `POST /api/ask` (rate limit 10/min)
+
+**Frontend `/chiedi`:**
+- Client SSE in `lib/ask.ts` (parse eventi, `sendFeedback`)
+- Componente `AskChat` (orchestratore, localStorage, auto-scroll)
+- Componente `AskMessage` (bolle ChatGPT-like + citazioni `[N]` cliccabili)
+- Componente `AskSources` (pannello fonti con score % match)
+- Componente `AskInput` (autoresize + Enter/Shift+Enter)
+- Componente `AskSuggestions` (6 esempi)
+- Link "Chiedi" nel header desktop + menu mobile
+- SEO: `robots: noindex` (pagine chat non indicizzate)
+
+**Tecnologia:**
+- Meilisearch non supporta embedder in v1.54.3 → **MySQL JSON + cosine similarity**
+- Modello RAG: `qwen2.5:3b` (bilanciamento qualità/velocità)
+- Prompt ottimizzato: 2 fonti, 500 char per fonte, `num_predict: 200`
+
+**Test:**
+- Streaming SSE funzionante (~80s per risposta completa)
+- Citazioni `[1]` cliccabili → evidenziano la fonte
+- Fonti con score (0.79 per "Zelensky" → wiki corretta)
+
+---
+
+## [2026-10-14d] — Knowledge Graph Visuale
+
+### Aggiunto — Grafo Interattivo Wiki
+
+**Backend:**
+- Metodo `WikiController::graph()` con nodi + edges + stats
+- Endpoint `GET /api/wiki/graph` con filtri (limit, type, with_articles)
+- Deduplica link, dimensione nodo proporzionale, cache 5 min
+
+**Frontend `/wiki/grafo`:**
+- Componente `WikiGraph` con `react-force-graph-2d`
+- Zoom + pan + drag + click-to-open + hover-tooltip
+- Filtro per tipo (6 tipi wiki)
+- Toggle articoli on/off
+- Search con evidenziazione (nodo rosso)
+- Pulsante "🎯 Adatta alla vista"
+- Legenda colori (7 colori)
+- Node canvas custom (emoji + dimensione + colore)
+- Link particles per relazioni wiki↔wiki
+- Statistiche in alto (4 box)
+
+**Test:**
+- 3 wiki + 1 articolo, 3 connessioni, filtri funzionanti
+- React #418 assente
+
+---
+
+## [2026-10-14c] — Wiki Editoriale (Knowledge Engine)
+
+### Aggiunto — Enciclopedia Viva
+
+**Migration:**
+- `wiki_pages` — pagine wiki (6 tipi: person, organization, location, event, concept, topic)
+- `wiki_revisions` — versioning completo
+- `wiki_page_article` — pivot articoli ↔ wiki
+- `wiki_page_entity` — pivot entità ↔ wiki
+
+**Modelli:**
+- `WikiPage` con 6 tipi, scope `published`, `featured`, accessor `type_label`, `url`
+- `WikiRevision` con `diffWithPrevious()`
+
+**Servizio & Job:**
+- `WikiGenerator` — genera bozza con Ollama da Entity + articoli
+- Job `GenerateWikiPageFromEntity` (async, retry, ~2 min per wiki)
+- Comando `wiki:generate` (batch, filtri tipo, `--sync`)
+
+**Admin Filament:**
+- `WikiPageResource` con CRUD, workflow, action "Pubblica", "Rigenera AI", "Genera da entità"
+- 4 pagine (List, Create, Edit) + widget
+
+**API:**
+- 7 endpoint: `index`, `show`, `featured`, `stats`, `search`, `by-entity`, `by-article`
+
+**Frontend:**
+- `lib/wiki.ts` (client API + tipi + colori)
+- Componenti: `WikiCard` (3 varianti), `WikiInfobox`, `WikiContent` (react-markdown), `WikiArticles`, `WikiEntities`, `WikiSearch` (autocomplete), `ShareWikiButtonClient` (SSR-safe)
+- Pagine: `/wiki` (home), `/wiki/[slug]` (dettaglio), `/wiki/categoria/[type]`, `/wiki/cerca`
+- SEO JSON-LD (`DefinedTerm`)
+
+**Test:**
+- 4 wiki generate (Governo Italiano, Ucraina, Zelensky, Meloni)
+- 3 pubblicate, immagini visibili, markdown renderizzato
+
+---
+
+## [2026-10-14b] — TTS Premium con Piper
+
+### Aggiunto — Text-to-Speech Locale
+
+**Backend:**
+- Installazione Piper 1.8.0 + modello `it_IT-paola-medium` (~60 MB)
+- Migration: `articles.audio_path`, `audio_status`, `audio_duration_seconds`, `audio_model`, `audio_error`, `audio_generated_at`
+- Config `config/tts.php` (binary, model, ffmpeg, storage)
+- Servizio `PiperTtsService` (synthesize, cleanHtml, runPiper, runFfmpeg)
+- Job `GenerateArticleAudio` (queue, retry, recovery se file esiste)
+- Observer `ArticleObserver` (auto-dispatch su publish + content changed)
+- Comando `tts:test` (test CLI)
+- Accessor `Article::audio_url`, `audio_duration_formatted`, `hasAudio()`
+- Scope `withAudio()`, `withoutAudio()`
+- Endpoint `GET /api/articles/{slug}/audio`
+- Admin: azione "🎙️ Genera audio" + colonna stato audio
+
+**Frontend Player Premium:**
+- Componente `AudioPlayerPro` (HTML5 `<audio>`) con:
+  - Play/pausa, seek bar, skip ±15s, velocità 0.5x-2x, volume
+  - MediaSession API (lock screen, Bluetooth)
+  - Salva posizione in localStorage + banner "Riprendi da..."
+  - Sleep timer (15/30/60 min)
+  - Download MP3
+  - Sticky on scroll
+  - SSR-safe (no React #418)
+- Hook `useAudioPlayer`, utility `audio-storage.ts`
+
+**Cleanup:**
+- `AudioPlayer.tsx` → `.deprecated` (Web Speech API sostituito)
+- `AudioPlayerClient.tsx` → `.deprecated`
+- `lib/tts.tsx` → `.deprecated`
+
+**Test:**
+- Player visibile, audio parte, seek/skip/velocità/volume OK
+- MediaSession OK, React #418 assente
+
+---
+
+## [2026-10-14a] — Fix React #418 + Auto-embed URL v6
+
+### Risolto — React Error #418 (Hydration Mismatch)
+
+**Causa:**
+- `ShareButtons.tsx` calcolava `supportsNativeShare` con `typeof window !== 'undefined'`
+- Server render: senza bottone "Condividi"
+- Client mobile: con bottone → **mismatch garantito**
+
+**Fix:**
+- `useState(false)` + `useEffect(() => setMounted(true), [])`
+- Rendering identico server/client al primo render
+- Bottone "Condividi" appare solo dopo idratazione
+
+### Risolto — Auto-embed URL
+
+**Causa:**
+- `autoEmbedUrls` non gestiva `<p>URL</p>` (boundary mancante)
+- Iframe dentro `<p>` → HTML non valido → browser "sballa" il DOM
+
+**Fix:**
+- `Article.php`: v6 con boundary `(?:^|[\s>])`, lookahead `(?=)`, chiusura/riapertura `<p>` + `<figure>` semantico
+- `ArticleBody.tsx`: regex `[\s\S]*?` per matchare newline
+- `ArticleBody.tsx`: `parseSegments` cattura `<figure><iframe></iframe></figure>` insieme
+- `VideoEmbed.tsx`: `<noscript>` fallback SEO + `<img>` nativo (no `next/image`)
+
+### Cleanup
+- Rimossi 40+ `.bak` dal frontend
+- Rimossi `api-broken-*` (240 MB)
+- Rimossa migration duplicata `ai_summary`
+- Rimosso `InsertEmbedAction.php`
+- Pulizia `.bak` dal repo (git)
+
+**Commit:**
+- `5858c16` fix: React #418 + auto-embed URL v6
+- `d12945e` fix(embed): autoEmbedUrls v6
+
+---
 ## [2026-10-11b] — Sistema Embed completo
 
 ### Aggiunto — Sistema Embed

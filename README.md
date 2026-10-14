@@ -10,18 +10,42 @@ Giornale online editoriale professionale.
 
 Themedge è una piattaforma editoriale completa con:
 
+### 📰 Editoriale
 - **Backend Laravel 13 + Filament 3** con pannello admin professionale
 - **Frontend Next.js 16** con tema editoriale raffinato
-- **API REST** con Sanctum
-- **Ricerca full-text** con Meilisearch (1ms)
-- **SEO completo** (sitemap, robots, OpenGraph, JSON-LD, RSS)
 - **Workflow editoriale** completo (draft → review → approved → published → archived)
-- **Breaking News configurabile** con banner + push notifications
+- **Breaking News** con banner + push notifications
 - **Live Blog** per dirette in tempo reale
-- **Push Notifications PWA** cross-platform
 - **Commenti** con moderazione
 - **Analytics Editoriale** con KPI e report
 - **Contenuto editoriale** (sondaggi, correzioni, segnalazioni, redazione)
+
+### 🧠 Knowledge Engine (UNICO in Italia)
+- **📚 Wiki Editoriale** auto-alimentata dagli articoli (Ollama)
+- **🕸️ Knowledge Graph** visuale interattivo (force-directed)
+- **💬 Chiedi a Themedge** — AI Chat RAG con citazioni verificabili
+- **📊 Feedback + Analytics** su ogni query AI
+
+### 🎙️ Audio Premium
+- **Text-to-Speech** con Piper (voce italiana `Paola`, gratis, offline)
+- **Player Premium** con MediaSession, salva posizione, sleep timer, download
+
+### 🔍 Ricerca & SEO
+- **Ricerca full-text** con Meilisearch (1ms)
+- **SEO completo** (sitemap, robots, OpenGraph, JSON-LD, RSS)
+
+### 📱 PWA & Push
+- **Push Notifications PWA** cross-platform
+- **Installabile** su mobile/desktop
+
+### 🤖 AI Locale (zero costi)
+- **Ollama** con modelli `llama3.1:8b`, `qwen2.5:3b`, `nomic-embed-text`
+- **6 feature AI**: TL;DR, Entity detection, SEO, Fact-check, Wiki generation, RAG Chat
+
+### 📡 API & Infra
+- **API REST** con Sanctum (35+ endpoint)
+- **Cloudflare CDN + WAF** + purge automatico
+- **Backup + cron + monitoring** produzione
 
 ---
 
@@ -37,6 +61,9 @@ Themedge è una piattaforma editoriale completa con:
 | **CDN/WAF** | Cloudflare (Full strict + HSTS) |
 | **Process Manager** | PM2 (themedge-web) |
 | **CI/CD** | GitHub Actions + Dependabot |
+| **AI Locale** | Ollama (llama3.1:8b, qwen2.5:3b, nomic-embed-text) |
+| **TTS** | Piper 1.8.0 (voce it_IT-paola-medium) |
+| **Search Vettoriale** | MySQL JSON + cosine similarity (PHP) |
 
 ---
 
@@ -46,7 +73,7 @@ themedge/
 ├── api/                    Laravel 13 + Filament 3
 │   ├── app/
 │   │   ├── Filament/       Resources, Widgets, Pages
-│   │   ├── Models/         15 modelli Eloquent
+│   │   ├── Models/         22+ modelli Eloquent
 │   │   ├── Http/
 │   │   │   ├── Controllers/Api/
 │   │   │   └── Middleware/
