@@ -304,4 +304,173 @@ class WikiController extends Controller
             ]);
         }
     }
+
+    /**
+     * GET /api/wiki/graph
+     *
+     * Ritorna i nodi e gli archi per il Knowledge Graph visuale.
+     *
+     * Query params:
+     * - limit: numero massimo di nodi (default 150)
+     * - type: filtra per tipo (person, organization, location, event, concept, topic)
+     * - with_articles: 1|0 (default 1) — includi articoli come nodi
+     * - min_articles: numero minimo di articoli collegati (default 1)
+     */
+    public function graph(Request $request)
+    {
+        $limit = min((int) $request->input('limit', 150), 500);
+        $type = $request->input('type');
+        $withArticles = (bool) $request->input('with_articles', true);
+        $minArticles = (int) $request->input('min_articles', 1);
+
+        // ============================================================
+        // NODI — WIKI PAGES
+        // ============================================================
+        $wikiQuery = WikiPage::published()
+            ->where('articles_count', '>=', $minArticles)
+            ->select(['id', 'slug', 'title', 'summary', 'type', 'icon', 'articles_count', 'featured_image'])
+            ->orderByDesc('articles_count')
+            ->limit($limit);
+
+        if ($type) {
+            $wikiQuery->byType($type);
+        }
+
+        $wikiPages = $wikiQuery->get();
+
+        $nodes = $wikiPages->map(function ($page) {
+            return [
+                'id' => 'wiki-' . $page->id,
+                'raw_id' => $page->id,
+                'kind' => 'wiki',
+                'slug' => $page->slug,
+                'title' => $page->title,
+                'summary' => $page->summary,
+                'type' => $page->type,
+                'icon' => $page->icon,
+                'articles_count' => $page->articles_count,
+                'image' => $page->featured_image,
+                // dimensione nodo proporzionale (5-30)
+                'size' => min(5 + ($page->articles_count * 2), 30),
+            ];
+        })->values()->toArray();
+
+        // ============================================================
+        // ARCHI — WIKI ↔ WIKI (entità correlate)
+        // ============================================================
+        $wikiIds = $wikiPages->pluck('id')->toArray();
+
+        $links = [];
+
+        // Relazioni wiki ↔ wiki (da wiki_page_entity)
+        $entityRelations = \DB::table('wiki_page_entity')
+            ->whereIn('wiki_page_id', $wikiIds)
+            ->whereIn('entity_id', function ($q) use ($wikiPages) {
+                $q->select('entity_id')
+                  ->from('wiki_pages')
+                  ->whereIn('id', $wikiPages->pluck('id')->toArray())
+                  ->whereNotNull('entity_id');
+            })
+            ->get();
+
+        // Mappa entity_id → wiki_id per trovare connessioni
+        $entityToWiki = $wikiPages
+            ->whereNotNull('entity_id')
+            ->pluck('id', 'entity_id')
+            ->toArray();
+
+        foreach ($entityRelations as $rel) {
+            if (isset($entityToWiki[$rel->entity_id])) {
+                $targetWikiId = $entityToWiki[$rel->entity_id];
+                if ($targetWikiId !== $rel->wiki_page_id) {
+                    $links[] = [
+                        'source' => 'wiki-' . $rel->wiki_page_id,
+                        'target' => 'wiki-' . $targetWikiId,
+                        'kind' => 'related',
+                        'value' => 1,
+                    ];
+                }
+            }
+        }
+
+        // ============================================================
+        // NODI + ARCHI — ARTICOLI
+        // ============================================================
+        if ($withArticles) {
+            $articleNodes = [];
+            $articleLinks = [];
+
+            foreach ($wikiPages as $page) {
+                $articles = $page->articles()
+                    ->where('articles.status', 'published')
+                    ->whereNull('articles.deleted_at')
+                    ->select(['articles.id', 'articles.title', 'articles.slug', 'articles.published_at'])
+                    ->limit(3) // max 3 articoli per wiki per non saturare il grafo
+                    ->get();
+
+                foreach ($articles as $article) {
+                    $articleNodeId = 'article-' . $article->id;
+
+                    // Aggiungi nodo articolo (se non esiste già)
+                    if (!isset($articleNodes[$articleNodeId])) {
+                        $articleNodes[$articleNodeId] = [
+                            'id' => $articleNodeId,
+                            'raw_id' => $article->id,
+                            'kind' => 'article',
+                            'slug' => $article->slug,
+                            'title' => $article->title,
+                            'type' => 'article',
+                            'icon' => '📰',
+                            'size' => 4,
+                        ];
+                    }
+
+                    // Link wiki ↔ articolo
+                    $articleLinks[] = [
+                        'source' => 'wiki-' . $page->id,
+                        'target' => $articleNodeId,
+                        'kind' => 'article',
+                        'value' => 1,
+                    ];
+                }
+            }
+
+            $nodes = array_merge($nodes, array_values($articleNodes));
+            $links = array_merge($links, $articleLinks);
+        }
+
+        // ============================================================
+        // DEDUPLICA LINK
+        // ============================================================
+        $uniqueLinks = [];
+        $seen = [];
+
+        foreach ($links as $link) {
+            // Chiave univoca (ordino source/target per evitare duplicati inversi)
+            $key1 = $link['source'] . '|' . $link['target'];
+            $key2 = $link['target'] . '|' . $link['source'];
+
+            if (!isset($seen[$key1]) && !isset($seen[$key2])) {
+                $uniqueLinks[] = $link;
+                $seen[$key1] = true;
+            }
+        }
+
+        // ============================================================
+        // STATS
+        // ============================================================
+        $stats = [
+            'total_nodes' => count($nodes),
+            'total_links' => count($uniqueLinks),
+            'wiki_count' => $wikiPages->count(),
+            'article_count' => count(array_filter($nodes, fn ($n) => $n['kind'] === 'article')),
+            'by_type' => $wikiPages->groupBy('type')->map->count()->toArray(),
+        ];
+
+        return response()->json([
+            'nodes' => $nodes,
+            'links' => $uniqueLinks,
+            'stats' => $stats,
+        ]);
+    }
 }

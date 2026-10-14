@@ -40,6 +40,16 @@ export default async function WikiHomePage() {
           <WikiSearch />
         </div>
 
+        <div className="mt-6 flex justify-center gap-3">
+          <Link
+            href="/wiki/grafo"
+            className="inline-flex items-center gap-2 rounded-full bg-red-700 px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-red-600"
+          >
+            <span aria-hidden="true">🕸️</span>
+            <span>Esplora il Knowledge Graph</span>
+          </Link>
+        </div>
+
         {stats && (
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <StatBox value={stats.total} label="Voci" />

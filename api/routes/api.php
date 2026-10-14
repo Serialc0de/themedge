@@ -127,6 +127,7 @@ Route::middleware('throttle:120,1')->group(function () {
 Route::prefix('wiki')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\WikiController::class, 'index']);
     Route::get('/featured', [\App\Http\Controllers\Api\WikiController::class, 'featured']);
+    Route::get('/graph', [\App\Http\Controllers\Api\WikiController::class, 'graph']);
     Route::get('/stats', [\App\Http\Controllers\Api\WikiController::class, 'stats']);
     Route::get('/search', [\App\Http\Controllers\Api\WikiController::class, 'search']);
     Route::get('/by-entity/{entitySlug}', [\App\Http\Controllers\Api\WikiController::class, 'byEntity']);

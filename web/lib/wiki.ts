@@ -131,6 +131,56 @@ export async function getWikiByArticle(articleSlug: string) {
   return json?.data ?? [];
 }
 
+
+// ============================================================
+// GRAPH
+// ============================================================
+
+export type WikiGraphNode = {
+  id: string;
+  raw_id: number;
+  kind: 'wiki' | 'article';
+  slug: string;
+  title: string;
+  summary?: string | null;
+  type: WikiType | 'article';
+  icon: string | null;
+  articles_count?: number;
+  image?: string | null;
+  size: number;
+};
+
+export type WikiGraphLink = {
+  source: string;
+  target: string;
+  kind: 'related' | 'article';
+  value: number;
+};
+
+export type WikiGraphData = {
+  nodes: WikiGraphNode[];
+  links: WikiGraphLink[];
+  stats: {
+    total_nodes: number;
+    total_links: number;
+    wiki_count: number;
+    article_count: number;
+    by_type: Record<string, number>;
+  };
+};
+
+
+export async function getWikiGraph(params?: { limit?: number; type?: WikiType; with_articles?: boolean }): Promise<WikiGraphData | null> {
+  const qs = new URLSearchParams();
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.type) qs.set('type', params.type);
+  if (params?.with_articles !== undefined) qs.set('with_articles', params.with_articles ? '1' : '0');
+
+  const query = qs.toString();
+  const path = '/wiki/graph' + (query ? '?' + query : '');
+  return fetchApi<WikiGraphData>(path, { revalidate: 300 });
+}
+
 // ============================================================
 // HELPERS
 // ============================================================
