@@ -45,7 +45,6 @@ class WikiGenerator
                 'title' => $entity->name,
                 'subtitle' => $this->buildSubtitle($entity),
                 'type' => $this->mapEntityTypeToWikiType($entity->type),
-                'status' => 'draft',
                 'summary' => $generated['summary'] ?? null,
                 'content' => $generated['content'] ?? null,
                 'infobox' => $generated['infobox'] ?? null,
@@ -63,6 +62,7 @@ class WikiGenerator
                 $existing->update($data);
                 $page = $existing;
             } else {
+                $data['status'] = 'draft';
                 $page = WikiPage::create($data);
             }
 
