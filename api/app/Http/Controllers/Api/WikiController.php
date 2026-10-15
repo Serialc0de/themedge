@@ -549,4 +549,115 @@ class WikiController extends Controller
             'stats' => $stats,
         ]);
     }
+    /**
+     * GET /api/wiki/{slug}/timeline
+     * Timeline cronologica: eventi curati + articoli collegati.
+     */
+    public function timeline(string $slug)
+    {
+        $page = WikiPage::published()
+            ->where('slug', $slug)
+            ->with(['entity:id,slug,name,type', 'articles' => function ($q) {
+                $q->select([
+                        'articles.id', 'articles.title', 'articles.slug',
+                        'articles.excerpt', 'articles.featured_image',
+                        'articles.published_at', 'articles.category_id',
+                    ])
+                    ->where('articles.status', 'published')
+                    ->whereNull('articles.deleted_at')
+                    ->with('category:id,name,slug,color')
+                    ->orderByDesc('articles.published_at');
+            }])
+            ->firstOrFail();
+
+        $articleIds = $page->articles->pluck('id')->toArray();
+
+        // 1. Eventi curati (article_timeline_events)
+        $curatedEvents = [];
+        if (!empty($articleIds)) {
+            $curatedEvents = \DB::table('article_timeline_events')
+                ->whereIn('article_id', $articleIds)
+                ->orderByDesc('event_date')
+                ->get()
+                ->map(function ($event) use ($page) {
+                    $article = $page->articles->firstWhere('id', $event->article_id);
+                    return [
+                        'date' => $event->event_date . 'T12:00:00+00:00',
+                        'type' => 'curated',
+                        'title' => $event->title,
+                        'description' => $event->description,
+                        'is_key_event' => (bool) $event->is_key_event,
+                        'source_url' => $event->source_url,
+                        'source_name' => $event->source_name,
+                        'article' => $article ? [
+                            'id' => $article->id,
+                            'title' => $article->title,
+                            'slug' => $article->slug,
+                            'url' => '/articolo/' . $article->slug,
+                        ] : null,
+                    ];
+                })
+                ->toArray();
+        }
+
+        // 2. Articoli collegati (eventi automatici)
+        $curatedArticleIds = collect($curatedEvents)->pluck('article.id')->filter()->unique()->toArray();
+
+        $articleEvents = $page->articles
+            ->filter(fn ($a) => $a->published_at !== null)
+            ->filter(fn ($a) => !in_array($a->id, $curatedArticleIds))
+            ->map(function ($a) {
+                return [
+                    'date' => $a->published_at->toIso8601String(),
+                    'type' => 'article',
+                    'title' => $a->title,
+                    'description' => $a->excerpt,
+                    'is_key_event' => false,
+                    'source_url' => null,
+                    'source_name' => null,
+                    'article' => [
+                        'id' => $a->id,
+                        'title' => $a->title,
+                        'slug' => $a->slug,
+                        'url' => '/articolo/' . $a->slug,
+                        'image' => $a->featured_image_url,
+                        'category' => $a->category ? [
+                            'name' => $a->category->name,
+                            'slug' => $a->category->slug,
+                            'color' => $a->category->color,
+                        ] : null,
+                    ],
+                ];
+            })
+            ->values()
+            ->toArray();
+
+        // 3. Merge + ordina per data
+        $timeline = array_merge($curatedEvents, $articleEvents);
+        usort($timeline, fn ($a, $b) => strcmp($b['date'], $a['date']));
+
+        return response()->json([
+            'data' => [
+                'wiki' => [
+                    'id' => $page->id,
+                    'slug' => $page->slug,
+                    'title' => $page->title,
+                    'type' => $page->type,
+                    'icon' => $page->icon,
+                ],
+                'timeline' => $timeline,
+                'stats' => [
+                    'total_events' => count($timeline),
+                    'curated_events' => count($curatedEvents),
+                    'article_events' => count($articleEvents),
+                    'key_events' => collect($timeline)->where('is_key_event', true)->count(),
+                    'period' => [
+                        'from' => count($timeline) > 0 ? min(array_column($timeline, 'date')) : null,
+                        'to' => count($timeline) > 0 ? max(array_column($timeline, 'date')) : null,
+                    ],
+                ],
+            ],
+        ]);
+    }
+
 }

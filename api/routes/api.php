@@ -132,6 +132,7 @@ Route::prefix('wiki')->group(function () {
     Route::get('/search', [\App\Http\Controllers\Api\WikiController::class, 'search']);
     Route::get('/by-entity/{entitySlug}', [\App\Http\Controllers\Api\WikiController::class, 'byEntity']);
     Route::get('/by-article/{articleSlug}', [\App\Http\Controllers\Api\WikiController::class, 'byArticle']);
+    Route::get('/{slug}/timeline', [\App\Http\Controllers\Api\WikiController::class, 'timeline']);
     Route::get('/{slug}', [\App\Http\Controllers\Api\WikiController::class, 'show']);
 });
 
