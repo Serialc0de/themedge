@@ -689,3 +689,303 @@ Contribuendo, accetti che il tuo codice sia rilasciato sotto la stessa licenza d
 ---
 
 *Ultima modifica: 14 ottobre 2026*
+
+
+---
+
+## 🎨 Pattern obbligatori (15 ottobre 2026)
+
+### 1. Nuove feature AI
+
+Ogni feature AI deve avere:
+
+**Backend:**
+- Service in `app/Services/{Category}/{ServiceName}.php`
+- Job in `app/Jobs/{JobName}.php` (con `$timeout`, `$tries`)
+- Config in `config/services.php` (kill switch)
+- Log strutturato (`Log::info` con contesto)
+- Se serve: migration + model + relazione
+
+**Admin:**
+- Action Filament in `{Resource}Resource.php`
+- Sezione form (collassabile)
+- Colonna tabella (se rilevante)
+- Bulk action (se operazione batch)
+
+**Frontend:**
+- Componente React in `components/{category}/`
+- Tipi TypeScript in `lib/`
+- SEO JSON-LD (se pubblica)
+
+**Doc:**
+- Sezione in `CHANGELOG.md`
+- Sezione in `docs/{AREA}.md`
+- Regola in `HANDOFF.md` (se critica)
+
+### 2. Observer vs Action
+
+**Usare Observer quando:**
+- L'azione deve scattare **sempre** (es. audio su publish)
+- Non serve interazione utente
+
+**Usare Action Filament quando:**
+- L'azione è **manuale** (es. genera TL;DR)
+- Richiede conferma o parametri
+- È un'operazione costosa
+
+**Mai entrambi** per la stessa cosa (causa doppi dispatch).
+
+### 3. Stati con `status` — Regola d'oro
+
+**Mai usare `pending` come "mai processato".** Usare `''` (stringa vuota) o `null`.
+
+**Motivo:** `pending` è ambiguo (sia "mai fatto" che "in coda"). Causa loop infiniti.
+
+**Pattern corretto:**
+
+    // Osservatore: dispatcha solo se '' (mai fatto)
+    if ($model->status !== '') return;
+
+    // Poi marca subito come 'pending' (in coda)
+    $model->updateQuietly(['status' => 'pending']);
+    Job::dispatch($model)->delay(...);
+
+**Pattern sbagliato:**
+
+    // ❌ Loop infinito
+    if ($model->status === 'pending' || !$model->generated_at) {
+        Job::dispatch($model);
+    }
+
+### 4. Prompt Ollama — Configurazione minima
+
+**Sempre** con questi parametri in `OllamaClient::generate()`:
+
+    'options' => array_merge([
+        'temperature' => 0.6,
+        'top_p' => 0.9,
+        'top_k' => 40,
+        'repeat_penalty' => 1.15,
+        'repeat_last_n' => 128,
+        'num_predict' => 2500,
+        'num_ctx' => 8192,
+    ], $options),
+
+**Motivo:** evita `token repeat limit reached` con prompt lunghi.
+
+### 5. Relazione 1:1 (Entity ↔ Wiki)
+
+**Pattern:**
+
+    // Modello principale
+    public function wikiPage(): HasOne
+    {
+        return $this->hasOne(WikiPage::class)
+            ->where('status', 'published')
+            ->latest();
+    }
+
+    // Accessor URL che preferisce la wiki
+    public function getUrlAttribute(): string
+    {
+        $wiki = $this->relationLoaded('wikiPage')
+            ? $this->wikiPage
+            : $this->wikiPage()->first();
+
+        return $wiki ? '/wiki/' . $wiki->slug : '/entita/' . $this->slug;
+    }
+
+### 6. Chunking testi lunghi
+
+**Sempre spezzare i paragrafi > maxChars:**
+
+    if (mb_strlen($p) > $maxChars) {
+        if (!empty(trim($current))) {
+            $chunks[] = trim($current);
+            $current = '';
+        }
+        $subChunks = mb_str_split($p, $maxChars - 200);
+        foreach ($subChunks as $sub) {
+            $sub = trim($sub);
+            if (mb_strlen($sub) >= 100) {
+                $chunks[] = $sub;
+            }
+        }
+        continue;
+    }
+
+**Motivo:** Ollama embedding ha context 8192 token (~8000 char). Oltre, fallisce.
+
+### 7. Sincronizzazione repo
+
+**Sempre** dopo modifiche:
+
+    # Modifica in prod
+    cd /www/wwwroot/themedge.com/{api|web}
+    nano ...
+
+    # Sync verso repo
+    rsync -av /www/wwwroot/themedge.com/api/ \
+              /www/wwwroot/themedge-repo/api/ \
+              --exclude=storage --exclude=vendor --exclude=node_modules
+
+    # Commit
+    cd /www/wwwroot/themedge-repo
+    git add -A
+    git commit -m "type(scope): descrizione"
+    git push origin main
+
+**Mai modificare direttamente il repo.**
+
+---
+
+## 📝 Convenzioni commit
+
+### Formato
+
+    type(scope): descrizione breve
+
+    Corpo opzionale con dettagli.
+
+    Fix #123
+
+### Type
+
+- `feat` — nuova feature
+- `fix` — bug fix
+- `docs` — documentazione
+- `refactor` — refactoring
+- `perf` — performance
+- `test` — test
+- `chore` — manutenzione
+
+### Scope
+
+- `wiki` — Wiki editoriale
+- `entity` — Entità
+- `rag` — RAG / Wikipedia RAG
+- `admin` — Admin panel
+- `api` — API
+- `web` — Frontend
+- `tts` — Text-to-speech
+- `ollama` — Ollama / LLM
+
+### Esempio
+
+    feat(wiki): aggiunge Wikipedia RAG per generazione wiki
+
+    - Nuovo service WikipediaFetcherService (fetch + chunk + embed)
+    - Nuovo service WikipediaRagService (retrieval)
+    - Job FetchWikipediaArticle (timeout 600s)
+    - Comando wiki:fetch-wikipedia
+    - WikiGenerator integrato con Wikipedia nel prompt
+
+    Test: 21 entity con Wikipedia pronta, 573+ chunk, wiki con dati reali.
+
+---
+
+## 🧪 Testing
+
+### Test manuale prima del commit
+
+    # 1. Test sintassi
+    php -l app/Services/...
+    php -l app/Jobs/...
+
+    # 2. Test funzionale
+    php artisan queue:monitor default --max=100
+    php artisan optimize:clear
+    /root/fpm.sh
+
+    # 3. Test API
+    curl -s https://api.themedge.com/api/... | python3 -m json.tool
+
+    # 4. Test frontend
+    /root/build-web.sh
+    curl -I https://themedge.com/...
+
+### Test AI
+
+    # Test Ollama diretto
+    cat > /tmp/test_ollama.php << 'PHPEOF'
+    <?php
+    require '/www/wwwroot/themedge.com/api/vendor/autoload.php';
+    $app = require_once '/www/wwwroot/themedge.com/api/bootstrap/app.php';
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+    use App\Services\Llm\OllamaClient;
+
+    $o = app(OllamaClient::class)->withModel('qwen2.5:3b');
+    $r = $o->generate('Rispondi SOLO con JSON: {"test": "ok"}');
+    var_dump($r);
+    PHPEOF
+    php /tmp/test_ollama.php
+
+---
+
+## 📁 Struttura file
+
+### Nuovi file AI
+
+    app/Services/{Category}/{Service}.php    ← logica
+    app/Jobs/{Job}.php                       ← async wrapper
+    app/Console/Commands/{Command}.php       ← CLI
+    app/Models/{Model}.php                   ← dati
+    database/migrations/{timestamp}_{action}.php
+
+    app/Filament/Resources/{Resource}Resource.php  ← admin
+    web/components/{category}/{Component}.tsx      ← frontend
+    web/lib/{module}.ts                            ← tipi + client
+
+### Naming
+
+- Service: `PascalCase` + `Service` (es. `WikipediaFetcherService`)
+- Job: `PascalCase` (es. `FetchWikipediaArticle`)
+- Command: `{action}:{subject}` (es. `wiki:fetch-wikipedia`)
+- Resource: `{Model}Resource` (es. `WikiPageResource`)
+
+---
+
+## 🚨 Errori comuni (da evitare)
+
+### 1. `php artisan tinker --execute` con quote escape
+
+**Rompe il terminale SSH.** Usa file PHP temporanei.
+
+### 2. `sed` su JSX/TSX
+
+**Rompe la sintassi.** Usa `nano` o `cat > file << 'EOF'`.
+
+### 3. `chown` dimenticato su `.next`
+
+**Errore:** `Could not find a production build`. Sempre `chown -R www:www .next`.
+
+### 4. `pending` come stato "mai generato"
+
+**Loop infinito.** Usa `''` o `null`.
+
+### 5. `llama3.1:8b` per RAG
+
+**Timeout Ollama.** Usa `qwen2.5:3b`.
+
+### 6. Truncare log durante debug
+
+**Perde prove.** Copia prima, poi tronca.
+
+### 7. `rsync` da repo a prod per modifiche
+
+**Inverte il flusso.** Sempre prod → repo.
+
+### 8. Migration con stesso timestamp
+
+**Ordina male.** `sleep 1` tra due `date`.
+
+---
+
+## 🔗 Vedi anche
+
+- `HANDOFF.md` — Regole critiche
+- `docs/PHP_FPM.md` — Script build-web.sh
+- `docs/OLLAMA.md` — Configurazione Ollama
+- `docs/TROUBLESHOOTING.md` — Problemi + fix
+- `CHANGELOG.md` — Storia modifiche
