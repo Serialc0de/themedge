@@ -25,8 +25,8 @@ export function ArticleTLDR({ tldr, keyPoints, summary, generatedAt }: ArticleTL
             id="tldr-heading"
             className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-amber-900 dark:text-amber-100"
           >
-            <span aria-hidden="true">📌</span>
-            TL;DR
+            <span aria-hidden="true">⚡</span>
+            In breve
           </h2>
           {generatedAt && (
             <span className="text-[10px] uppercase tracking-wider text-amber-700/70 dark:text-amber-300/60 whitespace-nowrap" suppressHydrationWarning>
