@@ -8,60 +8,18 @@ const BLUR_DATA_URL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy5
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.themedge.com/api';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://themedge.com';
 
-// Categorie "note" con emoji e descrizione
-const CATEGORY_META: Record<string, { emoji: string; description: string; title: string }> = {
-  'politica': {
-    emoji: '🏛️',
-    title: 'Politica',
-    description: 'Ultime notizie politiche, dibattiti parlamentari, elezioni e decisioni di governo.',
-  },
-  'economia': {
-    emoji: '📈',
-    title: 'Economia',
-    description: 'Mercati, finanza, lavoro, imprese e politiche economiche dall\'Italia e dal mondo.',
-  },
-  'cronaca': {
-    emoji: '📰',
-    title: 'Cronaca',
-    description: 'Fatti di cronaca, indagini, inchieste e notizie dai territori.',
-  },
-  'cultura': {
-    emoji: '🎭',
-    title: 'Cultura',
-    description: 'Arte, libri, cinema, musica, teatro e spettacolo.',
-  },
-  'tecnologia': {
-    emoji: '💻',
-    title: 'Tecnologia',
-    description: 'Innovazione, intelligenza artificiale, startup e mondo digitale.',
-  },
-  'esteri': {
-    emoji: '🌍',
-    title: 'Esteri',
-    description: 'Notizie dal mondo: politica internazionale, conflitti, diplomazia.',
-  },
-};
-
 type Props = {
   params: Promise<{ slug: string }>;
 };
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  const meta = CATEGORY_META[slug];
-  if (!meta) return { title: 'Hub non trovato' };
-
-  return {
-    title: `${meta.title} — Themedge`,
-    description: meta.description,
-    robots: { index: true, follow: true },
-    openGraph: {
-      title: `${meta.title} — Themedge`,
-      description: meta.description,
-      type: 'website',
-      url: `${SITE_URL}/${slug}`,
-    },
-  };
+interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  emoji: string | null;
+  description: string | null;
+  color: string | null;
+  articles_count: number;
 }
 
 interface Article {
@@ -88,6 +46,20 @@ interface LiveBlog {
   updates_count: number;
   views: number;
   category: { name: string; slug: string; color: string } | null;
+}
+
+// Fetch categoria da API
+async function getCategory(slug: string): Promise<Category | null> {
+  try {
+    const res = await fetch(`${API_URL}/categories/${slug}`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  } catch {
+    return null;
+  }
 }
 
 async function getArticles(slug: string): Promise<Article[]> {
@@ -131,19 +103,39 @@ function formatDate(dateString: string | null): string {
   });
 }
 
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const category = await getCategory(slug);
+  if (!category) return { title: 'Hub non trovato' };
+
+  return {
+    title: `${category.name} — Themedge`,
+    description: category.description || `Ultime notizie di ${category.name} da Themedge.`,
+    robots: { index: true, follow: true },
+    openGraph: {
+      title: `${category.name} — Themedge`,
+      description: category.description || `Ultime notizie di ${category.name} da Themedge.`,
+      type: 'website',
+      url: `${SITE_URL}/${slug}`,
+    },
+  };
+}
+
 export default async function HubPage({ params }: Props) {
   const { slug } = await params;
-  const meta = CATEGORY_META[slug];
 
-  if (!meta) {
-    notFound();
-  }
-
-  const [articles, { live, recent }] = await Promise.all([
+  const [category, articles, { live, recent }] = await Promise.all([
+    getCategory(slug),
     getArticles(slug),
     getLiveBlogs(slug),
   ]);
 
+  if (!category) {
+    notFound();
+  }
+
+  const emoji = category.emoji || '📄';
+  const description = category.description || `Ultime notizie di ${category.name} da Themedge.`;
   const isEmpty = live.length === 0 && articles.length === 0 && recent.length === 0;
 
   return (
@@ -151,14 +143,14 @@ export default async function HubPage({ params }: Props) {
       {/* Header */}
       <header className="mb-10 pb-6 border-b-4 border-black dark:border-gray-100">
         <p className="text-xs uppercase tracking-widest text-red-700 font-bold mb-2 flex items-center gap-2">
-          <span aria-hidden="true">{meta.emoji}</span>
-          {meta.title}
+          <span aria-hidden="true">{emoji}</span>
+          {category.name}
         </p>
         <h1 className="font-serif text-5xl md:text-6xl font-black tracking-tight mb-3">
-          {meta.title}
+          {category.name}
         </h1>
         <p className="text-lg text-gray-700 dark:text-gray-300 font-serif italic">
-          {meta.description}
+          {description}
         </p>
       </header>
 
@@ -333,8 +325,8 @@ export default async function HubPage({ params }: Props) {
       {/* Empty state */}
       {isEmpty && (
         <div className="text-center py-16 bg-gray-50 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700">
-          <p className="text-4xl mb-3">{meta.emoji}</p>
-          <h2 className="font-serif text-2xl font-bold mb-2">Nessun contenuto in {meta.title}</h2>
+          <p className="text-4xl mb-3">{emoji}</p>
+          <h2 className="font-serif text-2xl font-bold mb-2">Nessun contenuto in {category.name}</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             Al momento non ci sono articoli o dirette per questa categoria.
           </p>
@@ -353,7 +345,7 @@ export default async function HubPage({ params }: Props) {
           Segui tutti gli eventi in tempo reale
         </h2>
         <p className="text-gray-700 dark:text-gray-300 mb-6 max-w-2xl mx-auto">
-          Oltre a {meta.title.toLowerCase()}, Themedge copre politica, cronaca, economia, cultura e molto altro con dirette live aggiornate in tempo reale.
+          Oltre a {category.name.toLowerCase()}, Themedge copre politica, cronaca, economia, cultura e molto altro con dirette live aggiornate in tempo reale.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link
