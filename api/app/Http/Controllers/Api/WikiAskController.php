@@ -49,14 +49,15 @@ class WikiAskController extends Controller
         // 2. Chunk Wikipedia (solo per questa entity)
         $wikiChunks = [];
         if ($page->entity) {
-            $wikiChunks = $this->wikiRag->search($page->entity, $question, limit: 3, minScore: 0.3);
+            $chunkLimit = $page->articles->isNotEmpty() ? 2 : 3;
+            $wikiChunks = $this->wikiRag->search($page->entity, $question, limit: $chunkLimit, minScore: 0.5);
         }
 
         // 3. Costruisci contesto unificato
         $context = $this->buildContext($page, $wikiChunks);
 
         // 4. Prompt
-        $prompt = $this->promptBuilder->build($question, $context);
+        $prompt = $this->promptBuilder->buildForWiki($question, $context, $page->title);
 
         // 5. Session ID
         $sessionId = $request->header('X-Session-Id');
@@ -79,7 +80,25 @@ class WikiAskController extends Controller
     {
         $context = [];
 
-        // 1. Chunk Wikipedia
+        // 1. ARTICOLI COLLEGATI (priorità: sono specifici per questa wiki)
+        foreach ($page->articles as $article) {
+            $context[] = [
+                'id' => 'article-' . $article->id,
+                'kind' => 'article',
+                'title' => $article->title,
+                'slug' => $article->slug,
+                'url' => '/articolo/' . $article->slug,
+                'excerpt' => mb_substr(strip_tags($article->excerpt ?? ''), 0, 300),
+                'score' => 2.0,
+                'published_at' => $article->published_at?->toIso8601String(),
+                'category' => null,
+                'icon' => '📰',
+                'type' => 'article',
+                '_content' => strip_tags($article->content ?? ''),
+            ];
+        }
+
+        // 2. CHUNK WIKIPEDIA (dopo gli articoli)
         foreach ($wikiChunks as $chunk) {
             $context[] = [
                 'id' => 'wiki-chunk-' . $chunk['index'],
@@ -97,25 +116,7 @@ class WikiAskController extends Controller
             ];
         }
 
-        // 2. Articoli collegati
-        foreach ($page->articles as $article) {
-            $context[] = [
-                'id' => 'article-' . $article->id,
-                'kind' => 'article',
-                'title' => $article->title,
-                'slug' => $article->slug,
-                'url' => '/articolo/' . $article->slug,
-                'excerpt' => mb_substr(strip_tags($article->excerpt ?? ''), 0, 300),
-                'score' => 1.0, // già correlati
-                'published_at' => $article->published_at?->toIso8601String(),
-                'category' => null,
-                'icon' => '📰',
-                'type' => 'article',
-                '_content' => strip_tags($article->content ?? ''),
-            ];
-        }
-
-        // 3. Infobox (come testo)
+        // 3. INFOBOX
         if (!empty($page->infobox)) {
             $infoboxText = collect($page->infobox)
                 ->map(fn ($v, $k) => "{$k}: {$v}")
@@ -216,7 +217,7 @@ class WikiAskController extends Controller
                 'prompt' => $prompt,
                 'stream' => true,
                 'options' => [
-                    'temperature' => 0.3,
+                    'temperature' => 0.1,
                     'top_p' => 0.9,
                     'num_predict' => 400,
                     'num_ctx' => 8192,
@@ -306,7 +307,7 @@ class WikiAskController extends Controller
                 'prompt' => $prompt,
                 'stream' => false,
                 'options' => [
-                    'temperature' => 0.3,
+                    'temperature' => 0.1,
                     'top_p' => 0.9,
                     'num_predict' => 400,
                     'num_ctx' => 8192,
