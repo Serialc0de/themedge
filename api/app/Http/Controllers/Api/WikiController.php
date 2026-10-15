@@ -426,6 +426,50 @@ class WikiController extends Controller
         }
 
         // ============================================================
+        // ARCHI — WIKI ↔ WIKI (articoli in comune)
+        // Fallback quando wiki_page_entity è vuota
+        // ============================================================
+        $articleRelations = \DB::table('wiki_page_article as wpa1')
+            ->join('wiki_page_article as wpa2', 'wpa2.article_id', '=', 'wpa1.article_id')
+            ->whereIn('wpa1.wiki_page_id', $wikiIds)
+            ->whereIn('wpa2.wiki_page_id', $wikiIds)
+            ->whereColumn('wpa1.wiki_page_id', '<', 'wpa2.wiki_page_id')
+            ->select(
+                'wpa1.wiki_page_id as wiki_a',
+                'wpa2.wiki_page_id as wiki_b',
+                \DB::raw('COUNT(*) as shared_articles')
+            )
+            ->groupBy('wpa1.wiki_page_id', 'wpa2.wiki_page_id')
+            ->get();
+
+        // Limita a max 5 connessioni per wiki per non saturare il grafo
+        $connectionsPerWiki = [];
+        $maxPerWiki = 5;
+
+        foreach ($articleRelations as $rel) {
+            $a = $rel->wiki_a;
+            $b = $rel->wiki_b;
+
+            $connectionsPerWiki[$a] = ($connectionsPerWiki[$a] ?? 0);
+            $connectionsPerWiki[$b] = ($connectionsPerWiki[$b] ?? 0);
+
+            if ($connectionsPerWiki[$a] >= $maxPerWiki || $connectionsPerWiki[$b] >= $maxPerWiki) {
+                continue;
+            }
+
+            $links[] = [
+                'source' => 'wiki-' . $a,
+                'target' => 'wiki-' . $b,
+                'kind' => 'related',
+                'value' => min($rel->shared_articles, 5),
+            ];
+
+            $connectionsPerWiki[$a]++;
+            $connectionsPerWiki[$b]++;
+        }
+
+
+        // ============================================================
         // NODI + ARCHI — ARTICOLI
         // ============================================================
         if ($withArticles) {
