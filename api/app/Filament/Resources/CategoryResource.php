@@ -42,6 +42,11 @@ class CategoryResource extends Resource
                             ->required()
                             ->maxLength(255)
                             ->unique(Category::class, 'slug', ignoreRecord: true),
+                        Forms\Components\TextInput::make('emoji')
+                            ->label('Emoji')
+                            ->maxLength(10)
+                            ->helperText('Emoji della categoria (es. 🏛️, 📈, 🎭)'),
+
                         Forms\Components\Textarea::make('description')
                             ->label('Descrizione')
                             ->maxLength(500)
