@@ -756,3 +756,237 @@ echo "✅ ROLLBACK COMPLETATO"
 ---
 
 *Ultima modifica: 14 ottobre 2026*
+
+---
+
+## 🔨 Deploy Next.js (aggiornato 15 ottobre 2026)
+
+### Workflow corretto
+
+    cd /www/wwwroot/themedge.com/web
+    export PATH=/www/server/nodejs/v22.23.3/bin:$PATH
+
+    # 1. Stop web
+    pm2 stop themedge-web
+
+    # 2. Clean build
+    rm -rf .next
+    npm run build
+
+    # 3. Fix ownership (OBBLIGATORIO)
+    chown -R www:www .next
+
+    # 4. Restart
+    pm2 restart themedge-web --update-env
+
+    # 5. Verifica
+    pm2 logs themedge-web --lines 10 --nostream
+
+### Script `/root/build-web.sh`
+
+Per evitare errori, usare lo script dedicato:
+
+    /root/build-web.sh
+
+Lo script fa tutto in un comando:
+1. Stop web
+2. rm -rf .next
+3. npm run build
+4. chown -R www:www .next
+5. pm2 restart themedge-web --update-env
+6. pm2 list
+
+### Perché `chown` è obbligatorio
+
+- `npm run build` gira come **root**
+- PM2 serve `themedge-web` come **www**
+- Senza `chown`, i file `.next/` sono `root:root` → `www` non li legge
+- Errore: `Could not find a production build in the '.next' directory`
+
+### Verifica
+
+    ls -la /www/wwwroot/themedge.com/web/.next/BUILD_ID
+    # Atteso: owner www:www
+
+---
+
+## 🚀 Deploy PHP (Laravel)
+
+### Workflow corretto
+
+    # 1. Modifica in produzione
+    cd /www/wwwroot/themedge.com/api
+    nano app/Services/...  # o altro
+
+    # 2. Clear cache Laravel
+    php artisan optimize:clear
+    php artisan filament:optimize-clear
+
+    # 3. Riavvio PHP-FPM (OPcache)
+    /root/fpm.sh
+
+    # 4. Riavvio queue worker
+    pm2 restart themedge-queue
+
+    # 5. Sync verso repo
+    rsync -av /www/wwwroot/themedge.com/api/ /www/wwwroot/themedge-repo/api/ --exclude=storage --exclude=vendor --exclude=node_modules
+
+    # 6. Commit
+    cd /www/wwwroot/themedge-repo
+    git add -A
+    git commit -m "feat: descrizione"
+    git push origin main
+
+### Se modifichi migration
+
+    cd /www/wwwroot/themedge.com/api
+    php artisan migrate --force
+
+### Se modifichi config
+
+    php artisan config:clear
+    php artisan optimize:clear
+
+### Se modifichi solo la logica
+
+    php artisan optimize:clear
+    /root/fpm.sh
+
+---
+
+## 🗂️ Deploy con Git (sync repo → prod)
+
+**Attenzione:** il workflow standard è **prod → repo** (per il documento HANDOFF regola #5). Ma in caso di rollback o pull:
+
+### Pull dal repo a prod
+
+    cd /www/wwwroot/themedge.com/api
+    git pull origin main
+
+    # Poi
+    php artisan migrate --force
+    php artisan optimize:clear
+    /root/fpm.sh
+    pm2 restart themedge-queue
+
+**⚠️ Attenzione:** il sync prod → repo è **manuale** con `rsync`. Non esiste un webhook automatico.
+
+---
+
+## 🔄 Rollback
+
+### Rollback PHP
+
+    cd /www/wwwroot/themedge-repo
+    git log --oneline -10
+    git revert <commit-hash>
+
+    # Poi sync verso prod
+    rsync -av /www/wwwroot/themedge-repo/api/ /www/wwwroot/themedge.com/api/ --exclude=storage --exclude=vendor --exclude=node_modules
+
+    cd /www/wwwroot/themedge.com/api
+    php artisan optimize:clear
+    /root/fpm.sh
+    pm2 restart themedge-queue
+
+### Rollback Next.js
+
+    cd /www/wwwroot/themedge-repo
+    git log --oneline -10
+    git revert <commit-hash>
+
+    rsync -av /www/wwwroot/themedge-repo/web/ /www/wwwroot/themedge.com/web/ --exclude=node_modules --exclude=.next
+
+    /root/build-web.sh
+
+### Rollback migration
+
+    cd /www/wwwroot/themedge.com/api
+    php artisan migrate:rollback --step=1
+    php artisan optimize:clear
+    /root/fpm.sh
+
+**⚠️ Attenzione:** il rollback di migration può causare **perdita dati**. Fare backup prima:
+
+    /root/backup-themedge.sh
+
+---
+
+## 💾 Backup prima del deploy
+
+**Sempre** prima di un deploy critico:
+
+    # Backup database + file
+    /root/backup-themedge.sh
+
+    # Verifica
+    ls -lh /root/backups/themedge/
+
+### Cosa contiene il backup
+
+- Database MySQL (`themedge_db`)
+- File API (`/www/wwwroot/themedge.com/api/`)
+- File Web (`/www/wwwroot/themedge.com/web/`)
+- Config (`.env`, nginx, php-fpm)
+- Retention: 7 giorni
+
+---
+
+## 📊 Deploy checklist
+
+### Prima del deploy
+
+- [ ] `git status` pulito (o commit pendenti noti)
+- [ ] Backup eseguito (`/root/backup-themedge.sh`)
+- [ ] `pm2 list` mostra tutto online
+- [ ] `php artisan queue:monitor default` → `[0] OK`
+- [ ] Test in locale o staging (se possibile)
+
+### Durante il deploy
+
+- [ ] Modifica in `/www/wwwroot/themedge.com/`
+- [ ] `php artisan optimize:clear`
+- [ ] `/root/fpm.sh` (PHP)
+- [ ] `/root/build-web.sh` (Next.js)
+- [ ] `pm2 restart themedge-queue`
+
+### Dopo il deploy
+
+- [ ] `curl -I https://themedge.com` → 200
+- [ ] `curl -I https://admin.themedge.com/admin` → 200/302
+- [ ] `curl -I https://api.themedge.com/api/articles` → 200
+- [ ] `pm2 logs themedge-web --lines 20 --nostream` → nessun errore
+- [ ] `tail -30 storage/logs/laravel.log` → nessun errore
+- [ ] `php artisan queue:monitor default` → `[0] OK`
+- [ ] Purge Cloudflare (se necessario)
+
+---
+
+## 🌐 Purge Cloudflare
+
+Dopo il deploy, se le modifiche non si vedono subito:
+
+    cd /www/wwwroot/themedge.com/api
+    ZONE=$(grep '^CLOUDFLARE_ZONE_ID=' .env | cut -d= -f2)
+    TOKEN=$(grep '^CLOUDFLARE_API_TOKEN=' .env | cut -d= -f2)
+    curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${ZONE}/purge_cache" \
+      -H "Authorization: Bearer ${TOKEN}" \
+      -H "Content-Type: application/json" \
+      --data '{"purge_everything":true}' \
+      -w "\nHTTP: %{http_code}\n"
+
+### Purge selettivo (fatto automaticamente)
+
+`Article::purgeCloudflareCache()` viene chiamato in `saved()`:
+- Purge dell'articolo + homepage + categoria + autore
+- Solo per articoli pubblicati
+- Log warning se fallisce
+
+---
+
+## 🔗 Vedi anche
+
+- `HANDOFF.md` — Regole #3 (Next.js), #5 (prod → repo)
+- `docs/PHP_FPM.md` — Script build-web.sh + chown .next
+- `docs/TROUBLESHOOTING.md` — Problemi + fix
+- `CHANGELOG.md` — Sezione [2026-10-15i]
