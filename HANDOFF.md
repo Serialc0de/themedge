@@ -1,11 +1,11 @@
 # 🤝 HANDOFF — Themedge
 
 **Repo:** https://github.com/Serialc0de/themedge
-**Ultimo commit:** 812129a (feat(entity): URL preferisce wiki se esiste)
+**Ultimo commit:** c87b31d (fix(jobs): WithoutOverlapping anti-race + timeout 900s + buildSlug withTrashed)
 **Sito:** https://themedge.com
 **Admin:** https://admin.themedge.com/admin
 **VPS:** 178.83.121.96 (Ubuntu 26.04, 4 CPU, 7.75 GB RAM, 38 GB disco)
-**Stato progetto:** ~99% completo
+**Stato progetto:** ~99% completo (fix P1/P2/P3 chiusi il 15/10/2026)
 
 ---
 
@@ -70,6 +70,11 @@ OLLAMA_MODEL=qwen2.5:3b
 OLLAMA_MODEL_EXTRACTION=qwen2.5:3b
 OLLAMA_EMBEDDING_MODEL=nomic-embed-text
 OLLAMA_EMBEDDING_TIMEOUT=60
+
+⚠️ **Job timeout allineati a OLLAMA_TIMEOUT:** i job AI devono avere timeout >= 600s.
+- GenerateWikiPageFromEntity: 900s
+- FetchWikipediaArticle: 600s
+- DetectArticleEntities: 1200s
 
 ⚠️ RAM: llama3.1:8b (4.9 GB) non usare per RAG. Usare qwen2.5:3b (1.9 GB).
 
@@ -218,6 +223,17 @@ Tutte le entity con wiki devono avere wiki_id NOT NULL.
 
 ---
 
+### 20. rsync da produzione a repo — escludere i .bak
+
+Quando si sincronizza da /www/wwwroot/themedge.com/ a /www/wwwroot/themedge-repo/:
+
+    rsync -av --exclude="*.bak*" \
+      /www/wwwroot/themedge.com/api/app/ \
+      /www/wwwroot/themedge-repo/api/app/
+
+**Motivo:** gli script di backup (.bak.<timestamp>, .bak10.<timestamp>, .bak-pre-fix-<timestamp>) NON devono finire nel repo. Il pattern *.bak.* (con il punto) NON matcha .bak10. o .bak-pre-fix-.
+Usare sempre --exclude="*.bak*" (senza punto centrale).
+
 ## 📁 STRUTTURA PROGETTO
 
 /www/wwwroot/themedge.com/
@@ -307,6 +323,11 @@ OLLAMA_MODEL_EXTRACTION=qwen2.5:3b
 OLLAMA_EMBEDDING_MODEL=nomic-embed-text
 OLLAMA_TIMEOUT=600
 OLLAMA_EMBEDDING_TIMEOUT=60
+
+⚠️ **Job timeout allineati a OLLAMA_TIMEOUT:** i job AI devono avere timeout >= 600s.
+- GenerateWikiPageFromEntity: 900s
+- FetchWikipediaArticle: 600s
+- DetectArticleEntities: 1200s
 FACTCHECK_AI_ENABLED=true
 
 ### Kill switch
@@ -506,8 +527,8 @@ chmod -R 775 /www/wwwroot/themedge.com/api/bootstrap/cache
 | Componenti React | 85+ |
 | Commit | ~80 |
 | Feature AI | 10 |
-| Wiki generate | 30 |
-| Entity con Wikipedia | 21+ |
+| Wiki generate | 30 (26 con immagine) |
+| Entity con Wikipedia | 21+ (26 wiki con immagine) |
 | Wikipedia chunk | 573+ |
 
 ---
@@ -638,3 +659,43 @@ Nel repo:
 Motivo: troncare un log mentre si sta ancora verificando un problema distrugge le prove. Copiare prima, poi troncare.
 
 Logrotate: già configurato per laravel.log in /etc/logrotate.d/themedge-laravel (14 giorni, compresso, copytruncate).
+
+---
+
+## 🆕 AGGIORNAMENTO — 15 ottobre 2026, h.14:30
+
+### Fix applicati (commit `c87b31d`)
+
+**P1 — Race condition `Duplicate entry` su `wiki_pages.slug`** ✅ Risolto
+- Causa: job `GenerateWikiPageFromEntity` paralleli per la stessa entity → `INSERT` duplicato
+- Fix: `WithoutOverlapping` middleware su `GenerateWikiPageFromEntity`, `FetchWikipediaArticle`, `DetectArticleEntities`
+- Fix: `buildSlug()` ora usa `withTrashed()` per prevenire collisioni future
+
+**P2 — 4 failed jobs** ✅ Risolto
+- `php artisan queue:flush` eseguito
+
+**P3 — `CHANGELOG.md` non committato** ✅ Risolto
+- Committato in `a2f4fe4`
+
+### Modifiche tecniche
+
+| File | Modifica |
+|------|----------|
+| `GenerateWikiPageFromEntity.php` | `+ WithoutOverlapping`, timeout 300→900s |
+| `FetchWikipediaArticle.php` | `+ WithoutOverlapping` |
+| `DetectArticleEntities.php` | `+ WithoutOverlapping` |
+| `WikiGenerator.php` | `buildSlug()` usa `withTrashed()` |
+
+### Numeri aggiornati
+
+- Wiki totali: 30 (tutte `published`)
+- Wiki con immagine: 26 (`image_status = ready`)
+- Wiki senza immagine: 4 (2 `no_image`, 2 `skipped` — fisiologici)
+- Failed jobs: 0
+- Working tree: pulito
+- Ultimo commit: `c87b31d`
+
+### Regola appresa
+
+Sempre `--exclude="*.bak*"` (senza punto) negli rsync da produzione a repo. Il pattern `*.bak.*` non matcha i backup generati con timestamp decimali (`.bak10.`, `.bak-pre-fix-`).
+
