@@ -11,6 +11,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -26,6 +27,18 @@ class DetectArticleEntities implements ShouldQueue
         public Article $article,
         public ?int $userId = null
     ) {}
+
+    /**
+     * Impedisce estrazioni parallele per lo stesso articolo.
+     */
+    public function middleware(): array
+    {
+        return [
+            (new WithoutOverlapping('detect-entities-' . $this->article->id))
+                ->dontRelease()
+                ->expireAfter(1500),
+        ];
+    }
 
     public function handle(): void
     {
@@ -100,7 +113,6 @@ class DetectArticleEntities implements ShouldQueue
                 continue;
             }
 
-            // Crea l'entità come bozza
             $entity = Entity::create([
                 'name' => $item['name'],
                 'slug' => Str::slug($item['name']),

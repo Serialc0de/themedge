@@ -8,6 +8,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
@@ -22,6 +23,18 @@ class FetchWikipediaArticle implements ShouldQueue
         public Entity $entity,
         public bool $force = false,
     ) {}
+
+    /**
+     * Impedisce fetch paralleli per la stessa entity.
+     */
+    public function middleware(): array
+    {
+        return [
+            (new WithoutOverlapping('wikipedia-entity-' . $this->entity->id))
+                ->dontRelease()
+                ->expireAfter(900),
+        ];
+    }
 
     public function handle(WikipediaFetcherService $fetcher): void
     {

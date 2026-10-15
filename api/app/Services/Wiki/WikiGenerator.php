@@ -338,7 +338,7 @@ PROMPT;
         $slug = $base;
         $i = 1;
 
-        while (WikiPage::where('slug', $slug)->where('entity_id', '!=', $entity->id)->exists()) {
+        while (WikiPage::withTrashed()->where('slug', $slug)->where('entity_id', '!=', $entity->id)->exists()) {
             $slug = $base . '-' . $i;
             $i++;
         }
