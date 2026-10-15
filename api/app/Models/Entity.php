@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Support\Str;
 
 class Entity extends Model
 {
@@ -33,15 +32,6 @@ class Entity extends Model
     ];
 
     // ============================================================
-    // ============================================================
-    // RELAZIONI
-    // ============================================================
-
-    public function wikipediaChunks(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(WikipediaChunk::class)->orderBy('chunk_index');
-    }
-
     // TYPES — Costanti
     // ============================================================
 
@@ -86,13 +76,13 @@ class Entity extends Model
     {
         static::creating(function (self $model) {
             if (empty($model->slug) && !empty($model->name)) {
-                $model->slug = Str::slug($model->name);
+                $model->slug = \Illuminate\Support\Str::slug($model->name);
             }
         });
 
         static::updating(function (self $model) {
             if ($model->isDirty('name') && !$model->isDirty('slug')) {
-                $model->slug = Str::slug($model->name);
+                $model->slug = \Illuminate\Support\Str::slug($model->name);
             }
         });
     }
@@ -117,6 +107,30 @@ class Entity extends Model
             ->withTimestamps();
     }
 
+    public function wikipediaChunks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(WikipediaChunk::class)->orderBy('chunk_index');
+    }
+
+    /**
+     * WikiPage collegate (relazione 1:N — in pratica 1:1).
+     */
+    public function wikiPages(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\WikiPage::class);
+    }
+
+    /**
+     * WikiPage principale (relazione 1:1).
+     * Usa la prima wiki pubblicata, se disponibile.
+     */
+    public function wikiPage(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\WikiPage::class)
+            ->where('status', 'published')
+            ->latest();
+    }
+
     // ============================================================
     // HELPER
     // ============================================================
@@ -137,7 +151,7 @@ class Entity extends Model
     }
 
     /**
-     * Ritorna il nome + tutti gli alias (per match nel contenuto).
+     * Nome + tutti gli alias (per match nel contenuto).
      */
     public function getMatchableNamesAttribute(): array
     {
@@ -148,9 +162,32 @@ class Entity extends Model
         return array_values(array_unique(array_filter($names)));
     }
 
+    /**
+     * URL canonico: preferisci la wiki se esiste, altrimenti /entita/.
+     */
     public function getUrlAttribute(): string
     {
+        $wiki = $this->relationLoaded('wikiPage')
+            ? $this->wikiPage
+            : $this->wikiPage()->first();
+
+        if ($wiki) {
+            return '/wiki/' . $wiki->slug;
+        }
+
         return '/entita/' . $this->slug;
+    }
+
+    /**
+     * URL wiki se esiste (per uso esplicito nel frontend).
+     */
+    public function getWikiUrlAttribute(): ?string
+    {
+        $wiki = $this->relationLoaded('wikiPage')
+            ? $this->wikiPage
+            : $this->wikiPage()->first();
+
+        return $wiki ? '/wiki/' . $wiki->slug : null;
     }
 
     // ============================================================
@@ -171,14 +208,4 @@ class Entity extends Model
     {
         return $query->where('type', $type);
     }
-
-    // ============================================================
-    // WIKI
-    // ============================================================
-
-    public function wikiPages(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(\App\Models\WikiPage::class);
-    }
-
 }

@@ -15,33 +15,27 @@ class ArticleController extends Controller
             ->with(['author', 'category', 'tags', 'sources'])
             ->orderByDesc('published_at');
 
-        // Filtro per categoria
         if ($request->has('category')) {
             $query->whereHas('category', fn ($q) => $q->where('slug', $request->input('category')));
         }
 
-        // Filtro per tag
         if ($request->has('tag')) {
             $query->whereHas('tags', fn ($q) => $q->where('slug', $request->input('tag')));
         }
 
-        // Filtro per autore
         if ($request->has('author_id')) {
             $query->where('author_id', $request->input('author_id'));
         }
 
-        // Solo featured
         if ($request->boolean('featured')) {
             $query->where('is_featured', true);
         }
 
-        // Solo breaking
         if ($request->boolean('breaking')) {
             $query->breaking();
         }
 
         $limit = min((int) $request->input('limit', 20), 100);
-
         $articles = $query->paginate($limit);
 
         return response()->json([
@@ -62,7 +56,6 @@ class ArticleController extends Controller
             ->with(['author', 'category', 'tags', 'sources'])
             ->firstOrFail();
 
-        // Incrementa views
         $article->increment('views');
 
         return response()->json([
@@ -70,9 +63,6 @@ class ArticleController extends Controller
         ]);
     }
 
-    /**
-     * Ritorna le fonti di un articolo.
-     */
     public function sources(string $slug): \Illuminate\Http\JsonResponse
     {
         $article = Article::where('slug', $slug)->first();
@@ -100,9 +90,6 @@ class ArticleController extends Controller
         return response()->json(['data' => $sources]);
     }
 
-    /**
-     * Timeline contesto di un articolo (eventi storici collegati).
-     */
     public function timeline(string $slug): \Illuminate\Http\JsonResponse
     {
         $article = Article::where('slug', $slug)->first();
@@ -125,7 +112,6 @@ class ArticleController extends Controller
                 'order' => $event->order,
             ]);
 
-        // Timeline completa + solo eventi chiave
         $keyEvents = $article->keyTimelineEvents()
             ->get()
             ->map(fn ($event) => [
@@ -150,9 +136,7 @@ class ArticleController extends Controller
             ],
         ]);
     }
-    /**
-     * Sezioni scrollytelling di un articolo.
-     */
+
     public function scrolly(string $slug): \Illuminate\Http\JsonResponse
     {
         $article = Article::where('slug', $slug)->first();
@@ -200,9 +184,7 @@ class ArticleController extends Controller
             ],
         ]);
     }
-    /**
-     * Punti di conoscenza di un articolo (cosa sappiamo / non sappiamo / stiamo verificando).
-     */
+
     public function knowledge(string $slug): \Illuminate\Http\JsonResponse
     {
         $article = Article::where('slug', $slug)->first();
@@ -225,7 +207,6 @@ class ArticleController extends Controller
                 'order' => $item->order,
             ]);
 
-        // Raggruppa per tipo per il frontend
         $grouped = [
             'known' => $items->where('type', 'known')->values()->all(),
             'unknown' => $items->where('type', 'unknown')->values()->all(),
@@ -242,9 +223,7 @@ class ArticleController extends Controller
             ],
         ]);
     }
-    /**
-     * Fact-check di un articolo.
-     */
+
     public function factChecks(string $slug): \Illuminate\Http\JsonResponse
     {
         $article = Article::where('slug', $slug)->first();
@@ -271,9 +250,7 @@ class ArticleController extends Controller
 
         return response()->json(['data' => $factChecks]);
     }
-    /**
-     * Approfondimenti curati editorialmente.
-     */
+
     public function curated(string $slug): \Illuminate\Http\JsonResponse
     {
         $article = Article::where('slug', $slug)->first();
@@ -327,6 +304,7 @@ class ArticleController extends Controller
                 'name' => $e->name,
                 'slug' => $e->slug,
                 'url' => $e->url,
+                'wiki_url' => $e->wiki_url,
                 'mentions' => $e->pivot->mentions ?? 1,
             ])->values(),
             'ai_disclosure' => $article->ai_disclosure ?? 'none',
@@ -360,9 +338,6 @@ class ArticleController extends Controller
         return $data;
     }
 
-    /**
-     * Ritorna i metadati dell'audio TTS dell'articolo.
-     */
     public function audio(string $slug): \Illuminate\Http\JsonResponse
     {
         $article = \App\Models\Article::where('slug', $slug)->firstOrFail();
@@ -385,5 +360,4 @@ class ArticleController extends Controller
             ],
         ]);
     }
-
 }
