@@ -489,4 +489,269 @@ FACTCHECK_AI_ENABLED=true
 
 ---
 
+## 🌐 Wikipedia RAG (15 ottobre 2026)
+
+### Descrizione
+
+Generazione di wiki di alta qualità usando **Wikipedia come fonte primaria**, via RAG (Retrieval-Augmented Generation).
+
+### Componenti
+
+**Backend:**
+- Migration `add_wikipedia_to_entities` (5 campi)
+- Migration `create_wikipedia_chunks_table`
+- Model `WikipediaChunk`
+- Service `WikipediaFetcherService` (fetch + chunk + embed)
+- Service `WikipediaRagService` (retrieval + buildContext)
+- Job `FetchWikipediaArticle`
+- Comando `wiki:fetch-wikipedia`
+- `WikiGenerator::buildWikipediaSection()`
+
+**Admin:**
+- EntityResource: colonna Wikipedia, filtro, action, bulk
+- WikiPageResource: colonna Wikipedia, action, bulk
+
+### Come funziona
+
+1. Fetch Wikipedia (IT/EN) dell'entità
+2. Chunking in pezzi da 2000 char
+3. Embedding con nomic-embed-text (768 dim)
+4. Al momento della generazione wiki, retrieval dei 3 chunk più rilevanti
+5. Prompt Ollama arricchito con Wikipedia
+6. Wiki generata con dati reali
+
+### Risultati
+
+- 21 entity con Wikipedia pronta
+- 573+ chunk totali
+- 21 wiki generate con dati Wikipedia reali
+- Content medio ~900 char (vs ~300 senza)
+
+---
+
+## 🖼️ Wikipedia Image Fetching (15 ottobre 2026)
+
+### Descrizione
+
+Popolamento automatico delle wiki con immagini da Wikipedia/Wikimedia Commons, con **attribuzione automatica**.
+
+### Componenti
+
+**Backend:**
+- Migration `add_image_metadata_to_wiki_pages` (6 campi)
+- Job `FetchWikiImage`
+- Comando `wiki:fetch-images`
+- `WikiController` espone 5 campi `image_*`
+
+**Frontend:**
+- Componente `WikiImageAttribution` (3 varianti: overlay, caption, inline)
+- `WikiCard` con overlay
+- Pagina `[slug]` con caption
+
+**Admin:**
+- WikiPageResource: colonna Immagine, filtro, action, bulk
+
+### Risultati
+
+- 19 wiki con immagine (su 30)
+- 3.1 MB storage totale
+- Attribuzione automatica (autore + licenza + link Commons)
+
+---
+
+## 🏷️ Entity Extraction auto-create (15 ottobre 2026)
+
+### Descrizione
+
+Rilevamento automatico delle entità citate in un articolo, **creazione** di quelle mancanti, e **collegamento** all'articolo.
+
+### Componenti
+
+**Backend:**
+- Service `EntityExtractor` (prompt semplificato, dedup, regex multiline)
+- Job `DetectArticleEntities` (timeout 1200s, solo qwen2.5:3b)
+- Auto-create entità mancanti (`is_published=false`)
+- Auto-attach via `syncWithoutDetaching`
+
+**Admin:**
+- Action Filament `🔍 Rileva entità (AI)` su articoli
+- Sezione `🏷️ Entità collegate`
+
+### Flusso
+
+1. Editore clicca `🔍 Rileva entità (AI)`
+2. Job chiama Ollama, riceve 5-15 entità
+3. Match con entità esistenti (5 strategie fuzzy)
+4. Crea entità mancanti come bozze
+5. Collega tutte all'articolo
+6. Notifica Filament
+
+### Risultati
+
+- 10 entità create in 98s (articolo ANSA)
+- 28 collegamenti `article_entity`
+- Entità visibili in Admin come bozze
+
+---
+
+## 🔗 Entity ↔ Wiki collegamento (15 ottobre 2026)
+
+### Descrizione
+
+Quando un articolo cita un'entità, il link preferisce la **Wiki** (se esiste) invece della pagina `/entita/` vuota.
+
+### Componenti
+
+**Backend:**
+- `Entity::wikiPage()` (HasOne, solo published)
+- `Entity::getUrlAttribute()` preferisce `/wiki/slug`
+- `Entity::getWikiUrlAttribute()` accessor
+- `ArticleController` espone `wiki_url` nel JSON
+
+### Effetto
+
+Link "Giorgia Meloni" su articoli → `/wiki/giorgia-meloni` (con contenuto), non più `/entita/giorgia-meloni` (vuota).
+
+---
+
+## 🛠️ Admin UI Wiki/Entità (15 ottobre 2026)
+
+### Descrizione
+
+Interfaccia completa per gestire Wikipedia, immagini e entità dal pannello Filament.
+
+### EntityResource
+
+- Colonna `Wikipedia` (badge stato: ready/fetching/failed/no_page/skipped/no_content)
+- Filtro `wikipedia_status`
+- Action `📚 Fetch Wikipedia`
+- Bulk action `📚 Fetch Wikipedia (batch)`
+
+### WikiPageResource
+
+- Colonna `Wikipedia` (stato entity collegata)
+- Colonna `Immagine` (image_status)
+- Filtro `image_status`
+- Action `📚 Fetch Wikipedia`
+- Action `🖼️ Fetch image` (nuovo)
+- Action `🔄 Fetch + Rigenera`
+- Action `Rigenera AI`
+- Action `Pubblica`
+- Action `Vedi sito`
+- Bulk action `📚 Fetch Wikipedia (batch)`
+- Bulk action `🖼️ Fetch images (batch)`
+- Bulk action `Pubblica tutte`
+
+### Articolo (EditArticle)
+
+- Action `🔍 Rileva entità (AI)`
+- Action `✨ Genera TL;DR`
+- Action `🎯 Ottimizza SEO (AI)`
+- Action `✅ Fact-check automatico (AI)`
+- Action `🗑️ Elimina claim rilevati`
+- Action `🎙️ Genera audio (TTS)`
+
+---
+
+## 🐛 Bug fix — Ollama anti-loop
+
+### Problema
+
+`qwen2.5:3b` andava in `token repeat limit reached` con prompt Wikipedia RAG grandi:
+- temperature 0.3 → loop
+- nessun `repeat_penalty`
+- `num_ctx` default 4096 → tronca prompt
+
+### Fix
+
+- `temperature`: 0.3 → 0.6
+- `top_k`: 40
+- `repeat_penalty`: 1.15
+- `repeat_last_n`: 128
+- `num_ctx`: 8192
+- `num_predict`: 2500
+
+---
+
+## 🐛 Bug fix — Paginazione /wiki
+
+### Problema
+
+Cliccando "2" su `/wiki`, l'URL cambiava ma il contenuto restava identico.
+
+### Fix
+
+- `WikiHomePage` legge `searchParams.page`
+- Passa `page` a `getWikiPages()`
+- Pulsanti `← Prec` / `Succ →`
+- `aria-current="page"` sul link attivo
+
+---
+
+## 🐛 Bug fix — Wiki generator
+
+### Problemi
+
+1. `featured_image` sovrascritta con `null` su update
+2. `status` tornava a `draft` dopo rigenerazione
+3. Wiki JSON troncato
+
+### Fix
+
+- `WikiGenerator`: non sovrascrive `featured_image` e `status` su update
+- `pickBestContent`: rifiuta content < 100 char
+- `tryRepairTruncatedJson`: 3 strategie di repair
+- `parseResponse`: regex multiline, pulizia trailing commas
+
+---
+
+## 📊 Riepilogo feature AI (aggiornato)
+
+| Feature | Job | Modello | Stato |
+|---|---|---|---|
+| Wikipedia RAG | FetchWikipediaArticle | - (API) | ✅ |
+| Wikipedia Image | FetchWikiImage | - (API) | ✅ |
+| Entity Extraction | DetectArticleEntities | qwen2.5:3b | ✅ |
+| Wiki Generation | GenerateWikiPageFromEntity | qwen2.5:3b | ✅ |
+| Article Summary | GenerateArticleSummary | qwen2.5:3b | ✅ |
+| Article Entities | DetectArticleEntities | qwen2.5:3b | ✅ |
+| Article SEO | GenerateSeoSuggestions | qwen2.5:3b | ✅ |
+| Fact-check | DetectArticleClaims | llama3.1:8b | ⚠️ |
+| Audio TTS | GenerateArticleAudio | Piper (offline) | ✅ |
+| RAG Chat | (streaming) | qwen2.5:3b | ✅ |
+
+---
+
+## 📈 Numeri finali (15 ottobre 2026)
+
+| Cosa | Valore |
+|------|--------|
+| Entity totali | 28 |
+| Entity con Wikipedia ready | 21+ |
+| Wiki pages | 30 |
+| Wikipedia chunk | 573+ |
+| Wiki con immagine | 19+ |
+| Articoli collegati a entità | 28 |
+| Feature AI | 10 |
+| Modelli Eloquent | 23+ |
+| Migration | 58+ |
+| Filament Resources | 20 |
+| Filament Widgets | 16 |
+| API endpoints | 70+ |
+| Componenti React | 85+ |
+| Commit totali | ~80 |
+
+---
+
+## 🔗 Vedi anche
+
+- `docs/WIKI.md` — Wikipedia RAG dettagliato
+- `docs/RAG.md` — RAG articoli + Wikipedia
+- `docs/ADMIN_PANEL.md` — Guida pannello
+- `docs/TROUBLESHOOTING.md` — Problemi risolti
+- `HANDOFF.md` — Regole #15-19
+- `CHANGELOG.md` — Sezione [2026-10-15i]
+
+---
+
 *Ultima modifica: 14 ottobre 2026*
