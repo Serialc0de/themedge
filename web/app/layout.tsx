@@ -15,6 +15,7 @@ import PushSubscribeButton from '@/components/PushSubscribeButton';
 import { ReaderProvider } from '@/lib/reader';
 import { ReadingListProvider } from '@/lib/reading-list';
 import { ReadingListNavIcon } from '@/components/ReadingListNavIcon';
+import { NavMenu } from '@/components/NavMenu';
 import { MobileMenu } from '@/components/MobileMenu';
 import { ToastProvider } from '@/lib/toast';
 import { ToastContainer } from '@/components/ui/ToastContainer';
@@ -96,15 +97,6 @@ async function getBreakingNews() {
   }
 }
 
-const CATEGORIES = [
-  { name: "Politica", slug: "politica", url: "/politica" },
-  { name: "Economia", slug: "economia", url: "/economia" },
-  { name: "Esteri", slug: "esteri", url: "/esteri" },
-  { name: "Cronaca", slug: "cronaca", url: "/cronaca" },
-  { name: "Cultura", slug: "cultura", url: "/cultura" },
-  { name: "Sport", slug: "sport", url: "/sport" },
-  { name: "Tecnologia", slug: "tecnologia", url: "/tecnologia" },
-];
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const today = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -215,11 +207,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                   Dirette
                 </Link>
               </li>
-              {CATEGORIES.map((cat) => (
-                <li key={cat.slug}>
-                  <Link href={cat.url || `/categoria/${cat.slug}`} className="hover:text-red-700 transition">{cat.name}</Link>
-                </li>
-              ))}
+              <NavMenu />
               <li><Link href="/cerca" className="hover:text-red-700 transition">Cerca</Link></li>
               <li><ReadingListNavIcon /></li>
             </ul>
@@ -239,11 +227,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <div>
                 <h4 className="text-xs uppercase tracking-widest font-bold mb-4">Sezioni</h4>
                 <ul className="space-y-2 text-sm">
-                  {CATEGORIES.slice(0, 7).map((cat) => (
-                    <li key={cat.slug}>
-                      <Link href={cat.url || `/categoria/${cat.slug}`} className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">{cat.name}</Link>
-                    </li>
-                  ))}
+                  <NavMenu />
                 </ul>
               </div>
               <div>

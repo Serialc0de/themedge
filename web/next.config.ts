@@ -31,11 +31,12 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  async rewrites() {
+  async redirects() {
     return [
       {
-        source: '/:slug(politica|economia|cronaca|cultura|tecnologia|esteri)',
-        destination: '/hub/:slug',
+        source: '/categoria/:slug',
+        destination: '/:slug',
+        permanent: true,
       },
     ];
   },
