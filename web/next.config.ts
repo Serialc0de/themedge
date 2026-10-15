@@ -30,6 +30,15 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'placehold.co' },
     ],
   },
+
+  async rewrites() {
+    return [
+      {
+        source: '/:slug(politica|economia|cronaca|cultura|tecnologia|esteri)',
+        destination: '/hub/:slug',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

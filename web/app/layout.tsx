@@ -97,13 +97,13 @@ async function getBreakingNews() {
 }
 
 const CATEGORIES = [
-  { name: "Politica", slug: "politica" },
-  { name: "Economia", slug: "economia" },
-  { name: "Esteri", slug: "esteri" },
-  { name: "Cronaca", slug: "cronaca" },
-  { name: "Cultura", slug: "cultura" },
-  { name: "Sport", slug: "sport" },
-  { name: "Tecnologia", slug: "tecnologia" },
+  { name: "Politica", slug: "politica", url: "/politica" },
+  { name: "Economia", slug: "economia", url: "/economia" },
+  { name: "Esteri", slug: "esteri", url: "/esteri" },
+  { name: "Cronaca", slug: "cronaca", url: "/cronaca" },
+  { name: "Cultura", slug: "cultura", url: "/cultura" },
+  { name: "Sport", slug: "sport", url: "/sport" },
+  { name: "Tecnologia", slug: "tecnologia", url: "/tecnologia" },
 ];
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -217,7 +217,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               </li>
               {CATEGORIES.map((cat) => (
                 <li key={cat.slug}>
-                  <Link href={`/categoria/${cat.slug}`} className="hover:text-red-700 transition">{cat.name}</Link>
+                  <Link href={cat.url || `/categoria/${cat.slug}`} className="hover:text-red-700 transition">{cat.name}</Link>
                 </li>
               ))}
               <li><Link href="/cerca" className="hover:text-red-700 transition">Cerca</Link></li>
@@ -239,9 +239,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <div>
                 <h4 className="text-xs uppercase tracking-widest font-bold mb-4">Sezioni</h4>
                 <ul className="space-y-2 text-sm">
-                  {CATEGORIES.slice(0, 5).map((cat) => (
+                  {CATEGORIES.slice(0, 7).map((cat) => (
                     <li key={cat.slug}>
-                      <Link href={`/categoria/${cat.slug}`} className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">{cat.name}</Link>
+                      <Link href={cat.url || `/categoria/${cat.slug}`} className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition">{cat.name}</Link>
                     </li>
                   ))}
                 </ul>
