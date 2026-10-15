@@ -386,3 +386,304 @@ php artisan up
 ---
 
 *Ultima modifica: 14 ottobre 2026*
+
+---
+
+## 🔒 Sicurezza Ollama (15 ottobre 2026)
+
+### Configurazione
+
+Ollama ascolta **solo su localhost** (`127.0.0.1:11434`). Non è esposto a internet.
+
+### Verifica
+
+    netstat -tlnp | grep 11434
+    # Atteso: 127.0.0.1:11434 (NON 0.0.0.0:11434)
+
+    curl -s http://localhost:11434/api/tags | python3 -m json.tool
+
+    # Dall'esterno (deve fallire):
+    curl -s http://178.83.121.96:11434/api/tags
+    # Atteso: connection refused / timeout
+
+### Modelli usati
+
+| Modello | Rischio | Note |
+|---------|---------|------|
+| qwen2.5:3b | Basso | Open source, ~1.9 GB |
+| nomic-embed-text | Basso | Open source, ~275 MB |
+| llama3.1:8b | Basso | Open source, ~4.9 GB |
+
+**Tutti i modelli sono open source** (licenza permissiva). Nessun dato inviato a terzi.
+
+### Privacy
+
+- **Nessun dato utente inviato a OpenAI/Anthropic/Google**
+- Tutte le elaborazioni AI avvengono sul VPS
+- GDPR compliant by design
+- Nessun tracciamento
+
+### Rischio: prompt injection
+
+Se un utente malizioso riesce a far eseguire comandi Ollama (es. via API admin compromessa), può:
+- Consumare CPU/RAM
+- Generare output enormi
+- Saturare la coda
+
+**Mitigazione:**
+- Ollama non esposto pubblicamente
+- Admin Filament protetto da login
+- Rate limiting API
+- Monitoraggio CPU/RAM (PM2)
+
+### Rischio: modello compromesso
+
+Se un modello scaricato da Ollama Hub fosse manomesso (improbabile ma possibile):
+- Potrebbe generare output dannoso
+- Potrebbe consumare risorse eccessive
+
+**Mitigazione:**
+- Usare solo modelli ufficiali Ollama (`ollama pull qwen2.5:3b`)
+- Verificare hash (futuro)
+
+### Comandi di sicurezza
+
+    # Verifica ascolto
+    netstat -tlnp | grep 11434
+
+    # Verifica modelli in RAM
+    ollama ps
+
+    # Ferma modelli inattivi (cleanup)
+    ollama stop llama3.1:8b
+
+    # Controlla log
+    journalctl -u ollama --since "1 hour ago"
+
+---
+
+## 🌐 Sicurezza Wikipedia/Commons
+
+### Configurazione
+
+Le API Wikipedia e Wikimedia Commons sono **pubbliche** e non richiedono autenticazione.
+
+### Endpoint usati
+
+- `https://it.wikipedia.org/w/api.php` (Wikipedia IT)
+- `https://en.wikipedia.org/w/api.php` (Wikipedia EN)
+- `https://commons.wikimedia.org/w/api.php` (Commons)
+
+### User-Agent
+
+**Sempre** inviare User-Agent nelle richieste:
+
+    Http::withHeaders([
+        'User-Agent' => 'Themedge/1.0 (https://themedge.com; bot@themedge.com)',
+    ])->get(...);
+
+**Motivo:** Wikipedia richiede User-Agent identificativo. Senza, rischio ban.
+
+### Rate limiting (Wikipedia)
+
+- **Max 200 richieste/secondo** (limite Wikimedia)
+- Noi facciamo **1 richiesta per entity** → nessun rischio
+- Job in coda, non paralleli
+
+### Rischio: hotlinking immagini
+
+**Evitato.** Le immagini vengono **scaricate** e servite dal nostro server, non hotlinkate.
+
+### Rischio: contenuto offensivo
+
+Wikipedia può contenere contenuto non adatto (raro). Se un'immagine è inappropriata:
+- L'admin può sostituirla manualmente
+- Oppure eliminarla dal campo `featured_image`
+
+### Licenze immagini
+
+Tutte le immagini hanno **licenza** (CC0, CC BY, CC BY-SA, Public Domain). Il sistema salva:
+- `image_license` (es. "CC BY-SA 4.0")
+- `image_author` (autore originale)
+- `image_source_url` (link a Commons)
+
+**Attribuzione automatica** sul frontend.
+
+### Comandi di verifica
+
+    # Test API Wikipedia
+    curl -s "https://it.wikipedia.org/w/api.php?action=query&titles=Roma&prop=pageimages&format=json" | python3 -m json.tool | head -10
+
+    # Test API Commons
+    curl -s "https://commons.wikimedia.org/w/api.php?action=query&titles=File:Roma-Gonfalone.svg&prop=imageinfo&format=json" | python3 -m json.tool | head -10
+
+---
+
+## 🔑 Credenziali
+
+### File sul server (NON versionati)
+
+| Cosa | Path |
+|------|------|
+| MySQL | `/root/.my.cnf` |
+| Redis | `/www/server/redis/redis.conf` |
+| Meilisearch | `/root/.meilisearch_master_key` |
+| GitHub token | `/root/.github-token` |
+| Laravel APP_KEY | `/www/wwwroot/themedge.com/api/.env` |
+| VAPID keys | `/www/wwwroot/themedge.com/api/.env` |
+| Cloudflare token | `/www/wwwroot/themedge.com/api/.env` |
+| Ollama | (nessuna auth, localhost) |
+
+**NON committare MAI queste credenziali su GitHub.**
+
+### Verifica `.gitignore`
+
+    cd /www/wwwroot/themedge-repo
+    grep -E "\.env|\.my\.cnf|\.github-token|storage" .gitignore
+
+Atteso: `.env` presente (o `api/.env`).
+
+---
+
+## 🛡️ Sicurezza Admin
+
+### Autenticazione
+
+- **Filament Shield** con 4 ruoli (super_admin, editor, author, reader)
+- 55 permessi granulari
+- Login richiesto per tutte le route `/admin/*`
+- Rate limiting login
+
+### Protezione route sensibili
+
+- `/admin/*` → login richiesto
+- `/api/ask/*` → rate limit 10/min
+- `/api/ask/feedback` → rate limit 30/min + anti-spam 5 min
+- `/api/highlights/*` → rate limit 120/min
+- `/api/oembed` → rate limit 60/min
+
+### Audit log
+
+Tutte le azioni admin sono loggate con **spatie/activitylog**:
+- Chi (user_id)
+- Cosa (event: created/updated/deleted)
+- Quando (timestamp)
+- Quali campi (logOnlyDirty)
+
+Visibile in **Admin → Audit Log**.
+
+### Impersonificazione
+
+Admin può impersonare utenti (solo super_admin).
+
+---
+
+## 🔐 Sicurezza API
+
+### Sanctum
+
+- Token-based auth per API protette
+- Token personali per integrazioni
+
+### CORS
+
+- Configurato in `config/cors.php`
+- Solo domini autorizzati (`themedge.com`, `admin.themedge.com`)
+
+### Rate limiting
+
+- API pubbliche: 60 req/min per IP
+- API admin: 120 req/min
+- API AI (`/api/ask`): 10 req/min
+- API feedback: 30 req/min + anti-spam
+
+### HTTPS
+
+- **Obbligatorio** (Cloudflare Full Strict)
+- HSTS abilitato (`max-age=15552000; includeSubDomains`)
+- Certificato wildcard `*.themedge.com`
+
+---
+
+## 🚨 Incident Response
+
+### Sospetta violazione admin
+
+    # 1. Verifica login recenti
+    mysql -D themedge_db -e "
+    SELECT user_id, ip_address, user_agent, created_at
+    FROM sessions
+    ORDER BY created_at DESC
+    LIMIT 20
+    "
+
+    # 2. Verifica activity log
+    mysql -D themedge_db -e "
+    SELECT causer_id, description, created_at
+    FROM activity_log
+    WHERE created_at > NOW() - INTERVAL 24 HOUR
+    ORDER BY created_at DESC
+    LIMIT 50
+    "
+
+    # 3. Force logout tutti
+    php artisan session:flush 2>/dev/null || mysql -D themedge_db -e "DELETE FROM sessions"
+
+### Sospetta injection API
+
+    # 1. Verifica log Laravel
+    tail -100 /www/wwwroot/themedge.com/api/storage/logs/laravel.log | grep -iE "sql|injection|xss"
+
+    # 2. Verifica rate limit
+    # (log nginx)
+    tail -100 /www/wwwlogs/themedge.com.log | grep -iE "429|403"
+
+### Sospetto accesso Ollama
+
+    # 1. Verifica connessioni a 11434
+    netstat -tlnp | grep 11434
+    ss -tlnp | grep 11434
+
+    # 2. Se esposto, blocca subito
+    iptables -A INPUT -p tcp --dport 11434 -j DROP
+
+    # 3. Verifica processi
+    ps aux | grep ollama | grep -v grep
+
+---
+
+## 📋 Checklist sicurezza
+
+### Setup (già fatto)
+
+- [x] Ollama solo su localhost
+- [x] HTTPS obbligatorio (Cloudflare Full Strict)
+- [x] HSTS abilitato
+- [x] Sanctum per API
+- [x] Filament Shield per admin
+- [x] Activity log
+- [x] Rate limiting API
+- [x] CSP headers (via Cloudflare)
+- [x] `.env` in `.gitignore`
+- [x] Credenziali fuori dal repo
+- [x] Backup automatico notturno
+- [x] Logrotate configurato
+
+### Da fare (futuro)
+
+- [ ] 2FA per admin
+- [ ] Rate limiting più aggressivo su `/api/ask`
+- [ ] Rotazione token API
+- [ ] Monitoring uptime (UptimeRobot)
+- [ ] WAF personalizzato Cloudflare
+- [ ] Penetration test
+
+---
+
+## 🔗 Vedi anche
+
+- `HANDOFF.md` — Regole critiche
+- `docs/OLLAMA.md` — Configurazione Ollama
+- `docs/ADMIN_PANEL.md` — Guida admin
+- `docs/TROUBLESHOOTING.md` — Problemi + fix
+- `CHANGELOG.md` — Sezione [2026-10-15i]
