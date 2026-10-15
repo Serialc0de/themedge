@@ -44,7 +44,7 @@ export function NavMenu() {
       {categories.map((cat) => (
         <li key={cat.slug}>
           <Link
-            href={`/${cat.slug}`}
+            href={`/notizie/${cat.slug}`}
             className="hover:text-red-700 transition flex items-center gap-1"
           >
             {cat.emoji && <span aria-hidden="true">{cat.emoji}</span>}

@@ -35,7 +35,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/categoria/:slug',
-        destination: '/:slug',
+        destination: '/notizie/:slug',
         permanent: true,
       },
     ];
