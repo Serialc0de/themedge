@@ -30,7 +30,7 @@ class EntityExtractor
         $prompt = $this->buildPrompt($article, $content);
 
         $startTime = microtime(true);
-        $response = $ollama->generate($prompt);
+	$response = $ollama->generate($prompt, ['temperature' => 0.1]);
         $duration = round(microtime(true) - $startTime, 2);
 
         if (!$response) {
@@ -59,36 +59,33 @@ class EntityExtractor
         $title = $article->title;
 
         return <<<PROMPT
-Analizza questo articolo di giornale ed estrai TUTTE le entità nominate.
+Sei un estrattore di entità di un giornale italiano. Estrai SOLO entità con NOME PROPRIO ESPLICITO.
 
-TIPI:
-- person: persone (Giorgia Meloni, Donald Trump, Vladimir Putin)
-- organization: partiti, enti, aziende (NATO, Pd, M5s, Lega, Ue, ANSA)
-- location: paesi, città, regioni (Ucraina, Russia, Roma, Bruxelles, Gaza)
-- event: eventi storici/specifici (Guerra in Ucraina, Consiglio Ue)
-- concept: concetti astratti (inflazione, democrazia)
+TIPI AMMESSI:
+- person: persone con nome e cognome (Giorgia Meloni, Donald Trump, Luciano Spalletti)
+- organization: partiti, enti, aziende, squadre (NATO, Pd, M5s, Lega, Ue, Juventus)
+- location: paesi, città, regioni, luoghi (Ucraina, Roma, Bruxelles, Cagliari)
+- event: eventi storici/specifici con nome proprio (Guerra in Ucraina, Europa League)
+- concept: SOLO se è un concetto nominato esplicitamente (inflazione, democrazia)
+
+REGOLE FONDAMENTALI:
+1. Estrai SOLO entità MENZIONATE ESPLICITAMENTE nel testo con nome proprio
+2. NON inventare entità non presenti
+3. NON estrarre:
+   - Parole comuni o verbi (nato, padre, cosa, fatto)
+   - Verbi e participi passati (nato, detto, fatto)
+   - Parole generiche (squadra, partita, allenatore)
+4. Per acronimi/sigle (NATO, NEC, UE): estrai SOLO se scritti in MAIUSCOLO nel testo
+5. Usa il NOME COMPLETO quando possibile (es. Luciano Spalletti)
+6. Massimo 10-15 entità per articolo
 
 Articolo:
 Titolo: {$title}
 Testo: {$content}
 
-ISTRUZIONI:
-- Estrai almeno 10-15 entità se presenti nel testo
-- Usa il nome completo (es. "Giorgia Meloni" non "Meloni")
-- Ogni entità una sola volta
-- mentions = numero di occorrenze nel testo
-- context = breve frase (max 100 char) dove appare
-
-ESEMPIO:
-Testo: "Meloni ha incontrato Trump a Roma. Salvini e Vannacci hanno criticato l'Ue."
-Risposta: {"entities": [
-  {"name": "Giorgia Meloni", "type": "person", "mentions": 1, "context": "Meloni ha incontrato Trump a Roma"},
-  {"name": "Donald Trump", "type": "person", "mentions": 1, "context": "Meloni ha incontrato Trump a Roma"},
-  {"name": "Roma", "type": "location", "mentions": 1, "context": "Meloni ha incontrato Trump a Roma"},
-  {"name": "Matteo Salvini", "type": "person", "mentions": 1, "context": "Salvini e Vannacci hanno criticato l'Ue"},
-  {"name": "Roberto Vannacci", "type": "person", "mentions": 1, "context": "Salvini e Vannacci hanno criticato l'Ue"},
-  {"name": "Unione Europea", "type": "organization", "mentions": 1, "context": "Salvini e Vannacci hanno criticato l'Ue"}
-]}
+ESEMPIO CORRETTO:
+Testo: Meloni ha incontrato Trump a Roma. Salvini critica la NATO.
+Risposta: {"entities": [{"name": "Giorgia Meloni", "type": "person", "mentions": 1}, {"name": "Donald Trump", "type": "person", "mentions": 1}, {"name": "Roma", "type": "location", "mentions": 1}, {"name": "Matteo Salvini", "type": "person", "mentions": 1}, {"name": "NATO", "type": "organization", "mentions": 1}]}
 
 Rispondi SOLO con JSON valido:
 PROMPT;
@@ -152,10 +149,22 @@ PROMPT;
 
     protected function nameAppearsInContent(string $name, string $content): bool
     {
+        // Per acronimi/sigle (tutti maiuscoli), usa match case-sensitive
+        $isAcronym = mb_strlen($name) <= 5
+            && $name === mb_strtoupper($name)
+            && preg_match('/^[A-Z]+$/', $name);
+
+        if ($isAcronym) {
+            // "NATO" deve apparire come "NATO" (maiuscolo), non "nato"
+            return strpos($content, $name) !== false;
+        }
+
+        // Per nomi normali: case-insensitive
         if (mb_stripos($content, $name) !== false) {
             return true;
         }
 
+        // Per nomi composti: verifica che almeno una parte significativa compaia
         if (strpos($name, ' ') !== false) {
             $parts = explode(' ', $name);
             foreach ($parts as $part) {
