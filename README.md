@@ -441,3 +441,200 @@ Vedi [CHANGELOG.md](CHANGELOG.md).
 ## 📄 Licenza
 
 Vedi [LICENSE](LICENSE).
+
+---
+
+## 🧠 Knowledge Engine (aggiornato 15 ottobre 2026)
+
+Il cuore del progetto: un'enciclopedia viva che cresce con le notizie.
+
+### Componenti
+
+**Wiki Editoriale** (30 pagine)
+- 6 tipi: persona, organizzazione, luogo, evento, concetto, tema
+- 30 pagine generate e pubblicate
+- 30 articoli collegati
+- 4 categorie
+
+**Wikipedia RAG** (unico in Italia)
+- Fetch automatico da Wikipedia IT/EN
+- Chunking + embedding (nomic-embed-text)
+- Retrieval cosine similarity
+- 21 entity con Wikipedia pronta
+- 573+ chunk con embedding
+- Wiki generate con dati Wikipedia reali
+
+**Wikipedia Image Fetching**
+- Immagini automatiche da Wikimedia Commons
+- Attribuzione automatica (autore, licenza, link)
+- 19 wiki con immagine
+- 3.1 MB storage totale
+
+**Entity Extraction**
+- Rilevamento automatico entità da articoli
+- AI locale (qwen2.5:3b)
+- Creazione entità mancanti
+- Collegamento automatico all'articolo
+- 28 collegamenti `article_entity`
+
+**Entity ↔ Wiki**
+- Link automatici da articolo → wiki
+- `Entity::getUrlAttribute()` preferisce `/wiki/` se esiste
+- API espone `wiki_url`
+
+**Knowledge Graph Visuale**
+- Grafo interattivo (`react-force-graph-2d`)
+- Zoom + pan + drag
+- Filtri per tipo
+- Search con evidenziazione
+
+**AI Chat RAG "Chiedi a Themedge"**
+- Streaming SSE
+- Citazioni `[N]` cliccabili
+- Fonti con score
+- Feedback 👍/👎
+
+---
+
+## 📊 Stato progetto (15 ottobre 2026)
+
+### Backend (Laravel 13 + Filament 3)
+
+| Cosa | Valore |
+|------|--------|
+| Modelli Eloquent | 23+ |
+| Migration | 58+ |
+| Filament Resources | 20 |
+| Filament Widgets | 16 |
+| API endpoints | 70+ |
+| Comandi Artisan | 10+ |
+| Job queue | 10+ |
+| Observer | 1 |
+
+### Frontend (Next.js 16)
+
+| Cosa | Valore |
+|------|--------|
+| Pagine | 30+ |
+| Componenti React | 85+ |
+| Hook custom | 10+ |
+| Librerie utility | 8+ |
+
+### Knowledge Engine
+
+| Cosa | Valore |
+|------|--------|
+| Wiki pages | 30 |
+| Entity totali | 28 |
+| Entity con Wikipedia | 21+ |
+| Wikipedia chunk | 573+ |
+| Wiki con immagine | 19+ |
+| Articoli collegati a entità | 28 |
+
+### Feature AI (locale, zero costi)
+
+| Feature | Modello |
+|---------|---------|
+| Wikipedia RAG | - (API Wikipedia) |
+| Wikipedia Image | - (API Commons) |
+| Entity Extraction | qwen2.5:3b |
+| Wiki Generation | qwen2.5:3b |
+| Article Summary | qwen2.5:3b |
+| Article Entities | qwen2.5:3b |
+| Article SEO | qwen2.5:3b |
+| Fact-check | llama3.1:8b |
+| Audio TTS | Piper (offline) |
+| RAG Chat | qwen2.5:3b |
+
+---
+
+## 🛠️ Stack tecnologico
+
+### Backend
+- **Laravel 13** — Framework PHP
+- **Filament 3** — Admin panel
+- **MySQL 8** — Database
+- **Redis 7** — Cache + queue
+- **Meilisearch 1.54** — Full-text search
+- **Ollama** — LLM locale (qwen2.5:3b, nomic-embed-text)
+- **Piper** — TTS offline (it_IT-paola-medium)
+
+### Frontend
+- **Next.js 16** — Framework React (App Router)
+- **Tailwind CSS v4** — Styling
+- **React 19** — UI library
+- **TypeScript** — Type safety
+
+### Infrastructure
+- **Ubuntu 26.04** — VPS
+- **Nginx** — Web server
+- **PHP-FPM 8.4** — Process manager
+- **Cloudflare** — CDN + WAF
+- **PM2** — Process manager Node.js
+
+---
+
+## 🎯 Cosa rende Themedge unico
+
+### 1. Wikipedia RAG (unico in Italia)
+Genera wiki di qualità enciclopedica usando Wikipedia come fonte primaria. **Nessun altro giornale italiano lo fa.**
+
+### 2. Zero costi AI
+Tutto locale:
+- Ollama (qwen2.5:3b, nomic-embed-text)
+- Piper (TTS)
+- Nessuna chiamata a OpenAI/Anthropic
+
+### 3. Knowledge Engine integrato
+Wiki + Graph + AI Chat + Wikipedia RAG, tutto collegato.
+
+### 4. Entity extraction automatica
+Da un articolo → 5-15 entità create e collegate.
+
+### 5. Fact-check automatico
+L'AI propone 5-10 claim, l'editore approva.
+
+### 6. Performance TTFB 30-80ms
+Cloudflare CDN + cache intelligente.
+
+### 7. GDPR compliant
+Nessun dato utente inviato a terzi. Tutto locale.
+
+---
+
+## 📚 Documentazione
+
+| File | Cosa contiene |
+|------|---------------|
+| `HANDOFF.md` | Regole critiche + struttura progetto |
+| `docs/FEATURES.md` | Tutte le feature |
+| `docs/WIKI.md` | Knowledge Engine + Wikipedia RAG |
+| `docs/RAG.md` | RAG articoli + Wikipedia |
+| `docs/ADMIN_PANEL.md` | Guida pannello admin |
+| `docs/TROUBLESHOOTING.md` | Problemi + fix |
+| `docs/OLLAMA.md` | Configurazione Ollama |
+| `docs/PHP_FPM.md` | Regola PHP-FPM |
+| `docs/DEPLOY.md` | Deploy + rollback |
+| `docs/SETUP.md` | Setup dev |
+| `CONTRIBUTING.md` | Pattern + convenzioni |
+| `CHANGELOG.md` | Storia modifiche |
+| `SECURITY.md` | Policy sicurezza |
+
+---
+
+## 🚀 Prossimi passi
+
+### Breve termine
+- Popolare immagini delle wiki mancanti
+- Documentazione finale
+- Test end-to-end
+
+### Medio termine
+- Paywall / Stripe
+- Newsletter + Email
+- OAuth Google
+- Rifiniture (versioning UI Wiki, SEO Wiki avanzato, cache Redis RAG)
+
+---
+
+*Ultimo aggiornamento: 15 ottobre 2026*
