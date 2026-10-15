@@ -6,7 +6,6 @@ import Link from 'next/link';
 import type { WikiGraphData, WikiGraphNode, WikiType } from '@/lib/wiki';
 import { WIKI_TYPE_COLORS } from '@/lib/wiki';
 
-// Dynamic import (force-graph usa window)
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
 
 type Props = {
@@ -14,13 +13,13 @@ type Props = {
 };
 
 const TYPE_COLORS_HEX: Record<string, string> = {
-  person: '#3b82f6',       // blue
-  organization: '#a855f7', // purple
-  location: '#22c55e',     // green
-  event: '#f97316',        // orange
-  concept: '#eab308',      // yellow
-  topic: '#ec4899',        // pink
-  article: '#6b7280',      // gray
+  person: '#3b82f6',
+  organization: '#a855f7',
+  location: '#22c55e',
+  event: '#f97316',
+  concept: '#eab308',
+  topic: '#ec4899',
+  article: '#6b7280',
 };
 
 export function WikiGraph({ data }: Props) {
@@ -32,12 +31,12 @@ export function WikiGraph({ data }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredNode, setHoveredNode] = useState<WikiGraphNode | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [frozen, setFrozen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Filtra dati
   const filteredData = useMemo(() => {
     let nodes = data.nodes;
     let links = data.links;
@@ -57,7 +56,6 @@ export function WikiGraph({ data }: Props) {
       });
     }
 
-    // Search: evidenzia nodi
     const highlightedNodeId = searchQuery.length >= 2
       ? nodes.find((n) => n.title.toLowerCase().includes(searchQuery.toLowerCase()))?.id
       : null;
@@ -65,7 +63,6 @@ export function WikiGraph({ data }: Props) {
     return { nodes, links, highlightedNodeId };
   }, [data, selectedType, showArticles, searchQuery]);
 
-  // Resize
   useEffect(() => {
     if (!containerRef.current) return;
     const updateSize = () => {
@@ -82,12 +79,46 @@ export function WikiGraph({ data }: Props) {
     return () => window.removeEventListener('resize', updateSize);
   }, [mounted]);
 
-  // Zoom to fit on mount
+  // Configura forze + freeze dopo il warmup
   useEffect(() => {
-    if (fgRef.current && filteredData.nodes.length > 0) {
-      setTimeout(() => fgRef.current?.zoomToFit(400, 60), 500);
-    }
-  }, [filteredData.nodes.length]);
+    if (!mounted || !fgRef.current) return;
+    if (frozen) return;
+
+    // Aspetta che il grafo abbia fatto il primo layout
+    const timer = setTimeout(() => {
+      try {
+        const fg = fgRef.current;
+        if (!fg) return;
+
+        // Pinna ogni nodo alla sua posizione attuale
+        const gd = fg.graphData?.();
+        const nodes = gd?.nodes || [];
+        nodes.forEach((n: any) => {
+          n.fx = n.x;
+          n.fy = n.y;
+        });
+
+        // Rimuovi TUTTE le forze (niente più movimento)
+        fg.d3Force?.('link', null);
+        fg.d3Force?.('charge', null);
+        fg.d3Force?.('center', null);
+        fg.d3Force?.('collision', null);
+
+        // Raffredda al massimo
+        fg.d3AlphaDecay?.(1);
+        fg.d3VelocityDecay?.(1);
+
+        // Centra la vista
+        fg.zoomToFit?.(400, 60);
+
+        setFrozen(true);
+      } catch (e) {
+        // ignora
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [mounted, frozen]);
 
   const handleNodeClick = useCallback((node: any) => {
     const url = node.kind === 'wiki'
@@ -101,25 +132,21 @@ export function WikiGraph({ data }: Props) {
     const fontSize = 12 / globalScale;
     const nodeSize = node.size || 6;
 
-    // Colore
     const color = TYPE_COLORS_HEX[node.type] || '#6b7280';
     const isHighlighted = filteredData.highlightedNodeId === node.id;
     const isHovered = hoveredNode?.id === node.id;
 
-    // Cerchio
     ctx.beginPath();
     ctx.arc(node.x, node.y, nodeSize, 0, 2 * Math.PI, false);
     ctx.fillStyle = isHighlighted ? '#dc2626' : color;
     ctx.fill();
 
-    // Bordo
     if (isHovered || isHighlighted) {
       ctx.lineWidth = 2 / globalScale;
       ctx.strokeStyle = isHighlighted ? '#fbbf24' : '#ffffff';
       ctx.stroke();
     }
 
-    // Emoji/icona
     if (node.icon) {
       ctx.font = `${nodeSize * 1.2}px sans-serif`;
       ctx.textAlign = 'center';
@@ -127,7 +154,6 @@ export function WikiGraph({ data }: Props) {
       ctx.fillText(node.icon, node.x, node.y);
     }
 
-    // Label (solo se zoomato abbastanza)
     if (globalScale >= 1.5 || isHovered || isHighlighted) {
       ctx.font = `600 ${fontSize}px sans-serif`;
       ctx.textAlign = 'center';
@@ -158,9 +184,7 @@ export function WikiGraph({ data }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* CONTROLS */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-        {/* Search */}
         <div className="relative min-w-[200px] flex-1">
           <input
             type="text"
@@ -174,7 +198,6 @@ export function WikiGraph({ data }: Props) {
           </span>
         </div>
 
-        {/* Filtro tipo */}
         <select
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value as WikiType | 'all')}
@@ -189,7 +212,6 @@ export function WikiGraph({ data }: Props) {
           <option value="topic">📚 Temi</option>
         </select>
 
-        {/* Toggle articoli */}
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -200,7 +222,6 @@ export function WikiGraph({ data }: Props) {
           <span className="text-gray-700 dark:text-gray-300">Mostra articoli</span>
         </label>
 
-        {/* Reset zoom */}
         <button
           type="button"
           onClick={() => fgRef.current?.zoomToFit(400, 60)}
@@ -211,10 +232,9 @@ export function WikiGraph({ data }: Props) {
         </button>
       </div>
 
-      {/* GRAFO */}
       <div
         ref={containerRef}
-        className="relative overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-br from-slate-50 to-white dark:border-gray-800 dark:from-slate-950 dark:to-gray-900"
+        className="relative overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-br from-slate-50 to-white dark:border-slate-950 dark:to-gray-900"
         style={{ height: dimensions.height }}
       >
         <ForceGraph2D
@@ -237,13 +257,13 @@ export function WikiGraph({ data }: Props) {
           linkDirectionalParticleSpeed={0.005}
           onNodeClick={handleNodeClick}
           onNodeHover={(node: any) => setHoveredNode(node)}
-          cooldownTicks={100}
+          cooldownTicks={Infinity}
+          warmupTicks={200}
           enableNodeDrag={true}
           enableZoomInteraction={true}
           enablePanInteraction={true}
         />
 
-        {/* Tooltip hover */}
         {hoveredNode && (
           <div className="pointer-events-none absolute bottom-4 left-4 right-4 max-w-md rounded-lg border border-gray-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-900/95">
             <div className="flex items-start gap-2">
@@ -266,7 +286,6 @@ export function WikiGraph({ data }: Props) {
         )}
       </div>
 
-      {/* LEGENDA */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-xs dark:border-gray-800 dark:bg-gray-900">
         <span className="font-semibold uppercase tracking-wider text-gray-500">Legenda:</span>
         {Object.entries(TYPE_COLORS_HEX).map(([type, color]) => (
