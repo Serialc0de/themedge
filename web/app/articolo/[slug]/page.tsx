@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import ReadingProgress from '@/components/ReadingProgress';
 import CommentsSection from '@/components/CommentsSection';
 import { ArticleReader } from '@/components/article/ArticleReader';
+import { ArticleTLDR } from '@/components/article/ArticleTLDR';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 const BLUR_DATA_URL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiBmaWxsPSIjZTVlN2ViIi8+PC9zdmc+';
@@ -208,6 +209,15 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
                   <p className="text-sm text-gray-700 dark:text-gray-300">
                     Questo articolo ha una versione visiva con animazioni, grafici e timeline interattive.
                   </p>
+
+          {/* TL;DR generato da AI */}
+          {(article as any).ai_summary && (
+            <ArticleTLDR
+              tldr={(article as any).ai_summary.tldr}
+              keyPoints={(article as any).ai_summary.key_points}
+              summary={(article as any).ai_summary.summary}
+            />
+          )}
                 </div>
                 <Link
                   href={`/articolo/${article.slug}/scrolly`}
