@@ -8,6 +8,7 @@ import { WikiImageAttribution } from '@/components/wiki/WikiImageAttribution';
 import { WikiInfobox } from '@/components/wiki/WikiInfobox';
 import { WikiArticles } from '@/components/wiki/WikiArticles';
 import { WikiEntities } from '@/components/wiki/WikiEntities';
+import { WikiTimeline } from '@/components/wiki/WikiTimeline';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.themedge.com/api';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://themedge.com';
@@ -219,6 +220,7 @@ export default async function WikiPageDetail({ params }: { params: Promise<{ slu
           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             <WikiInfobox data={page.infobox} type={page.type} icon={page.icon} />
             <WikiEntities entities={page.related_entities} />
+            <WikiTimeline slug={slug} />
           </aside>
         </div>
 
