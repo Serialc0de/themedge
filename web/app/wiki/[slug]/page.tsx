@@ -9,6 +9,7 @@ import { WikiInfobox } from '@/components/wiki/WikiInfobox';
 import { WikiArticles } from '@/components/wiki/WikiArticles';
 import { WikiEntities } from '@/components/wiki/WikiEntities';
 import { WikiTimeline } from '@/components/wiki/WikiTimeline';
+import { WikiAskBox } from '@/components/wiki/WikiAskBox';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.themedge.com/api';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://themedge.com';
@@ -226,6 +227,11 @@ export default async function WikiPageDetail({ params }: { params: Promise<{ slu
 
         {/* ARTICOLI COLLEGATI */}
         <WikiArticles articles={page.articles} />
+
+        {/* CHIEDI ALLA WIKI */}
+        <div className="mt-12">
+          <WikiAskBox slug={slug} title={page.title} />
+        </div>
 
         {/* CTA FINALE */}
         <div className="mt-16 rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-8 text-center dark:border-gray-800 dark:from-gray-900 dark:to-gray-950">
