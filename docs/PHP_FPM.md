@@ -321,3 +321,339 @@ distrugge le prove. Vedi `HANDOFF.md` regola #14.
 **Logrotate** è configurato per `laravel.log` in `/etc/logrotate.d/themedge-laravel`
 (rotazione giornaliera, 14 giorni di storico, compresso, `copytruncate` per
 non far crashare il worker).
+
+
+---
+
+## 🔨 Script `/root/build-web.sh` (obbligatorio)
+
+### Cosa fa
+
+Build di Next.js con **ownership corretta** dopo il build.
+
+### Perché serve
+
+`npm run build` gira come **root**, ma PM2 serve `themedge-web` come utente **www**. Dopo la build, i file `.next/` sono di proprietà `root:root` → `www` non li può leggere → errore:
+
+    Error: Could not find a production build in the '.next' directory.
+    Try building your app with 'next build' before starting the production server.
+
+### Soluzione: script `/root/build-web.sh`
+
+    #!/bin/bash
+    # Build di themedge-web con ownership corretta
+    set -e
+    cd /www/wwwroot/themedge.com/web
+    export PATH=/www/server/nodejs/v22.23.3/bin:$PATH
+
+    echo "🛑 Stop themedge-web..."
+    pm2 stop themedge-web
+
+    echo "🧹 Rimuovo .next..."
+    rm -rf .next
+
+    echo "🔨 Build in corso..."
+    npm run build
+
+    echo "🔐 Fix ownership..."
+    chown -R www:www .next
+
+    echo "🚀 Restart themedge-web..."
+    pm2 restart themedge-web --update-env
+
+    echo "✅ Done"
+    pm2 list
+
+### Uso
+
+    /root/build-web.sh
+
+### Verifica
+
+    ls -la /www/wwwroot/themedge.com/web/.next/BUILD_ID
+    # Atteso: owner www:www
+
+---
+
+## ⚠️ Regola: SEMPRE `chown -R www:www .next` dopo build
+
+### Workflow corretto
+
+    cd /www/wwwroot/themedge.com/web
+    pm2 stop themedge-web
+    export PATH=/www/server/nodejs/v22.23.3/bin:$PATH
+    rm -rf .next
+    npm run build
+    chown -R www:www .next        # ← OBBLIGATORIO
+    pm2 restart themedge-web --update-env
+
+### Perché
+
+Senza `chown`, PM2 (utente `www`) non riesce a leggere `.next/` → errore "Could not find a production build" → crash loop.
+
+---
+
+## 📝 Log e incidenti
+
+### Regola: MAI troncare log durante un incidente
+
+    # ❌ MAI durante un debug attivo:
+    > storage/logs/laravel.log
+
+    # ✅ SEMPRE:
+    cp storage/logs/laravel.log /root/incident-$(date +%s).log
+    > storage/logs/laravel.log
+
+### Motivo
+
+Troncare un log mentre si sta ancora verificando un problema distrugge le prove. Copiare prima, poi troncare.
+
+### Logrotate
+
+Configurato in `/etc/logrotate.d/themedge-laravel`:
+
+    /www/wwwroot/themedge.com/api/storage/logs/*.log {
+        daily
+        rotate 14
+        missingok
+        notifempty
+        compress
+        delaycompress
+        copytruncate
+        su www www
+        create 0664 www www
+    }
+
+**`copytruncate`** evita di dover riavviare il worker (Laravel tiene il file aperto).
+
+### Verifica logrotate
+
+    logrotate -d /etc/logrotate.d/themedge-laravel 2>&1 | tail -20
+
+---
+
+## 🚨 Recovery: Next.js non parte
+
+### Sintomo
+
+- `pm2 logs themedge-web` mostra: `Could not find a production build in the '.next' directory`
+- Pagina 500 su tutto il sito
+- `pm2 list` mostra `themedge-web` come `online` ma crasha ad ogni richiesta
+
+### Diagnosi
+
+    cd /www/wwwroot/themedge.com/web
+    ls -la .next/BUILD_ID
+    # Se dice "No such file or directory" → .next manca o è corrotto
+    ls -la .next/ | head -5
+    # Se owner è root:root → serve chown
+
+### Fix
+
+**Se `.next` manca:**
+
+    cd /www/wwwroot/themedge.com/web
+    pm2 stop themedge-web
+    export PATH=/www/server/nodejs/v22.23.3/bin:$PATH
+    npm run build
+    chown -R www:www .next
+    pm2 restart themedge-web --update-env
+
+**Se `.next` è di root:**
+
+    chown -R www:www /www/wwwroot/themedge.com/web/.next
+    pm2 restart themedge-web
+
+**Se ancora non va, rebuild pulito:**
+
+    /root/build-web.sh
+
+---
+
+## 🚨 Recovery: PHP-FPM crash loop
+
+### Sintomo
+
+- Sito 502/504
+- `systemctl status php-fpm-84` → masked
+- Log PHP-FPM: `executing too slow` o crash
+
+### Fix
+
+    /etc/init.d/php-fpm-84 stop
+    pkill -9 -f php-fpm
+    rm -f /tmp/php-cgi-84.sock
+    /www/server/php/84/sbin/php-fpm --daemonize
+    sleep 2
+    ps aux | grep php-fpm | grep -v grep
+
+Oppure:
+
+    /root/fpm.sh
+
+---
+
+## 🚨 Recovery: queue worker fermo
+
+### Sintomo
+
+- `pm2 list` mostra `themedge-queue` non `online`
+- Job accumulati in coda
+
+### Fix
+
+    pm2 list | grep themedge-queue
+    pm2 restart themedge-queue
+    sleep 3
+    pm2 logs themedge-queue --lines 10 --nostream
+    php artisan queue:monitor default --max=100
+
+---
+
+## 🚨 Recovery: queue in loop (job che falliscono)
+
+### Sintomo
+
+- `failed_jobs` cresce rapidamente
+- Log Laravel cresce di decine di MB in pochi minuti
+- CPU al 100% senza traffico
+
+### Fix
+
+    pm2 stop themedge-queue
+
+    cd /www/wwwroot/themedge.com/api
+    php artisan queue:monitor default --max=100
+    mysql -D themedge_db -e "SELECT COUNT(*) FROM jobs"
+    mysql -D themedge_db -e "SELECT COUNT(*) FROM failed_jobs"
+
+    # Se migliaia → TRUNCATE (dopo dump)
+    cat > /tmp/dump_jobs.php << 'PHPEOF'
+    <?php
+    require '/www/wwwroot/themedge.com/api/vendor/autoload.php';
+    $app = require_once '/www/wwwroot/themedge.com/api/bootstrap/app.php';
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    use Illuminate\Support\Facades\DB;
+
+    $file = '/root/jobs_dump_' . date('Ymd_His') . '.jsonl';
+    $fh = fopen($file, 'w');
+    foreach (DB::table('jobs')->cursor() as $row) fwrite($fh, json_encode($row) . "\n");
+    fclose($fh);
+    echo "Dump: $file\n";
+    PHPEOF
+    php /tmp/dump_jobs.php
+
+    mysql -D themedge_db -e "TRUNCATE TABLE jobs"
+    mysql -D themedge_db -e "TRUNCATE TABLE failed_jobs"
+
+    pm2 restart themedge-queue
+    php artisan queue:monitor default --max=100
+
+Vedi `docs/TROUBLESHOOTING.md` → "Loop GenerateArticleAudio".
+
+---
+
+## 🚨 Recovery: RAM saturata
+
+    ollama ps
+    ollama stop llama3.1:8b
+    ollama stop qwen2.5:3b
+    free -h
+
+    # Kill forzato se non risponde
+    pkill -9 -f llama-server
+
+---
+
+## 🚨 Recovery: disco pieno
+
+    df -h /
+
+    # Pulizia backup
+    find /www/wwwroot/themedge.com -name "*.bak*" -mtime +3 -delete
+
+    # Pulizia log PM2
+    pm2 flush
+
+    # Tronca log Laravel (dopo backup)
+    cp /www/wwwroot/themedge.com/api/storage/logs/laravel.log /root/incident-$(date +%s).log
+    > /www/wwwroot/themedge.com/api/storage/logs/laravel.log
+
+    # Pulizia journalctl
+    journalctl --vacuum-time=7d
+
+---
+
+## 🚨 Recovery: errore permessi
+
+    chown -R www:www /www/wwwroot/themedge.com/api
+    chown -R www:www /www/wwwroot/themedge.com/web
+    chmod -R 775 /www/wwwroot/themedge.com/api/storage
+    chmod -R 775 /www/wwwroot/themedge.com/api/bootstrap/cache
+
+Verifica:
+
+    find /www/wwwroot/themedge.com/api -not -user www 2>/dev/null | wc -l
+    find /www/wwwroot/themedge.com/web -not -user www 2>/dev/null | wc -l
+    # Atteso: 0
+
+---
+
+## 📊 Configurazione PHP-FPM
+
+### File di configurazione
+
+    /www/server/php/84/etc/php-fpm.conf
+    /www/server/php/84/etc/php-fpm.d/www.conf
+
+### Socket
+
+    ls -la /tmp/php-cgi-84.sock
+    # Atteso: srw-rw---- 1 www www
+
+### Pool workers
+
+    ps aux | grep "php-fpm: pool" | wc -l
+    # Atteso: 2-4
+
+### OPcache
+
+Verifica:
+
+    php -i | grep opcache.validate_timestamps
+    # Atteso: Off
+
+Dopo ogni modifica PHP → `/root/fpm.sh`.
+
+---
+
+## 📋 Comandi operativi quotidiani
+
+    # Riavvio PHP-FPM
+    /root/fpm.sh
+
+    # Rebuild Next.js (con ownership)
+    /root/build-web.sh
+
+    # Riavvio queue
+    pm2 restart themedge-queue
+
+    # Cache clear Laravel
+    cd /www/wwwroot/themedge.com/api
+    php artisan optimize:clear
+    php artisan filament:optimize-clear
+
+    # Stato sistema
+    pm2 list
+    df -h /
+    free -h
+    ollama ps
+
+---
+
+## 🔗 Vedi anche
+
+- `HANDOFF.md` — Regole #1 (PHP-FPM), #2 (OPcache), #3 (Next.js), #14 (log)
+- `docs/TROUBLESHOOTING.md` — Problemi + fix
+- `docs/DEPLOY.md` — Workflow deploy + rollback
+- `CHANGELOG.md` — Sezione [2026-10-15i]
