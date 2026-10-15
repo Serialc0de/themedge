@@ -386,6 +386,54 @@ class WikiPageResource extends Resource
                             Notification::make()->title($count . ' job accodati')->success()->send();
                         }),
 
+                    Tables\Actions\BulkAction::make('regenerate_stale_all')
+                        ->label('🔄 Rigenera stale (tutte)')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->modalHeading('Rigenera wiki stale')
+                        ->modalDescription('Rigenera le wiki con nuovi articoli pubblicati dopo l\'ultima generazione AI. La selezione è ignorata: opera su tutte le wiki stale.')
+                        ->modalSubmitActionLabel('Rigenera')
+                        ->action(function () {
+                            $stale = \App\Models\WikiPage::query()
+                                ->whereNotNull('entity_id')
+                                ->where('status', 'published')
+                                ->whereNotNull('ai_generated_at')
+                                ->whereHas('entity', function ($q) {
+                                    $q->whereHas('articles', function ($q2) {
+                                        $q2->where('status', 'published')
+                                            ->where('published_at', '<=', now())
+                                            ->whereColumn('articles.published_at', '>', 'wiki_pages.ai_generated_at');
+                                    });
+                                })
+                                ->limit(20)
+                                ->get();
+
+                            if ($stale->isEmpty()) {
+                                Notification::make()
+                                    ->title('Nessuna wiki stale')
+                                    ->body('Tutte le wiki sono aggiornate.')
+                                    ->info()
+                                    ->send();
+                                return;
+                            }
+
+                            $count = 0;
+                            foreach ($stale as $page) {
+                                if ($page->entity) {
+                                    \App\Jobs\GenerateWikiPageFromEntity::dispatch($page->entity, force: true);
+                                    $count++;
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Job accodati')
+                                ->body("Accodate {$count} wiki per la rigenerazione. Controlla tra qualche minuto.")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
                     Tables\Actions\DeleteBulkAction::make(),
                     Tables\Actions\RestoreBulkAction::make(),
                     Tables\Actions\ForceDeleteBulkAction::make(),
