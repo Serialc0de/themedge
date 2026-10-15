@@ -6,6 +6,7 @@ use App\Filament\Resources\EntityResource\Pages;
 use App\Models\Entity;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -135,6 +136,30 @@ class EntityResource extends Resource
                     ->color('gray')
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('wikipedia_status')
+                    ->label('Wikipedia')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => match ($state) {
+                        'ready' => '✅ ready',
+                        'fetching' => '⏳ fetching',
+                        'failed' => '❌ failed',
+                        'no_page' => '🚫 no page',
+                        'skipped' => '⚪ skipped',
+                        'no_content' => '⚠️ no text',
+                        default => '—',
+                    })
+                    ->color(fn (?string $state) => match ($state) {
+                        'ready' => 'success',
+                        'fetching' => 'warning',
+                        'failed' => 'danger',
+                        'no_page', 'skipped', 'no_content' => 'gray',
+                        default => 'gray',
+                    })
+                    ->tooltip(fn (Entity $record) => $record->wikipedia_url
+                        ? $record->wikipedia_url . ' (' . $record->wikipediaChunks()->count() . ' chunk)'
+                        : 'Nessuna pagina Wikipedia')
+                    ->toggleable(),
+
                 Tables\Columns\IconColumn::make('is_published')
                     ->label('Pub.')
                     ->boolean()
@@ -157,13 +182,62 @@ class EntityResource extends Resource
                     ->placeholder('Tutte')
                     ->trueLabel('Solo pubblicate')
                     ->falseLabel('Solo bozze'),
+
+                Tables\Filters\SelectFilter::make('wikipedia_status')
+                    ->label('Wikipedia')
+                    ->options([
+                        'ready' => '✅ Ready',
+                        'fetching' => '⏳ Fetching',
+                        'failed' => '❌ Failed',
+                        'no_page' => '🚫 No page',
+                        'skipped' => '⚪ Skipped',
+                        'no_content' => '⚠️ No text',
+                    ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('fetch_wikipedia')
+                    ->label('📚 Fetch Wikipedia')
+                    ->icon('heroicon-o-book-open')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Scarica Wikipedia per questa entità')
+                    ->modalDescription('Scarica il testo Wikipedia, lo divide in chunk e genera gli embedding. Il processo richiede 1-5 minuti in background.')
+                    ->visible(fn (Entity $record) => !empty($record->name))
+                    ->action(function (Entity $record) {
+                        \App\Jobs\FetchWikipediaArticle::dispatch($record, force: true);
+
+                        Notification::make()
+                            ->title('Fetch Wikipedia avviato')
+                            ->body('Job accodato. Controlla tra 1-5 minuti.')
+                            ->success()
+                            ->send();
+                    }),
+
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('fetch_wikipedia_bulk')
+                        ->label('📚 Fetch Wikipedia (batch)')
+                        ->icon('heroicon-o-book-open')
+                        ->color('info')
+                        ->requiresConfirmation()
+                        ->modalHeading('Scarica Wikipedia per le entità selezionate')
+                        ->modalDescription('Ogni entità richiede 1-5 minuti. I job vanno in background.')
+                        ->action(function ($records) {
+                            $count = 0;
+                            foreach ($records as $record) {
+                                \App\Jobs\FetchWikipediaArticle::dispatch($record, force: false);
+                                $count++;
+                            }
+                            Notification::make()
+                                ->title($count . ' job accodati')
+                                ->body('Controlla lo stato tra qualche minuto.')
+                                ->success()
+                                ->send();
+                        }),
+
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);

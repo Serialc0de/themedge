@@ -48,8 +48,7 @@ class WikiPageResource extends Resource
 
                         Forms\Components\TextInput::make('subtitle')
                             ->label('Sottotitolo')
-                            ->maxLength(255)
-                            ->helperText('Es. "Papa della Chiesa Cattolica (2025–)"'),
+                            ->maxLength(255),
 
                         Forms\Components\Select::make('type')
                             ->label('Tipo')
@@ -87,13 +86,11 @@ class WikiPageResource extends Resource
                             ->fileAttachmentsDirectory('wiki'),
 
                         Forms\Components\KeyValue::make('infobox')
-                            ->label('Infobox (dati strutturati)')
-                            ->keyLabel('Chiave')
-                            ->valueLabel('Valore')
+                            ->label('Infobox')
                             ->columnSpanFull(),
 
                         Forms\Components\TagsInput::make('aliases')
-                            ->label('Alias (nomi alternativi)')
+                            ->label('Alias')
                             ->columnSpanFull(),
                     ]),
 
@@ -113,14 +110,8 @@ class WikiPageResource extends Resource
 
                 Forms\Components\Section::make('SEO')
                     ->schema([
-                        Forms\Components\TextInput::make('meta_title')
-                            ->label('Meta title')
-                            ->maxLength(255),
-
-                        Forms\Components\Textarea::make('meta_description')
-                            ->label('Meta description')
-                            ->maxLength(500)
-                            ->rows(2),
+                        Forms\Components\TextInput::make('meta_title')->maxLength(255),
+                        Forms\Components\Textarea::make('meta_description')->maxLength(500)->rows(2),
                     ])
                     ->columns(2)
                     ->collapsed(),
@@ -136,15 +127,14 @@ class WikiPageResource extends Resource
                         Forms\Components\Placeholder::make('stats')
                             ->label('Statistiche')
                             ->content(fn ($record) => $record
-                                ? "📄 {$record->articles_count} articoli · 👁 {$record->views} viste · 📝 {$record->revisions_count} revisioni"
+                                ? "📄 {$record->articles_count} articoli · 👁 {$record->views} viste"
                                 : '—'),
 
                         Forms\Components\Select::make('entity_id')
                             ->label('Entità collegata')
                             ->relationship('entity', 'name')
                             ->searchable()
-                            ->preload()
-                            ->helperText('Se collegata, la wiki può essere rigenerata dall\'entità'),
+                            ->preload(),
                     ])
                     ->columns(3)
                     ->collapsed(),
@@ -155,9 +145,7 @@ class WikiPageResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('icon')
-                    ->label('')
-                    ->width('40px'),
+                Tables\Columns\TextColumn::make('icon')->label('')->width('40px'),
 
                 Tables\Columns\TextColumn::make('title')
                     ->label('Titolo')
@@ -197,10 +185,43 @@ class WikiPageResource extends Resource
                     ->trueColor('warning')
                     ->falseColor('gray'),
 
-                Tables\Columns\TextColumn::make('views')
-                    ->label('Viste')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('entity.wikipedia_status')
+                    ->label('Wikipedia')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => match ($state) {
+                        'ready' => '✅ ready',
+                        'fetching' => '⏳',
+                        'failed' => '❌',
+                        'no_page' => '🚫',
+                        'skipped' => '⚪',
+                        'no_content' => '⚠️',
+                        default => '—',
+                    })
+                    ->color(fn (?string $state) => match ($state) {
+                        'ready' => 'success',
+                        'fetching' => 'warning',
+                        'failed' => 'danger',
+                        'no_page', 'skipped', 'no_content' => 'gray',
+                        default => 'gray',
+                    })
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('image_status')
+                    ->label('Immagine')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => match ($state) {
+                        'ready' => '✅ img',
+                        'no_image' => '🚫 img',
+                        'skipped' => '⚪ img',
+                        'failed' => '❌ img',
+                        default => '— img',
+                    })
+                    ->color(fn (?string $state) => match ($state) {
+                        'ready' => 'success',
+                        'failed' => 'danger',
+                        default => 'gray',
+                    })
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('updated_at')
                     ->label('Aggiornata')
@@ -209,17 +230,17 @@ class WikiPageResource extends Resource
                     ->toggleable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('type')
-                    ->label('Tipo')
-                    ->options(WikiPage::TYPE_LABELS),
-
-                Tables\Filters\SelectFilter::make('status')
-                    ->label('Stato')
-                    ->options(WikiPage::STATUS_LABELS),
-
-                Tables\Filters\TernaryFilter::make('is_ai_generated')
-                    ->label('Generata da AI'),
-
+                Tables\Filters\SelectFilter::make('type')->options(WikiPage::TYPE_LABELS),
+                Tables\Filters\SelectFilter::make('status')->options(WikiPage::STATUS_LABELS),
+                Tables\Filters\TernaryFilter::make('is_ai_generated')->label('Generata da AI'),
+                Tables\Filters\SelectFilter::make('image_status')
+                    ->label('Immagine')
+                    ->options([
+                        'ready' => '✅ ready',
+                        '' => '(vuoto)',
+                        'no_image' => '🚫 no image',
+                        'skipped' => '⚪ skipped',
+                    ]),
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
@@ -238,15 +259,8 @@ class WikiPageResource extends Resource
                     ->requiresConfirmation()
                     ->visible(fn (WikiPage $record) => $record->status !== 'published')
                     ->action(function (WikiPage $record) {
-                        $record->update([
-                            'status' => 'published',
-                            'published_at' => now(),
-                        ]);
-
-                        Notification::make()
-                            ->title('Wiki pubblicata')
-                            ->success()
-                            ->send();
+                        $record->update(['status' => 'published', 'published_at' => now()]);
+                        Notification::make()->title('Wiki pubblicata')->success()->send();
                     }),
 
                 Tables\Actions\Action::make('regenerate')
@@ -254,29 +268,70 @@ class WikiPageResource extends Resource
                     ->icon('heroicon-o-sparkles')
                     ->color('warning')
                     ->requiresConfirmation()
-                    ->modalHeading('Rigenera contenuto con AI')
-                    ->modalDescription('Il contenuto attuale verrà sovrascritto con una nuova generazione AI. Le revisioni precedenti sono comunque salvate.')
                     ->visible(fn (WikiPage $record) => $record->entity_id !== null)
                     ->action(function (WikiPage $record) {
                         if (!$record->entity) {
-                            Notification::make()
-                                ->title('Entità non collegata')
-                                ->danger()
-                                ->send();
+                            Notification::make()->title('Entità non collegata')->danger()->send();
                             return;
                         }
-
                         \App\Jobs\GenerateWikiPageFromEntity::dispatch($record->entity, force: true);
+                        Notification::make()->title('Rigenerazione avviata')->success()->send();
+                    }),
 
+                Tables\Actions\Action::make('fetch_wikipedia')
+                    ->label('📚 Fetch Wikipedia')
+                    ->icon('heroicon-o-book-open')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->visible(fn (WikiPage $record) => $record->entity_id !== null)
+                    ->action(function (WikiPage $record) {
+                        if (!$record->entity) {
+                            Notification::make()->title('Entità non collegata')->danger()->send();
+                            return;
+                        }
+                        \App\Jobs\FetchWikipediaArticle::dispatch($record->entity, force: true);
+                        Notification::make()->title('Fetch Wikipedia avviato')->success()->send();
+                    }),
+
+                Tables\Actions\Action::make('fetch_image')
+                    ->label('🖼️ Fetch image')
+                    ->icon('heroicon-o-photo')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Cerca immagine su Wikipedia/Commons')
+                    ->modalDescription('Scarica l\'immagine principale della pagina Wikipedia dell\'entità collegata.')
+                    ->visible(fn (WikiPage $record) => $record->entity_id !== null)
+                    ->action(function (WikiPage $record) {
+                        if (!$record->entity) {
+                            Notification::make()->title('Entità non collegata')->danger()->send();
+                            return;
+                        }
+                        \App\Jobs\FetchWikiImage::dispatch($record, force: true);
                         Notification::make()
-                            ->title('Rigenerazione avviata')
-                            ->body('Il contenuto sarà aggiornato tra ~2 minuti.')
+                            ->title('Fetch immagine avviato')
+                            ->body('Job accodato. Controlla tra 1-2 minuti.')
                             ->success()
                             ->send();
                     }),
 
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('fetch_and_regenerate')
+                    ->label('🔄 Fetch + Rigenera')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('primary')
+                    ->requiresConfirmation()
+                    ->visible(fn (WikiPage $record) => $record->entity_id !== null)
+                    ->action(function (WikiPage $record) {
+                        if (!$record->entity) {
+                            Notification::make()->title('Entità non collegata')->danger()->send();
+                            return;
+                        }
+                        \App\Jobs\FetchWikipediaArticle::dispatch($record->entity, force: false);
+                        \App\Jobs\GenerateWikiPageFromEntity::dispatch($record->entity, force: true)
+                            ->delay(now()->addMinutes(5));
+                        Notification::make()->title('Fetch + Rigenera avviati')->success()->send();
+                    }),
 
+                Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
@@ -288,15 +343,47 @@ class WikiPageResource extends Resource
                         ->requiresConfirmation()
                         ->action(function ($records) {
                             foreach ($records as $record) {
-                                $record->update([
-                                    'status' => 'published',
-                                    'published_at' => $record->published_at ?? now(),
-                                ]);
+                                $record->update(['status' => 'published', 'published_at' => $record->published_at ?? now()]);
+                            }
+                            Notification::make()->title(count($records) . ' wiki pubblicate')->success()->send();
+                        }),
+
+                    Tables\Actions\BulkAction::make('fetch_images_batch')
+                        ->label('🖼️ Fetch images (batch)')
+                        ->icon('heroicon-o-photo')
+                        ->color('info')
+                        ->requiresConfirmation()
+                        ->modalHeading('Cerca immagini per le wiki selezionate')
+                        ->modalDescription('Dispatcha FetchWikiImage per ogni wiki con entità collegata.')
+                        ->action(function ($records) {
+                            $count = 0;
+                            foreach ($records as $record) {
+                                if ($record->entity_id) {
+                                    \App\Jobs\FetchWikiImage::dispatch($record, force: true);
+                                    $count++;
+                                }
                             }
                             Notification::make()
-                                ->title(count($records) . ' wiki pubblicate')
+                                ->title($count . ' job accodati')
+                                ->body('Controlla tra 2-5 minuti.')
                                 ->success()
                                 ->send();
+                        }),
+
+                    Tables\Actions\BulkAction::make('fetch_wikipedia_all')
+                        ->label('📚 Fetch Wikipedia (batch)')
+                        ->icon('heroicon-o-book-open')
+                        ->color('info')
+                        ->requiresConfirmation()
+                        ->action(function ($records) {
+                            $count = 0;
+                            foreach ($records as $record) {
+                                if ($record->entity) {
+                                    \App\Jobs\FetchWikipediaArticle::dispatch($record->entity, force: false);
+                                    $count++;
+                                }
+                            }
+                            Notification::make()->title($count . ' job accodati')->success()->send();
                         }),
 
                     Tables\Actions\DeleteBulkAction::make(),
