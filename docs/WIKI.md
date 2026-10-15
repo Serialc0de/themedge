@@ -724,3 +724,229 @@ Tables\Actions\ViewAction::make(),  // rimuovi
 ---
 
 *Ultima modifica: 14 ottobre 2026*
+
+
+---
+
+## 🌐 Wikipedia RAG (15 ottobre 2026)
+
+### Cosa fa
+
+Genera wiki di alta qualità usando **Wikipedia come fonte primaria**, via RAG (Retrieval-Augmented Generation):
+1. Scarica il testo Wikipedia dell'entità
+2. Lo divide in chunk (2000 char, overlap 300)
+3. Genera embedding con `nomic-embed-text`
+4. Al momento della generazione wiki, recupera i 3 chunk più rilevanti
+5. Li passa a Ollama nel prompt (arricchito con Wikipedia)
+
+### Schema DB
+
+**`entities`** (5 nuovi campi):
+- `wikipedia_url` (string, 500)
+- `wikipedia_text` (longtext)
+- `wikipedia_lang` (string, 5)
+- `wikipedia_fetched_at` (timestamp)
+- `wikipedia_status` (string, 20, default '')
+
+**`wikipedia_chunks`** (nuova tabella):
+- `id`, `entity_id` (FK), `chunk_index`, `content` (text), `embedding` (json 768), `embedding_model` (string), timestamps
+
+### Stati `wikipedia_status`
+
+| Stato | Significato |
+|---|---|
+| `''` | Mai fetchata |
+| `fetching` | Fetch in corso |
+| `ready` | Fetch + chunk + embed completati |
+| `no_page` | Wikipedia non ha pagina |
+| `skipped` | Disambigua o vuota |
+| `no_content` | Pagina trovata ma testo < 300 char |
+| `failed` | Errore tecnico |
+
+### Servizi
+
+**`WikipediaFetcherService`**:
+- `fetchForEntity(Entity, force)`: orchestra fetch + chunk + embed
+- `searchWikipedia(name, aliases)`: cerca IT → EN
+- `fetchArticlePlainText(title, lang)`: API Wikipedia `explaintext`
+- `stripBoilerplate(text)`: rimuove Note/Bibliografia/Collegamenti finali
+- `chunkAndEmbed(entity)`: chunking + embedding, salva in `wikipedia_chunks`
+
+**`WikipediaRagService`**:
+- `search(entity, query, limit, minScore)`: cosine similarity sui chunk
+- `buildContext(entity, query, limit)`: contesto pronto per il prompt
+- `stats(entity)`: statistiche copertura
+
+### Job & Comando
+
+**`FetchWikipediaArticle`** (Job, timeout 600s):
+- Input: Entity, `force`
+- Chiama `WikipediaFetcherService`
+- Log dettagliato
+
+**`wiki:fetch-wikipedia`** (Comando):
+```bash
+php artisan wiki:fetch-wikipedia --limit=50
+php artisan wiki:fetch-wikipedia --entity=5 --sync
+php artisan wiki:fetch-wikipedia --force --status=ready
+
+Integrazione in WikiGenerator
+WikiGenerator::buildWikipediaSection(Entity):
+
+Se wikipedia_status === 'ready', chiama WikipediaRagService::buildContext() (limit 3)
+
+Inserisce nel prompt: WIKIPEDIA (fonte verificata, usa per i fatti principali)
+
+Altrimenti: WIKIPEDIA: non disponibile per questa entità
+
+Risultati
+21 entity con Wikipedia pronta (IT/EN)
+
+573+ chunk con embedding
+
+21 wiki generate con contenuti Wikipedia reali
+
+Content medio: ~900 char (vs ~300 senza Wikipedia)
+
+Admin UI
+Admin → Entità: colonna Wikipedia, filtro, action 📚 Fetch Wikipedia, bulk
+
+Admin → Wiki: colonna Wikipedia, action 📚 Fetch Wikipedia + 🔄 Fetch + Rigenera
+
+🖼️ Wikipedia Image Fetching (15 ottobre 2026)
+Cosa fa
+Popola le wiki con immagini automatiche da Wikipedia/Wikimedia Commons, con attribuzione automatica.
+
+Schema DB
+wiki_pages (6 nuovi campi):
+
+image_source_url (string, 500)
+
+image_license (string, 100)
+
+image_author (string, 255)
+
+image_attribution (string, 500)
+
+image_fetched_at (timestamp)
+
+image_status (string, 20, default '')
+
+Stati image_status
+Stato	Significato
+''	Mai fetchata
+ready	Immagine trovata e scaricata
+no_image	Pagina Wikipedia senza immagine principale
+skipped	Wikipedia non ha pagina / disambigua
+failed	Errore tecnico
+Job & Comando
+FetchWikiImage (Job, timeout 120s):
+
+Cerca su Wikipedia IT → EN
+
+Ottiene thumbnail 800px via API pageimages
+
+Ottiene metadati (autore, licenza) via Commons API
+
+Scarica in storage/app/public/wiki/
+
+wiki:fetch-images (Comando):
+
+bash
+php artisan wiki:fetch-images --limit=30 --sync
+php artisan wiki:fetch-images --id=3 --sync --force
+Frontend
+WikiImageAttribution (componente React):
+
+Varianti: overlay (card), caption (pagina dettaglio), inline
+
+Mostra: autore · licenza · via Wikimedia Commons · link fonte
+
+Risultati
+19 wiki con immagine (su 30)
+
+3.1 MB totali in storage
+
+Attribuzione automatica (autore + licenza + link Commons)
+
+Admin UI
+Admin → Wiki: colonna Immagine, filtro, action 🖼️ Fetch image, bulk 🖼️ Fetch images (batch)
+
+🏷️ Entity Extraction auto-create (15 ottobre 2026)
+Cosa fa
+Quando pubblichi un articolo, l'AI rileva le entità citate, le crea se non esistono, e le collega all'articolo.
+
+Flusso
+Editore clicca 🔍 Rileva entità (AI) su un articolo
+
+Job DetectArticleEntities chiama EntityExtractor (Ollama qwen2.5:3b)
+
+Estrae 5-15 entità (persone, luoghi, organizzazioni, eventi)
+
+Crea in DB le entità mancanti (is_published=false, bozze)
+
+Collega tutte le entità all'articolo via article_entity (syncWithoutDetaching)
+
+Notifica Filament
+
+Modelli
+EntityExtractor:
+
+Prompt semplificato con esempio multi-entità
+
+Dedup case-insensitive
+
+Regex JSON multiline ({[\s\S]{10,50000}})
+
+Modello: qwen2.5:3b (rimosso llama3.1:8b per timeout Ollama 600s)
+
+DetectArticleEntities:
+
+$timeout = 1200 (20 min)
+
+$tries = 1
+
+Ordine: solo qwen2.5:3b
+
+Auto-create + auto-attach
+
+Risultati
+10 entità create in 98s da articolo ANSA
+
+Entità visibili in Admin → Entità come bozze
+
+28 collegamenti article_entity totali
+
+Admin UI
+Admin → Articoli: action 🔍 Rileva entità (AI)
+
+Admin → Entità: colonna Wikipedia, azioni per arricchire
+
+Pubblicazione entità
+Le entità create dall'AI hanno is_published = false (bozze). Per pubblicarle:
+
+Admin → Entità
+
+Modifica l'entità → toggle "Pubblicata" → ON → Salva
+
+Le entità pubblicate appaiono sul frontend come link
+
+🔗 Entity ↔ Wiki collegamento (15 ottobre 2026)
+Cosa fa
+Quando un articolo cita un'entità, il link preferisce la Wiki (se esiste) invece della pagina /entita/ vuota.
+
+Modelli
+Entity:
+
+wikiPage(): HasOne, filtra solo published
+
+getUrlAttribute(): preferisce /wiki/slug se esiste wiki, altrimenti /entita/slug
+
+getWikiUrlAttribute(): null o /wiki/slug
+
+ArticleController:
+
+Espone wiki_url nel JSON entità
+
+Effetto
+Link "Giorgia Meloni" su articoli → /wiki/giorgia-meloni (con contenuto), non più /entita/giorgia-meloni (vuota).
