@@ -603,3 +603,309 @@ Tables\Actions\ViewAction::make(),  // rimuovi questa
 ---
 
 *Ultima modifica: 14 ottobre 2026*
+
+
+---
+
+## 🌐 Wikipedia Fetch (Entità + Wiki)
+
+### Cosa fa
+
+Scarica il testo Wikipedia dell'entità collegata, lo chunk-a, genera embedding per il RAG. **Prerequisito** per generare wiki di alta qualità.
+
+### Dove si trova
+
+**Admin → Entità → (menu azioni) → 📚 Fetch Wikipedia**
+**Admin → Wiki → (menu azioni) → 📚 Fetch Wikipedia**
+
+### Cosa fa esattamente
+
+1. Cerca l'entità su Wikipedia IT (fallback EN)
+2. Scarica il testo plain (~100 KB)
+3. Chunking in ~50-80 pezzi da 2000 char
+4. Embedding con nomic-embed-text (768 dim)
+5. Salva in wikipedia_chunks
+6. Aggiorna `entities.wikipedia_status = 'ready'`
+
+### Stati Wikipedia
+
+| Stato | Badge | Significato |
+|---|---|---|
+| ready | ✅ ready | Fetch + chunk + embed completati |
+| fetching | ⏳ fetching | In corso |
+| failed | ❌ failed | Errore tecnico |
+| no_page | 🚫 no page | Wikipedia non ha pagina |
+| skipped | ⚪ skipped | Disambigua |
+| no_content | ⚠️ no text | Pagina senza testo utile |
+| (vuoto) | — | Mai fetchata |
+
+### Tempo
+
+- 30-90 secondi per entità
+- In background (queue), non blocca il pannello
+
+### Bulk action
+
+Seleziona N entità → **Bulk actions → 📚 Fetch Wikipedia (batch)**
+
+### Verifica
+
+    mysql -D themedge_db -e "
+    SELECT e.id, e.name, e.wikipedia_status,
+           (SELECT COUNT(*) FROM wikipedia_chunks WHERE entity_id = e.id) AS chunks
+    FROM entities e
+    WHERE e.id >= 24
+    "
+
+Atteso: `wikipedia_status = 'ready'` + `chunks > 0`.
+
+---
+
+## 🖼️ Fetch Image (Wiki)
+
+### Cosa fa
+
+Scarica l'immagine principale da Wikipedia/Wikimedia Commons, con attribuzione automatica (autore, licenza, link fonte).
+
+### Dove si trova
+
+**Admin → Wiki → (menu azioni) → 🖼️ Fetch image**
+
+### Cosa fa esattamente
+
+1. Cerca su Wikipedia IT (fallback EN)
+2. Ottiene thumbnail 800px (API `pageimages`)
+3. Ottiene metadati da Commons (autore, licenza)
+4. Scarica in `storage/app/public/wiki/`
+5. Aggiorna `wiki_pages.featured_image` + 5 campi `image_*`
+
+### Stati Immagine
+
+| Stato | Badge | Significato |
+|---|---|---|
+| ready | ✅ img | Immagine trovata e scaricata |
+| no_image | 🚫 img | Wikipedia senza immagine principale |
+| skipped | ⚪ img | Wikipedia non ha pagina / disambigua |
+| failed | ❌ img | Errore tecnico |
+| (vuoto) | — img | Mai fetchata |
+
+### Tempo
+
+- 10-30 secondi per wiki
+
+### Bulk action
+
+Seleziona N wiki → **Bulk actions → 🖼️ Fetch images (batch)**
+
+### Filtro
+
+**Filtro → Immagine → (vuoto)** → mostra solo wiki senza immagine.
+
+### Verifica
+
+    mysql -D themedge_db -e "
+    SELECT id, title, image_status,
+           CASE WHEN featured_image IS NULL THEN 'NULL' ELSE 'OK' END AS img
+    FROM wiki_pages
+    WHERE status = 'published'
+    ORDER BY img
+    "
+
+### Attribuzione
+
+L'immagine viene mostrata sul frontend con attribuzione:
+- Sulla card: **overlay** (autore · licenza · via Wikimedia Commons · fonte)
+- Sulla pagina dettaglio: **caption** (testo centrato sotto l'immagine)
+
+---
+
+## 🔄 Fetch + Rigenera (Wiki)
+
+### Cosa fa
+
+Combina **Fetch Wikipedia** + **Rigenera AI** in un'unica azione:
+1. Fetch Wikipedia (se non già pronta)
+2. Attende 5 min (delay)
+3. Rigenera wiki con Wikipedia RAG
+
+### Dove si trova
+
+**Admin → Wiki → (menu azioni) → 🔄 Fetch + Rigenera**
+
+### Quando usarla
+
+Quando vuoi:
+- Aggiornare il contenuto wiki con Wikipedia attuale
+- Rigenerare una wiki dopo aver modificato l'entità
+
+### Tempo totale
+
+- Fetch Wikipedia: 30-90s
+- Delay: 5 min (configurabile)
+- Rigenerazione: 1-3 min
+- **Totale: ~7-10 min**
+
+---
+
+## 🔍 Rileva entità (AI) (Articoli)
+
+### Cosa fa
+
+Analizza l'articolo con AI locale (`qwen2.5:3b`), estrae le entità citate (persone, luoghi, organizzazioni, eventi), le **crea se non esistono** e le **collega all'articolo**.
+
+### Dove si trova
+
+**Admin → Articoli → Modifica → 🤖 AI Actions → 🔍 Rileva entità (AI)**
+
+### Cosa fa esattamente
+
+1. Analizza il contenuto articolo (~5000 char)
+2. Prompt a Ollama: "Estrai tutte le entità nominate"
+3. Riceve JSON con 5-15 entità (name, type, mentions, context)
+4. Match con entità esistenti in DB (5 strategie fuzzy)
+5. **Crea** le entità mancanti come bozze (`is_published=false`)
+6. **Collega** tutte le entità all'articolo via `article_entity`
+7. Notifica Filament con conteggio
+
+### Stati
+
+- **Nuove entità** → `is_published = false` (bozze da revisionare)
+- **Entità esistenti** → collegate direttamente
+
+### Tempo
+
+- 90-150 secondi per articolo
+
+### Verifica
+
+Dopo il job, nell'articolo vedrai la sezione **🏷️ Entità collegate** con le entità trovate (id 24-33, ecc.).
+
+    mysql -D themedge_db -e "
+    SELECT e.name, e.type, e.is_published
+    FROM article_entity ae
+    JOIN entities e ON e.id = ae.entity_id
+    WHERE ae.article_id = 10
+    "
+
+### Pubblicare le entità
+
+Per renderle visibili sul frontend:
+
+1. Admin → Entità
+2. Filtra `is_published = false`
+3. Modifica ogni entità → toggle **Pubblicata** → ON → Salva
+
+---
+
+## 📊 Riepilogo azioni Admin
+
+### Entità (Admin → Entità)
+
+| Azione | Cosa fa | Dove |
+|---|---|---|
+| 📚 Fetch Wikipedia | Scarica testo + chunk + embed | Menu azioni (per riga) |
+| 📚 Fetch Wikipedia (batch) | Lo stesso per N entità | Bulk actions |
+| Edit | Modifica nome, bio, tipo, aliases | Menu azioni |
+| Delete | Elimina entità | Menu azioni |
+
+**Colonne:**
+- Nome, Tipo, Bio, Articoli, Wikipedia, Pub.
+- Filtri: Tipo, Pubblicata, Wikipedia
+
+### Wiki (Admin → Wiki)
+
+| Azione | Cosa fa | Dove |
+|---|---|---|
+| Vedi sito | Apre /wiki/slug nel browser | Menu azioni |
+| Pubblica | Cambia status a published | Menu azioni |
+| Rigenera AI | Rigenera contenuto con Ollama | Menu azioni |
+| 📚 Fetch Wikipedia | Scarica Wikipedia dell'entity | Menu azioni |
+| 🖼️ Fetch image | Scarica immagine da Commons | Menu azioni |
+| 🔄 Fetch + Rigenera | Fetch Wikipedia + Rigenera | Menu azioni |
+| Edit | Modifica contenuto | Menu azioni |
+| Delete | Elimina wiki | Menu azioni |
+
+**Bulk:**
+- Pubblica tutte
+- 📚 Fetch Wikipedia (batch)
+- 🖼️ Fetch images (batch)
+- Delete / Restore / Force Delete
+
+**Colonne:**
+- Icona, Titolo, Tipo, Stato, Articoli, AI, Wikipedia, Immagine, Aggiornata
+- Filtri: Tipo, Stato, Generata da AI, Immagine, Trashed
+
+### Articoli (Admin → Articoli)
+
+**AI Actions (dropdown):**
+- ✨ Genera TL;DR (AI)
+- 🗑️ Elimina TL;DR
+- 🔍 Rileva entità (AI)
+- 🗑️ Elimina entità rilevate
+- 🎯 Ottimizza SEO (AI)
+- ✅ Fact-check automatico (AI)
+- 🗑️ Elimina claim rilevati
+- 🎙️ Genera audio (TTS)
+
+**Sezioni form:**
+- Contenuto principale
+- Classificazione (categoria, tag)
+- Immagini (featured, gallery)
+- Autore e stato
+- SEO & Anteprima
+- 📖 Approfondimenti curati
+- 📚 Fonti e riferimenti
+- ✅ Fact-check
+- 🧠 Cosa sappiamo / non sappiamo
+- 📅 Timeline contesto
+- 🎬 Scrollytelling
+- 🏷️ Entità collegate
+- 🎯 Highlight Policy
+- 🤖 Trasparenza AI
+- 🤖 AI Summary (TL;DR)
+
+---
+
+## 🎯 Workflow completo (nuovo articolo)
+
+1. **Scrivi articolo** → draft
+2. **Pubblica** → audio TTS automatico (30-60s)
+3. **AI Actions** (manuale):
+   - ✨ Genera TL;DR → summary AI
+   - 🔍 Rileva entità (AI) → 5-15 entità create + collegate
+   - 🎯 Ottimizza SEO (AI) → meta title/description
+   - ✅ Fact-check automatico (AI) → 5-10 claim
+4. **Revisiona entità** (Admin → Entità):
+   - Verifica nome/type
+   - Pubblica le corrette
+5. **Arricchisci Wikipedia** (Admin → Entità):
+   - 📚 Fetch Wikipedia per ogni entità
+6. **Genera/Rigenera Wiki** (Admin → Wiki):
+   - Nuova pagina con entità collegata
+   - 🔄 Fetch + Rigenera
+
+---
+
+## 📈 Statistiche tipiche
+
+| Cosa | Valore tipico |
+|---|---|
+| Entità rilevate da 1 articolo | 5-15 |
+| Tempo Rileva entità | 90-150s |
+| Tempo Fetch Wikipedia | 30-90s per entità |
+| Tempo Fetch image | 10-30s per wiki |
+| Tempo Rigenera AI | 60-180s per wiki |
+| Wiki generate totali | 30 |
+| Entity con Wikipedia | 21+ |
+| Wiki con immagine | 19+ |
+| Chunk Wikipedia totali | 573+ |
+
+---
+
+## 🔗 Vedi anche
+
+- `HANDOFF.md` — Regole #15-19
+- `docs/WIKI.md` — Wikipedia RAG + Image + Entity
+- `docs/RAG.md` — Wikipedia RAG
+- `docs/TROUBLESHOOTING.md` — Problemi risolti
+- `CHANGELOG.md` — Sezione [2026-10-15i]
