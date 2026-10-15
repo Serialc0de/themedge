@@ -20,7 +20,7 @@ class DetectArticleEntities implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1;
-    public int $timeout = 600;
+    public int $timeout = 1200;
 
     public function __construct(
         public Article $article,
@@ -29,56 +29,38 @@ class DetectArticleEntities implements ShouldQueue
 
     public function handle(): void
     {
-        Log::info('DetectArticleEntities started', [
-            'article_id' => $this->article->id,
-        ]);
+        Log::info('DetectArticleEntities started', ['article_id' => $this->article->id]);
 
-        // Strategia: prova llama3.1:8b (qualità) → fallback qwen2.5:3b (affidabilità)
-        $models = ['llama3.1:8b', 'qwen2.5:3b'];
+        $models = ['qwen2.5:3b'];
         $detected = [];
         $successModel = null;
 
         foreach ($models as $model) {
-            Log::info('Trying model for extraction', [
-                'model' => $model,
-                'article_id' => $this->article->id,
-            ]);
-
+            Log::info('Trying model for extraction', ['model' => $model, 'article_id' => $this->article->id]);
             $ollama = (new OllamaClient())->withModel($model);
             $extractor = new EntityExtractor($ollama);
-
             $detected = $extractor->extract($this->article);
 
             if (!empty($detected)) {
                 $successModel = $model;
-                Log::info('Extraction succeeded', [
-                    'model' => $model,
-                    'count' => count($detected),
-                ]);
+                Log::info('Extraction succeeded', ['model' => $model, 'count' => count($detected)]);
                 break;
             }
-
-            Log::warning('Extraction failed with model, trying next', [
-                'model' => $model,
-            ]);
         }
 
         if (empty($detected)) {
-            Log::warning('No entities detected after all models', ['article_id' => $this->article->id]);
-
-            $this->notify(
-                '❌ Nessuna entità rilevata',
-                'L\'AI non ha trovato entità. Riprova più tardi.',
-                'warning'
-            );
-
+            Log::warning('No entities detected', ['article_id' => $this->article->id]);
+            $this->notify('❌ Nessuna entità rilevata', 'L\'AI non ha trovato entità.', 'warning');
             return;
         }
 
         // Match con entità esistenti
         $matched = $this->matchWithExisting($detected);
 
-        // Salva il risultato nell'articolo (campo temporaneo)
+        // CREA le entità mancanti come bozze
+        $matched = $this->createMissingEntities($matched);
+
+        // Salva il risultato
         $this->article->update([
             'detected_entities' => [
                 'detected_at' => now()->toIso8601String(),
@@ -87,28 +69,86 @@ class DetectArticleEntities implements ShouldQueue
             ],
         ]);
 
-        $existingCount = collect($matched)->where('exists', true)->count();
-        $newCount = collect($matched)->where('exists', false)->count();
+        // Collega tutte le entità (esistenti + nuove) all'articolo
+        $this->attachExistingEntities($matched);
+
+        $newCount = collect($matched)->where('created', true)->count();
+        $existingCount = count($matched) - $newCount;
 
         Log::info('DetectArticleEntities completed', [
             'article_id' => $this->article->id,
             'total' => count($matched),
             'existing' => $existingCount,
-            'new' => $newCount,
+            'created' => $newCount,
         ]);
 
         $this->notify(
             '✅ Entità rilevate',
-            "Trovate " . count($matched) . " entità: {$existingCount} esistenti, {$newCount} nuove. Apri l'articolo per collegarle.",
+            "Trovate " . count($matched) . " entità: {$existingCount} esistenti, {$newCount} nuove (bozze).",
             'success'
         );
     }
 
     /**
+     * Crea le entità mancanti come bozze (is_published = false).
+     */
+    protected function createMissingEntities(array $matched): array
+    {
+        foreach ($matched as &$item) {
+            if ($item['exists']) {
+                $item['created'] = false;
+                continue;
+            }
+
+            // Crea l'entità come bozza
+            $entity = Entity::create([
+                'name' => $item['name'],
+                'slug' => Str::slug($item['name']),
+                'type' => $item['type'],
+                'is_published' => false,
+                'bio' => null,
+            ]);
+
+            $item['exists'] = true;
+            $item['created'] = true;
+            $item['entity_id'] = $entity->id;
+            $item['entity_slug'] = $entity->slug;
+
+            Log::info('Entity created', [
+                'entity_id' => $entity->id,
+                'name' => $entity->name,
+                'type' => $entity->type,
+            ]);
+        }
+
+        return $matched;
+    }
+
+    /**
+     * Collega le entità all'articolo via pivot article_entity.
+     */
+    protected function attachExistingEntities(array $matched): void
+    {
+        $entityIds = collect($matched)
+            ->where('exists', true)
+            ->pluck('entity_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($entityIds)) return;
+
+        $this->article->entities()->syncWithoutDetaching($entityIds);
+
+        Log::info('Entities attached to article', [
+            'article_id' => $this->article->id,
+            'count' => count($entityIds),
+        ]);
+    }
+
+    /**
      * Match entità rilevate con entità esistenti nel DB.
-     *
-     * @param array<array{name: string, type: string, mentions: int, context: string|null}> $detected
-     * @return array
      */
     protected function matchWithExisting(array $detected): array
     {
@@ -118,12 +158,10 @@ class DetectArticleEntities implements ShouldQueue
             $name = $item['name'];
             $slug = Str::slug($name);
 
-            // Cerca entità esistente per slug o nome (case-insensitive)
             $existing = Entity::where('slug', $slug)
                 ->orWhereRaw('LOWER(name) = ?', [mb_strtolower($name)])
                 ->first();
 
-            // Cerca anche per nome parziale (es. "Parolin" per "Pietro Parolin")
             if (!$existing && strpos($name, ' ') !== false) {
                 $parts = explode(' ', $name);
                 foreach ($parts as $part) {

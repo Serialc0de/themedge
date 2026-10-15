@@ -12,16 +12,9 @@ class EntityExtractor
         protected OllamaClient $ollama
     ) {}
 
-    /**
-     * Estrae le entità menzionate in un articolo.
-     *
-     * @return array<array{name: string, type: string, mentions: int, context: string|null}>
-     */
     public function extract(Article $article): array
     {
-        // Usa modello veloce per estrazione (più affidabile in JSON)
-        $extractionModel = config('services.ollama.model_extraction', 'qwen2.5:3b');
-        $ollama = $this->ollama->withModel($extractionModel);
+        $ollama = $this->ollama;
 
         if (!$ollama->isAvailable()) {
             Log::error('Ollama not available for entity extraction');
@@ -37,7 +30,7 @@ class EntityExtractor
         $prompt = $this->buildPrompt($article, $content);
 
         $startTime = microtime(true);
-        $response = $this->ollama->generate($prompt);
+        $response = $ollama->generate($prompt);
         $duration = round(microtime(true) - $startTime, 2);
 
         if (!$response) {
@@ -66,42 +59,44 @@ class EntityExtractor
         $title = $article->title;
 
         return <<<PROMPT
-Sei un giornalista italiano esperto. Analizza il seguente articolo ed estrai le entità menzionate.
+Analizza questo articolo di giornale ed estrai TUTTE le entità nominate.
 
-TIPI DI ENTITÀ:
-- person: persone (Papa Leone XIV, Giorgia Meloni)
-- organization: organizzazioni (NATO, Vaticano, Governo Italiano)
-- location: luoghi (Roma, Ucraina, Policlinico Gemelli)
-- event: eventi (Guerra in Ucraina, Intervento Papa Leone)
-- concept: concetti (Inflazione, Democrazia)
-
-REGOLE IMPORTANTI:
-- Estrai SOLO entità chiaramente menzionate nel testo
-- Usa i nomi propri ESATTAMENTE come appaiono nel testo
-- Non inventare entità non presenti
-- Per ogni entità indica: name, type, mentions (quante volte appare nel testo), context (breve frase in cui appare la prima volta, max 100 char)
-- Ordina per rilevanza (mentions decrescente)
+TIPI:
+- person: persone (Giorgia Meloni, Donald Trump, Vladimir Putin)
+- organization: partiti, enti, aziende (NATO, Pd, M5s, Lega, Ue, ANSA)
+- location: paesi, città, regioni (Ucraina, Russia, Roma, Bruxelles, Gaza)
+- event: eventi storici/specifici (Guerra in Ucraina, Consiglio Ue)
+- concept: concetti astratti (inflazione, democrazia)
 
 Articolo:
 Titolo: {$title}
 Testo: {$content}
 
-Rispondi SOLO con JSON valido, senza testo aggiuntivo:
-{
-  "entities": [
-    {"name": "Papa Leone XIV", "type": "person", "mentions": 5, "context": "..."},
-    {"name": "Policlinico Gemelli", "type": "location", "mentions": 3, "context": "..."}
-  ]
-}
+ISTRUZIONI:
+- Estrai almeno 10-15 entità se presenti nel testo
+- Usa il nome completo (es. "Giorgia Meloni" non "Meloni")
+- Ogni entità una sola volta
+- mentions = numero di occorrenze nel testo
+- context = breve frase (max 100 char) dove appare
+
+ESEMPIO:
+Testo: "Meloni ha incontrato Trump a Roma. Salvini e Vannacci hanno criticato l'Ue."
+Risposta: {"entities": [
+  {"name": "Giorgia Meloni", "type": "person", "mentions": 1, "context": "Meloni ha incontrato Trump a Roma"},
+  {"name": "Donald Trump", "type": "person", "mentions": 1, "context": "Meloni ha incontrato Trump a Roma"},
+  {"name": "Roma", "type": "location", "mentions": 1, "context": "Meloni ha incontrato Trump a Roma"},
+  {"name": "Matteo Salvini", "type": "person", "mentions": 1, "context": "Salvini e Vannacci hanno criticato l'Ue"},
+  {"name": "Roberto Vannacci", "type": "person", "mentions": 1, "context": "Salvini e Vannacci hanno criticato l'Ue"},
+  {"name": "Unione Europea", "type": "organization", "mentions": 1, "context": "Salvini e Vannacci hanno criticato l'Ue"}
+]}
+
+Rispondi SOLO con JSON valido:
 PROMPT;
     }
 
-    /**
-     * @return array<array{name: string, type: string, mentions: int, context: string|null}>
-     */
     protected function parseResponse(string $response, string $originalContent = ''): array
     {
-        if (!preg_match('/\{[\s\S]*\}/', $response, $matches)) {
+        if (!preg_match('/\{[\s\S]{10,50000}\}/', $response, $matches)) {
             Log::warning('Failed to parse entity extraction response', [
                 'response' => mb_substr($response, 0, 500),
             ]);
@@ -116,6 +111,7 @@ PROMPT;
         }
 
         $entities = [];
+        $seen = [];
 
         foreach ($data['entities'] as $item) {
             if (empty($item['name']) || empty($item['type'])) {
@@ -123,17 +119,14 @@ PROMPT;
             }
 
             $name = trim($item['name']);
-            $mentions = (int) ($item['mentions'] ?? 1);
+            $mentions = max(1, (int) ($item['mentions'] ?? 1));
 
-            // Scarta entità con mentions=0
-            if ($mentions <= 0) {
-                Log::info('Entity discarded (mentions=0)', ['name' => $name]);
-                continue;
-            }
+            $nameKey = mb_strtolower($name);
+            if (isset($seen[$nameKey])) continue;
+            $seen[$nameKey] = true;
 
-            // Scarta entità il cui nome NON appare nel contenuto originale
             if (!empty($originalContent) && !$this->nameAppearsInContent($name, $originalContent)) {
-                Log::info('Entity discarded (not in content)', ['name' => $name, 'type' => $item['type']]);
+                Log::info('Entity discarded (not in content)', ['name' => $name]);
                 continue;
             }
 
@@ -157,17 +150,12 @@ PROMPT;
         return $entities;
     }
 
-    /**
-     * Verifica se il nome appare nel contenuto (anche solo una parte significativa).
-     */
     protected function nameAppearsInContent(string $name, string $content): bool
     {
-        // Match diretto
         if (mb_stripos($content, $name) !== false) {
             return true;
         }
 
-        // Prova varianti (es. "Parolin" per "Pietro Parolin")
         if (strpos($name, ' ') !== false) {
             $parts = explode(' ', $name);
             foreach ($parts as $part) {
