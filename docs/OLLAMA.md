@@ -652,3 +652,268 @@ ollama --version
 ---
 
 *Ultima modifica: 14 ottobre 2026*
+
+
+---
+
+## ⚙️ Configurazione consigliata (15 ottobre 2026)
+
+### Modelli installati
+
+| Modello | Dimensione | Uso | RAM |
+|---------|-----------|-----|-----|
+| llama3.1:8b | 4.9 GB | Fact-check (offline) | 5.6 GB |
+| qwen2.5:3b | 1.9 GB | RAG, Wiki, Entity, Summary | 2.2 GB |
+| nomic-embed-text | 275 MB | Embedding RAG | 400 MB |
+| qwen2:0.5b | 400 MB | Fallback veloce | 600 MB |
+
+### Regola d'oro: quale modello usare
+
+**Usare sempre `qwen2.5:3b` per:**
+- RAG Chat ("Chiedi a Themedge")
+- Generazione Wiki (`GenerateWikiPageFromEntity`)
+- Estrazione Entità (`DetectArticleEntities`)
+- Article Summary (`GenerateArticleSummary`)
+- SEO Suggestions (`GenerateSeoSuggestions`)
+- Wikipedia RAG
+
+**Usare `llama3.1:8b` solo per:**
+- Fact-check (`DetectArticleClaims`) — task offline, non bloccante
+- E solo se la RAM è libera (>6 GB)
+
+**MAI usare `llama3.1:8b` per:**
+- RAG (timeout 600s)
+- Entity extraction (timeout Ollama)
+- Wiki generation (blocca la coda)
+
+### Config `.env`
+
+    OLLAMA_URL=http://localhost:11434
+    OLLAMA_MODEL=qwen2.5:3b
+    OLLAMA_MODEL_EXTRACTION=qwen2.5:3b
+    OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+    OLLAMA_TIMEOUT=600
+    OLLAMA_EMBEDDING_TIMEOUT=60
+    FACTCHECK_AI_ENABLED=true
+
+### Kill switch
+
+Disattivare fact-check AI:
+
+    FACTCHECK_AI_ENABLED=false
+    php artisan config:clear
+
+---
+
+## 🛡️ Anti-loop: token repeat limit reached
+
+### Sintomo
+
+- Job falliscono con: `Ollama API error: prediction aborted, token repeat limit reached`
+- Output vuoto o troncato
+- Wiki generate con contenuto 0 char
+
+### Causa
+
+Con prompt lunghi (Wikipedia RAG + chunk + articoli), `qwen2.5:3b` entra in loop di ripetizione:
+- temperature troppo bassa (0.3)
+- nessun `repeat_penalty`
+- `num_ctx` default (4096) troppo piccolo
+
+### Fix obbligatorio in `OllamaClient::generate()`
+
+    'options' => array_merge([
+        'temperature' => 0.6,        // da 0.3
+        'top_p' => 0.9,
+        'top_k' => 40,
+        'repeat_penalty' => 1.15,
+        'repeat_last_n' => 128,
+        'num_predict' => 2500,       // da 2048
+        'num_ctx' => 8192,           // da 4096 default
+    ], $options),
+
+### Verifica
+
+Dopo il fix, generare una wiki:
+
+    cat > /tmp/test_ollama.php << 'PHPEOF'
+    <?php
+    require '/www/wwwroot/themedge.com/api/vendor/autoload.php';
+    $app = require_once '/www/wwwroot/themedge.com/api/bootstrap/app.php';
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+    use App\Models\Entity;
+    use App\Services\Wiki\WikiGenerator;
+
+    $e = Entity::find(23);  // Napoli
+    $g = app(WikiGenerator::class);
+    $r = $g->generateFromEntity($e, force: true);
+    echo "OK: " . strlen($r->content ?? '') . " char\n";
+    PHPEOF
+    php /tmp/test_ollama.php
+
+Atteso: content > 800 char, nessun errore.
+
+---
+
+## 📏 Limite chunk embedding
+
+### Sintomo
+
+- Log: `Ollama embedding error: input length exceeds the context length`
+- Job `FetchWikipediaArticle` falliscono
+- Coda in stallo
+
+### Causa
+
+`nomic-embed-text` ha context 8192 token (~8000 char IT). Se un chunk supera, Ollama rifiuta.
+
+### Fix
+
+**In `OllamaEmbeddingService::embed()`:**
+
+    $text = mb_substr($text, 0, 6000);  // da 8000
+
+**In `WikipediaFetcherService::chunkAndEmbed()`:**
+
+Spezzare i paragrafi > `maxChars`:
+
+    if (mb_strlen($p) > $maxChars) {
+        if (!empty(trim($current))) {
+            $chunks[] = trim($current);
+            $current = '';
+        }
+        $subChunks = mb_str_split($p, $maxChars - 200);
+        foreach ($subChunks as $sub) {
+            $sub = trim($sub);
+            if (mb_strlen($sub) >= 100) {
+                $chunks[] = $sub;
+            }
+        }
+        continue;
+    }
+
+### Verifica
+
+    mysql -D themedge_db -e "
+    SELECT MAX(CHAR_LENGTH(content)) AS max_chunk
+    FROM wikipedia_chunks
+    "
+
+Atteso: `max_chunk < 3000`.
+
+---
+
+## 📊 Performance
+
+### Tempi tipici (CPU-only)
+
+| Task | Modello | Tempo |
+|------|---------|-------|
+| TL;DR articolo | qwen2.5:3b | 30-60s |
+| Wiki generation | qwen2.5:3b | 60-180s |
+| Entity extraction | qwen2.5:3b | 90-150s |
+| Fact-check | llama3.1:8b | 150-300s |
+| Wikipedia fetch | (API) | 30-90s |
+| Fetch image | (API) | 10-30s |
+| Embedding chunk | nomic-embed-text | 0.5-1s |
+
+### RAM usage
+
+| Modello | RAM |
+|---------|-----|
+| qwen2.5:3b | 2.2 GB |
+| llama3.1:8b | 5.6 GB |
+| nomic-embed-text | 400 MB |
+
+**Cleanup automatico:** cron ogni 30 min ferma modelli inattivi:
+
+    */30 * * * * ollama ps | grep -E "Minutes|Hours" | awk '{print $1}' | xargs -I{} ollama stop {} 2>/dev/null
+
+### Comandi utili
+
+    ollama list              # lista modelli
+    ollama ps                # modelli in RAM
+    ollama stop llama3.1:8b  # ferma modello
+
+---
+
+## 🔧 Configurazione server
+
+### Ollama ascolta solo su localhost
+
+Verifica:
+
+    netstat -tlnp | grep 11434
+    # Atteso: 127.0.0.1:11434
+
+### Modelli salvati in
+
+    /usr/share/ollama/.ollama/models/
+
+### Config systemd
+
+    systemctl status ollama --no-pager
+    systemctl restart ollama
+
+### Log
+
+    journalctl -u ollama -f
+    journalctl -u ollama --since "1 hour ago"
+
+---
+
+## 🚨 Emergency
+
+### Ollama non risponde
+
+    systemctl status ollama
+    systemctl restart ollama
+    sleep 5
+    curl -s http://localhost:11434/api/tags | python3 -m json.tool
+
+### RAM saturata
+
+    ollama ps
+    ollama stop llama3.1:8b
+    ollama stop qwen2.5:3b
+    free -h
+
+### Timeout in produzione
+
+Se un job va in timeout:
+1. Verificare `OllamaClient::$timeout` (default 600s = 10 min)
+2. Verificare `DetectArticleEntities::$timeout` (1200s = 20 min)
+3. Verificare `GenerateWikiPageFromEntity::$timeout` (300s)
+4. Se il prompt è troppo lungo, ridurre il context (chunk Wikipedia da 5 a 3)
+
+### Modello bloccato
+
+    pkill -9 -f llama-server
+    sleep 2
+    ps aux | grep llama-server | grep -v grep
+    free -h
+
+---
+
+## 📈 Statistiche RAG (15 ottobre 2026)
+
+| Cosa | Valore |
+|------|--------|
+| Entity con Wikipedia | 21+ |
+| Wikipedia chunk | 573+ |
+| Embedding dim | 768 |
+| Modello embedding | nomic-embed-text |
+| Modello RAG | qwen2.5:3b |
+| Content medio wiki | ~900 char |
+| Tempo wiki medio | 90-180s |
+
+---
+
+## 🔗 Vedi anche
+
+- `HANDOFF.md` — Regola #15 (num_ctx), #16 (chunking), #17 (no llama3.1:8b)
+- `docs/RAG.md` — RAG articoli + Wikipedia
+- `docs/WIKI.md` — Wikipedia RAG
+- `docs/TROUBLESHOOTING.md` — Problemi Ollama
+- `CHANGELOG.md` — Sezione [2026-10-15i]
