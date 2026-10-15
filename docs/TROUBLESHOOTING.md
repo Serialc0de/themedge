@@ -830,3 +830,308 @@ stato restava invariato dopo il fallimento → loop infinito.
 - `logrotate` è già configurato per `laravel.log`
 - Attenzione agli stati ambigui nel DB: un default non dovrebbe mai significare
   due cose diverse
+
+---
+
+## 🔁 Loop GenerateArticleAudio (job TTS infiniti)
+
+Vedi sezione già documentata.
+
+---
+
+## 🧠 Ollama — token repeat limit reached
+
+### Sintomo
+
+- Job wiki/entità falliscono con: `Ollama API error: prediction aborted, token repeat limit reached`
+- Output vuoto o troncato (`new_len: 63, old_len: 1378`)
+- Wiki generate con contenuto di 0 char
+- Log: `Ollama vuoto per wiki {"entity_id": X}`
+
+### Causa
+
+Con prompt lunghi (Wikipedia RAG + articoli), il modello `qwen2.5:3b` entra in loop di ripetizione:
+- temperature troppo bassa (0.3)
+- nessun `repeat_penalty`
+- `num_ctx` default (4096) troppo piccolo per prompt Wikipedia
+
+### Fix
+
+In `OllamaClient::generate()`:
+
+    'options' => array_merge([
+        'temperature' => 0.6,        // da 0.3
+        'top_p' => 0.9,
+        'top_k' => 40,
+        'repeat_penalty' => 1.15,
+        'repeat_last_n' => 128,
+        'num_predict' => 2500,       // da 2048
+        'num_ctx' => 8192,           // da 4096 default
+    ], $options),
+
+### Verifica
+
+Dopo il fix, una wiki generation non deve più produrre errori. Test:
+
+    cat > /tmp/test_ollama.php << 'PHPEOF'
+    <?php
+    require '/www/wwwroot/themedge.com/api/vendor/autoload.php';
+    $app = require_once '/www/wwwroot/themedge.com/api/bootstrap/app.php';
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+    use App\Models\Entity;
+    use App\Services\Wiki\WikiGenerator;
+
+    $e = Entity::find(23);  // Napoli
+    $g = app(WikiGenerator::class);
+    $r = $g->generateFromEntity($e, force: true);
+    echo "OK: " . strlen($r->content ?? '') . " char\n";
+    PHPEOF
+    php /tmp/test_ollama.php
+
+---
+
+## 📏 Chunk Wikipedia troppo lungo (embedding error)
+
+### Sintomo
+
+- Log: `Ollama embedding error: input length exceeds the context length`
+- Job `FetchWikipediaArticle` falliscono
+- Chunk con lunghezza > 8000 char in tabella
+
+### Causa
+
+Il chunking di `WikipediaFetcherService::chunkAndEmbed()` non spezza i **singoli paragrafi** > 2000 char. Un paragrafo di 12000 char diventa un chunk da 12000 char.
+
+### Fix
+
+In `WikipediaFetcherService::chunkAndEmbed()`, aggiungi il controllo prima del `foreach`:
+
+    if (mb_strlen($p) > $maxChars) {
+        if (!empty(trim($current))) {
+            $chunks[] = trim($current);
+            $current = '';
+        }
+        $subChunks = mb_str_split($p, $maxChars - 200);
+        foreach ($subChunks as $sub) {
+            $sub = trim($sub);
+            if (mb_strlen($sub) >= 100) {
+                $chunks[] = $sub;
+            }
+        }
+        continue;
+    }
+
+E in `OllamaEmbeddingService::embed()`:
+
+    $text = mb_substr($text, 0, 6000);  // da 8000
+
+### Verifica
+
+    mysql -D themedge_db -e "
+    SELECT MAX(CHAR_LENGTH(content)) AS max_chunk
+    FROM wikipedia_chunks
+    "
+
+Atteso: `max_chunk < 3000`.
+
+### Recovery
+
+Se ci sono chunk troppo lunghi:
+
+    cat > /tmp/rechunk.php << 'PHPEOF'
+    <?php
+    require '/www/wwwroot/themedge.com/api/vendor/autoload.php';
+    $app = require_once '/www/wwwroot/themedge.com/api/bootstrap/app.php';
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+    use App\Models\Entity;
+    use App\Services\Wiki\WikipediaFetcherService;
+
+    $fetcher = app(WikipediaFetcherService::class);
+    $ref = new ReflectionClass($fetcher);
+    $method = $ref->getMethod('chunkAndEmbed');
+    $method->setAccessible(true);
+
+    foreach (Entity::where('wikipedia_status', 'ready')->get() as $e) {
+        $n = $method->invoke($fetcher, $e);
+        echo "{$e->name}: $n chunk\n";
+    }
+    PHPEOF
+    php /tmp/rechunk.php
+
+---
+
+## ⏱️ Timeout DetectArticleEntities
+
+### Sintomo
+
+- Job `DetectArticleEntities` dopo 10 min: `FAIL`
+- Nessuna entità creata
+- Log: `No entities detected after all models`
+
+### Causa
+
+1. `llama3.1:8b` come primo modello → 5-10 min per risposta
+2. `OllamaClient::$timeout = 600s` → timeout prima di finire
+3. Non arriva mai al fallback `qwen2.5:3b`
+
+### Fix
+
+In `DetectArticleEntities`:
+
+    public int $tries = 1;
+    public int $timeout = 1200;  // da 600
+
+    // Solo qwen2.5:3b (rimosso llama3.1:8b)
+    $models = ['qwen2.5:3b'];
+
+### Verifica
+
+Test sync:
+
+    php /tmp/test_detect.php  # 90-150s per 10 entità
+
+---
+
+## 🔗 Link entità → /entita/ invece di /wiki/
+
+### Sintomo
+
+- Su un articolo, clicchi "Giorgia Meloni" → vai a `/entita/giorgia-meloni` (pagina vuota)
+- La wiki `/wiki/giorgia-meloni` esiste ma non è linkata
+
+### Causa
+
+1. `Entity::getUrlAttribute()` ritorna sempre `/entita/slug`
+2. L'API non espone `wiki_url`
+3. Il frontend usa `entity.url` che è sempre `/entita/`
+
+### Fix
+
+**1. In `Entity`**:
+
+    public function wikiPage(): HasOne
+    {
+        return $this->hasOne(WikiPage::class)
+            ->where('status', 'published')
+            ->latest();
+    }
+
+    public function getUrlAttribute(): string
+    {
+        $wiki = $this->relationLoaded('wikiPage')
+            ? $this->wikiPage
+            : $this->wikiPage()->first();
+
+        return $wiki ? '/wiki/' . $wiki->slug : '/entita/' . $this->slug;
+    }
+
+**2. In `ArticleController::formatArticle()`**:
+
+    'entities' => $article->entities()->published()->ordered()->get()->map(fn ($e) => [
+        'id' => $e->id,
+        'name' => $e->name,
+        'url' => $e->url,
+        'wiki_url' => $e->wiki_url,  // ← nuovo
+        // ...
+    ]),
+
+### Verifica
+
+    curl -s "https://api.themedge.com/api/articles/meloni-svolta-su-russia-italia-politica" | python3 -c "
+    import json, sys
+    d = json.load(sys.stdin)
+    for e in d.get('data', {}).get('entities', []):
+        print(f\"{e.get('name')}: {e.get('url')}\")
+    "
+
+Atteso: `url=/wiki/slug` per tutte le entità con wiki.
+
+---
+
+## 📄 Paginazione /wiki rotta
+
+### Sintomo
+
+- Clicchi "2" su `/wiki` → URL cambia in `?page=2` ma il contenuto resta identico
+- L'API risponde correttamente con `current_page: 2`
+
+### Causa
+
+`WikiHomePage` non leggeva `searchParams.page` → l'API riceveva sempre `page=1`.
+
+### Fix
+
+In `app/wiki/page.tsx`:
+
+    type Props = {
+      searchParams: Promise<{ page?: string; type?: string }>;
+    };
+
+    export default async function WikiHomePage({ searchParams }: Props) {
+      const params = await searchParams;
+      const currentPage = Math.max(1, parseInt(params.page ?? '1', 10) || 1);
+
+      const [pagesData, featured, stats] = await Promise.all([
+        getWikiPages({ per_page: 24, page: currentPage }),
+        getFeaturedWiki(),
+        getWikiStats(),
+      ]);
+      // ...
+    }
+
+E aggiungere pulsanti `← Prec` / `Succ →`.
+
+### Verifica
+
+    curl -s "https://themedge.com/wiki?page=1" | grep -oE 'href="/wiki/[^"?]*"' | grep -vE "grafo|categoria" | head -3
+    curl -s "https://themedge.com/wiki?page=2" | grep -oE 'href="/wiki/[^"?]*"' | grep -vE "grafo|categoria" | head -3
+
+Atteso: prime 3 voci **diverse** tra pagina 1 e 2.
+
+---
+
+## 🔄 Wiki torna a draft dopo rigenerazione
+
+### Sintomo
+
+- Wiki pubblicata → click "Rigenera AI" → wiki sparisce dal sito (404)
+- `status` cambia da `published` a `draft`
+
+### Causa
+
+`WikiGenerator::generateFromEntity()` includeva `'status' => 'draft'` nel blocco `$data` usato sia per `create` che per `update`. Su `update`, sovrascriveva `status`.
+
+### Fix
+
+In `WikiGenerator::generateFromEntity()`:
+
+    // RIMUOVI 'status' => 'draft' dal blocco $data
+
+    if ($existing) {
+        $existing->update($data);
+        $page = $existing;
+    } else {
+        $data['status'] = 'draft';  // SOLO per nuove pagine
+        $page = WikiPage::create($data);
+    }
+
+### Verifica
+
+Rigenera una wiki pubblicata:
+
+    mysql -D themedge_db -e "
+    SELECT id, title, status FROM wiki_pages WHERE id = 2
+    "
+    # Deve restare 'published'
+
+---
+
+## 🔗 Vedi anche
+
+- `HANDOFF.md` — Regole #15-19
+- `docs/WIKI.md` — Wikipedia RAG + Image + Entity
+- `docs/RAG.md` — Wikipedia RAG
+- `docs/OLLAMA.md` — Configurazione Ollama
+- `CHANGELOG.md` — Sezione [2026-10-15i]
