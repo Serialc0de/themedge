@@ -16,6 +16,80 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 ---
 
 ---
+## [2026-10-15i] — Sessione Wikipedia RAG + Entity Extraction + Wiki Image
+
+### 🎯 Feature implementate (6)
+
+1. **Wikipedia RAG** — Wiki generate con Wikipedia come fonte primaria
+   - Job `FetchWikipediaArticle`, service `WikipediaFetcherService`, `WikipediaRagService`
+   - Migration `add_wikipedia_to_entities` + `create_wikipedia_chunks_table`
+   - Comando `wiki:fetch-wikipedia`, integrato in `WikiGenerator`
+   - Risultato: 21+ entity con Wikipedia, 573+ chunk, 21 wiki generate con dati reali
+
+2. **Entity Extraction auto-create**
+   - `DetectArticleEntities` crea entità mancanti (`is_published=false`) e collega all'articolo
+   - Action Filament "🔍 Rileva entità (AI)"
+   - Risultato: 10 entità create in 98s da articolo ANSA
+
+3. **Wiki Image Fetching**
+   - Job `FetchWikiImage`, migration `add_image_metadata_to_wiki_pages`
+   - Comando `wiki:fetch-images`
+   - Componente `WikiImageAttribution` (overlay/caption/inline)
+   - Risultato: 19 wiki con immagine + attribuzione da Wikimedia Commons
+
+4. **Admin UI Wiki/Entità**
+   - `EntityResource`: colonna Wikipedia + filtro + action + bulk
+   - `WikiPageResource`: colonna Wikipedia + colonna Immagine + filtro + 3 action + 2 bulk
+
+5. **Entity ↔ Wiki collegamento**
+   - `Entity::wikiPage()` (HasOne, solo published)
+   - `Entity::getUrlAttribute()` preferisce `/wiki/slug` se esiste
+   - `ArticleController` espone `wiki_url` nel JSON
+
+6. **Anti-loop Ollama**
+   - temperature 0.3→0.6, top_k 40, repeat_penalty 1.15, repeat_last_n 128
+   - num_ctx 8192, num_predict 2500
+
+### 🐛 Bug fixati (15)
+
+1. Loop `GenerateArticleAudio` (22.731 job in coda)
+2. Wiki JSON troncato (parseResponse robusto)
+3. Chunking Wikipedia (12.029 → 2.296 char max)
+4. Embedding limit (8000 → 6000 char)
+5. URL immagini relative in `/api/wiki`
+6. Ownership `.next` (root → www)
+7. Cron `tinker --execute` → comando `ask:prune`
+8. `EntityExtractor` doppio `withModel`
+9. `DetectArticleEntities` timeout (600 → 1200s)
+10. Auto-creazione entità mancanti
+11. Auto-attach entità all'articolo
+12. Wiki infobox chiavi leggibili (`humanizeKey`)
+13. Paginazione `/wiki` (searchParams)
+14. Link entità → wiki preferito
+15. `WikiGenerator` non sovrascrive `featured_image`/`status`
+
+### 📊 Numeri finali
+
+| Cosa | Valore |
+|------|--------|
+| Entity totali | 28 |
+| Entity con Wikipedia ready | 21+ |
+| Wiki pages | 30 |
+| Wikipedia chunk | 573+ |
+| Wiki con immagine | 19+ |
+| Articoli collegati a entità | 28 |
+| Commit pushati oggi | 27+ |
+
+### 📚 Documentazione aggiornata
+
+- `HANDOFF.md` — Regole #15-19 (Ollama num_ctx, chunking, no llama3.1:8b, entity auto-create, entity→wiki link)
+- `docs/WIKI.md` — Wikipedia RAG, Image, Entity
+- `docs/RAG.md` — Wikipedia RAG (diverso dal RAG articoli)
+- `docs/TROUBLESHOOTING.md` — 5 nuovi problemi
+- `docs/ADMIN_PANEL.md` — 5 nuove action
+- `CHANGELOG.md` — 9 nuove sezioni
+
+---
 
 ## [2026-10-14g] — Hotfix: loop infinito GenerateArticleAudio
 
