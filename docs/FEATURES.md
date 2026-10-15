@@ -755,3 +755,162 @@ Cliccando "2" su `/wiki`, l'URL cambiava ma il contenuto restava identico.
 ---
 
 *Ultima modifica: 14 ottobre 2026*
+
+---
+
+## 🆕 Hub-Centric CMS (16 ottobre 2026)
+
+### Cosa fa
+
+Ogni **categoria** e' un **hub** accessibile via URL `/notizie/{slug}`.
+Le categorie sono gestite dall'admin e **appaiono automaticamente** ovunque.
+
+### Come funziona
+
+1. Admin crea categoria "Economia" (slug: economia, emoji: 📈)
+2. API /api/categories la restituisce
+3. Frontend (catch-all /notizie/[slug]):
+   - /notizie/economia funziona automaticamente
+   - Menu: appare "📈 Economia"
+   - Sitemap: include /notizie/economia
+   - Redirect: /categoria/economia -> 308 -> /notizie/economia
+
+### Zero hardcoded
+
+- Niente array CATEGORIES in layout.tsx (NavMenu fetcha da API)
+- Niente rewrite hardcoded in next.config.ts (catch-all [slug])
+- Niente sitemap hardcoded (fetcha da API)
+
+### Zero deploy
+
+Crei una categoria in admin -> tutto funziona. Nessun rebuild richiesto.
+
+### Componenti
+
+- app/notizie/[slug]/page.tsx - pagina catch-all (hub dinamico)
+- components/NavMenu.tsx - menu dinamico (fetch API al mount)
+- app/sitemap.ts - sitemap dinamica (revalidate 3600s)
+- next.config.ts - redirect /categoria/:slug -> /notizie/:slug (308)
+
+### Admin
+
+- /admin/category-hub - dashboard visuale con stats per categoria
+  - Articoli pubblicati
+  - Bozze
+  - Live blog attivi/conclusi
+  - Ultimo articolo
+  - Views totali
+  - Azioni rapide: Modifica, Vedi hub, Crea articolo, Crea live
+
+### URL finali
+
+    /notizie/politica         Hub politico
+    /notizie/cronaca          Hub cronaca
+    /notizie/sport            Hub sport
+    /notizie/wordpress-plugins Hub wordpress-plugins
+    /categoria/politica       308 -> /notizie/politica
+
+### Configurazione
+
+- PUBLIC_SITE_URL in .env (per URL frontend)
+- APP_URL in .env (per URL admin)
+- Nessun hardcoded
+
+### Note tecniche
+
+- Il menu e' Client Component (fetch real-time al mount)
+- Il catch-all e' Server Component con revalidate 300s
+- La sitemap e' Server Component con revalidate 3600s
+- Next.js: route statiche > route dinamiche > redirect > 404
+
+- Niente array CATEGORIES in layout.tsx (NavMenu fetcha da API)
+- Niente rewrite hardcoded in next.config.ts (catch-all [slug])
+- Niente sitemap hardcoded (fetcha da API)
+
+### Zero deploy
+
+Crei una categoria in admin -> tutto funziona. Nessun rebuild richiesto.
+
+### Componenti
+
+- app/notizie/[slug]/page.tsx - pagina catch-all (hub dinamico)
+- components/NavMenu.tsx - menu dinamico (fetch API al mount)
+- app/sitemap.ts - sitemap dinamica (revalidate 3600s)
+- next.config.ts - redirect /categoria/:slug -> /notizie/:slug (308)
+
+### Admin
+
+- /admin/category-hub - dashboard visuale con stats per categoria
+  - Articoli pubblicati
+  - Bozze
+  - Live blog attivi/conclusi
+  - Ultimo articolo
+  - Views totali
+  - Azioni rapide: Modifica, Vedi hub, Crea articolo, Crea live
+
+### URL finali
+
+    /notizie/politica         Hub politico
+    /notizie/cronaca          Hub cronaca
+    /notizie/sport            Hub sport
+    /notizie/wordpress-plugins Hub wordpress-plugins
+    /categoria/politica       308 -> /notizie/politica
+
+### Configurazione
+
+- PUBLIC_SITE_URL in .env (per URL frontend)
+- APP_URL in .env (per URL admin)
+- Nessun hardcoded
+
+### Note tecniche
+
+- Il menu e' Client Component (fetch real-time al mount)
+- Il catch-all e' Server Component con revalidate 300s
+- La sitemap e' Server Component con revalidate 3600s
+- Next.js: route statiche > route dinamiche > redirect > 404
+
+- Niente array CATEGORIES in layout.tsx (NavMenu fetcha da API)
+- Niente rewrite hardcoded in next.config.ts (catch-all [slug])
+- Niente sitemap hardcoded (fetcha da API)
+
+### Zero deploy
+
+Crei una categoria in admin -> tutto funziona. Nessun rebuild richiesto.
+
+### Componenti
+
+- app/notizie/[slug]/page.tsx - pagina catch-all (hub dinamico)
+- components/NavMenu.tsx - menu dinamico (fetch API al mount)
+- app/sitemap.ts - sitemap dinamica (revalidate 3600s)
+- next.config.ts - redirect /categoria/:slug -> /notizie/:slug (308)
+
+### Admin
+
+- /admin/category-hub - dashboard visuale con stats per categoria
+  - Articoli pubblicati
+  - Bozze
+  - Live blog attivi/conclusi
+  - Ultimo articolo
+  - Views totali
+  - Azioni rapide: Modifica, Vedi hub, Crea articolo, Crea live
+
+### URL finali
+
+    /notizie/politica         Hub politico
+    /notizie/cronaca          Hub cronaca
+    /notizie/sport            Hub sport
+    /notizie/wordpress-plugins Hub wordpress-plugins
+    /categoria/politica       308 -> /notizie/politica
+
+### Configurazione
+
+- PUBLIC_SITE_URL in .env (per URL frontend)
+- APP_URL in .env (per URL admin)
+- Nessun hardcoded
+
+### Note tecniche
+
+- Il menu e' Client Component (fetch real-time al mount)
+- Il catch-all e' Server Component con revalidate 300s
+- La sitemap e' Server Component con revalidate 3600s
+- Next.js: route statiche > route dinamiche > redirect > 404

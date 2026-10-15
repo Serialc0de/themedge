@@ -234,6 +234,21 @@ Quando si sincronizza da /www/wwwroot/themedge.com/ a /www/wwwroot/themedge-repo
 **Motivo:** gli script di backup (.bak.<timestamp>, .bak10.<timestamp>, .bak-pre-fix-<timestamp>) NON devono finire nel repo. Il pattern *.bak.* (con il punto) NON matcha .bak10. o .bak-pre-fix-.
 Usare sempre --exclude="*.bak*" (senza punto centrale).
 
+### 21. Routing hub-centric — /notizie/{slug}
+
+Le categorie hanno URL **/notizie/{slug}** (non /categoria/{slug}).
+
+**Architettura:**
+- **Catch-all:** `app/notizie/[slug]/page.tsx` → fetch API → hub dinamico
+- **Redirect:** `/categoria/{slug}` → 308 → `/notizie/{slug}`
+- **Menu:** `NavMenu.tsx` (Client Component) → fetch `/api/categories`
+- **Sitemap:** `sitemap.ts` → fetch API → genera URL dinamici
+
+**Zero hardcoded:** nuove categorie funzionano automaticamente (no deploy).
+
+**Attenzione:** dopo modifiche al routing, purgare cache Cloudflare.
+
+
 ## 📁 STRUTTURA PROGETTO
 
 /www/wwwroot/themedge.com/

@@ -1407,3 +1407,72 @@ Vedi sezione `[2026-10-15h]` per dettagli.
 - Prompt esatto validato con test raw
 - Filtro anti-allucinazione rimosso (troppo aggressivo)
 
+
+---
+
+## [2026-10-16] — Hub-Centric CMS + Knowledge Engine completo
+
+### 🎯 Feature — Knowledge Engine (sessione 15/10)
+
+**Wikipedia RAG:**
+- 21 entity con Wikipedia (573+ chunk con embedding)
+- 21 wiki generate da dati reali
+
+**Entity Extraction:**
+- Auto-create entita' mancanti (is_published=false)
+- Auto-attach via syncWithoutDetaching
+- Modello: llama3.1:8b (piu' preciso di qwen2.5:3b)
+
+**Knowledge Graph:**
+- 63+ connessioni wiki<->wiki (archi da articoli in comune)
+- Fix: congelamento nodi (rimozione forze D3 + pinning)
+
+**Timeline:**
+- Endpoint /api/wiki/{slug}/timeline
+- Componente WikiTimeline
+
+**Q&A per-wiki:**
+- Endpoint /api/wiki/{slug}/ask
+- Componente WikiAskBox (streaming SSE)
+- Context: chunk Wikipedia + articoli + infobox
+
+**TL;DR articoli:**
+- Componente ArticleTLDR
+- Visibile dopo l'excerpt
+
+### 🎯 Feature — Hub-Centric CMS (sessione 16/10)
+
+**Routing dinamico:**
+- Pagina catch-all /notizie/[slug] (hub dinamici)
+- Menu dinamico NavMenu (fetch API)
+- Sitemap dinamica (/notizie/{slug})
+- Redirect 308 /categoria/:slug -> /notizie/:slug
+
+**Admin:**
+- Widget statistiche Knowledge Engine
+- Bulk action "Rigenera stale" (WikiPageResource)
+- Bulk action "Rileva entita' (AI)" con checkbox forza
+- Admin Hub /admin/category-hub (dashboard visuale)
+- Campo emoji su categories
+
+### 🐛 Bug fixati (15)
+
+Lista completa nel handoff di sessione.
+
+### 🔧 Configurazione
+
+- OLLAMA_MODEL_EXTRACTION=llama3.1:8b (regola #17 aggiornata)
+- Redirect 308 (non 301) per preservare metodo HTTP
+
+### 🏆 Statistiche
+
+- Commit: 29+
+- Wiki: 34
+- Entity: 34
+- Categorie: 4
+- Knowledge Graph: 63+ connessioni
+
+### 📌 Note
+
+- Zero deploy per nuove categorie: crei in admin -> appare ovunque
+- Cron notturno attivo (wiki:regenerate-stale alle 3:00)
