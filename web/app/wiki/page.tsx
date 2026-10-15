@@ -10,14 +10,29 @@ export const metadata = {
 
 export const revalidate = 120;
 
-export default async function WikiHomePage() {
+type Props = {
+  searchParams: Promise<{ page?: string; type?: string }>;
+};
+
+export default async function WikiHomePage({ searchParams }: Props) {
+  const params = await searchParams;
+  const currentPage = Math.max(1, parseInt(params.page ?? '1', 10) || 1);
+  const typeFilter = params.type as WikiType | undefined;
+
   const [pagesData, featured, stats] = await Promise.all([
-    getWikiPages({ per_page: 24 }),
+    getWikiPages({ per_page: 24, page: currentPage, type: typeFilter }),
     getFeaturedWiki(),
     getWikiStats(),
   ]);
 
   const pages = pagesData?.data ?? [];
+
+  const buildPageUrl = (page: number) => {
+    const qs = new URLSearchParams();
+    qs.set('page', String(page));
+    if (typeFilter) qs.set('type', typeFilter);
+    return `/wiki?${qs.toString()}`;
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -51,50 +66,50 @@ export default async function WikiHomePage() {
         </div>
 
         {stats && (
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatBox value={stats.total} label="Voci" />
             <StatBox value={stats.total_articles} label="Articoli collegati" />
-            <StatBox value={Object.keys(stats.by_type).length} label="Categorie" />
-            <StatBox value={Object.values(stats.by_type).reduce((a, b) => a + b, 0)} label="Connessioni" />
+            <StatBox value={stats.by_type ? Object.keys(stats.by_type).length : 0} label="Categorie" />
+            <StatBox value={stats.total} label="Connessioni" />
           </div>
         )}
       </section>
 
-      {/* FEATURED */}
-      {featured.length > 0 && (
-        <section className="mb-12">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 font-serif text-2xl font-bold">
-              <span aria-hidden="true">✨</span>
-              <span>In evidenza</span>
-            </h2>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {featured.map((page) => (
-              <WikiCard key={page.id} page={page} variant="featured" />
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* CATEGORIE */}
       <section className="mb-12">
         <h2 className="mb-6 font-serif text-2xl font-bold">Esplora per categoria</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {Object.entries(WIKI_TYPE_LABELS).map(([type, label]) => (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          {(Object.entries(WIKI_TYPE_LABELS) as [WikiType, string][]).map(([type, label]) => (
             <Link
               key={type}
               href={`/wiki/categoria/${type}`}
-              className="group rounded-xl border border-gray-200 bg-white p-4 text-center transition hover:-translate-y-0.5 hover:border-red-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-red-800"
+              className="group rounded-xl border border-gray-200 bg-white p-4 text-center transition hover:border-red-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-red-800"
             >
-              <p className="mb-2 text-3xl">{label.split(' ')[0]}</p>
-              <p className="text-xs font-semibold text-gray-700 group-hover:text-red-700 dark:text-gray-300 dark:group-hover:text-red-400">
+              <p className="mb-2 text-3xl" aria-hidden="true">
+                {label.split(' ')[0]}
+              </p>
+              <p className="text-xs font-bold uppercase tracking-wider text-gray-700 group-hover:text-red-700 dark:text-gray-300 dark:group-hover:text-red-400">
                 {label.split(' ').slice(1).join(' ')}
               </p>
             </Link>
           ))}
         </div>
       </section>
+
+      {/* FEATURED */}
+      {featured && featured.length > 0 && (
+        <section className="mb-12">
+          <h2 className="mb-6 flex items-center gap-2 font-serif text-2xl font-bold">
+            <span aria-hidden="true">⭐</span>
+            <span>In evidenza</span>
+          </h2>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {featured.map((page) => (
+              <WikiCard key={page.id} page={page} variant="featured" />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* TUTTE LE VOCI */}
       <section>
@@ -123,21 +138,38 @@ export default async function WikiHomePage() {
 
         {/* Pagination */}
         {pagesData && pagesData.last_page > 1 && (
-          <div className="mt-8 flex justify-center gap-2">
+          <nav className="mt-8 flex justify-center gap-2" aria-label="Paginazione">
+            {pagesData.current_page > 1 && (
+              <Link
+                href={buildPageUrl(pagesData.current_page - 1)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-red-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+              >
+                ← Prec
+              </Link>
+            )}
             {Array.from({ length: pagesData.last_page }, (_, i) => i + 1).map((p) => (
               <Link
                 key={p}
-                href={`/wiki?page=${p}`}
+                href={buildPageUrl(p)}
                 className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
                   p === pagesData.current_page
                     ? 'bg-red-700 text-white'
                     : 'border border-gray-300 bg-white text-gray-700 hover:border-red-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
                 }`}
+                aria-current={p === pagesData.current_page ? 'page' : undefined}
               >
                 {p}
               </Link>
             ))}
-          </div>
+            {pagesData.current_page < pagesData.last_page && (
+              <Link
+                href={buildPageUrl(pagesData.current_page + 1)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-red-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+              >
+                Succ →
+              </Link>
+            )}
+          </nav>
         )}
       </section>
     </div>
