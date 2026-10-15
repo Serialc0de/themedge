@@ -15,6 +15,180 @@ Tutte le modifiche importanti del progetto sono documentate qui.
 
 ---
 
+## [2026-10-15h] — Wikipedia RAG + Entity Extraction auto-create + Wiki Image
+
+### 🎯 Feature — Wikipedia RAG
+
+**Scopo:** generare wiki di alta qualità usando Wikipedia come fonte primaria.
+
+**Backend:**
+- Migration `add_wikipedia_to_entities`: 5 campi (`wikipedia_url`, `wikipedia_text`, `wikipedia_lang`, `wikipedia_fetched_at`, `wikipedia_status`)
+- Migration `create_wikipedia_chunks_table`: chunk con embedding 768 dim
+- Model `WikipediaChunk` + relazione `Entity::wikipediaChunks()`
+- Service `WikipediaFetcherService`: cerca su Wikipedia IT/EN → scarica testo plain → chunking (2000 char, overlap 300) → embedding `nomic-embed-text`
+- Service `WikipediaRagService`: retrieval cosine similarity, `buildContext()`, `stats()`
+- Job `FetchWikipediaArticle` (timeout 600s)
+- Comando `wiki:fetch-wikipedia --limit=50 --sync --force --id --status`
+- `WikiGenerator::buildWikipediaSection()`: prompt arricchito con chunk Wikipedia (limit 3)
+
+**Frontend:** nessuno (la feature è backend + admin).
+
+**Risultati:**
+- 21 entity con Wikipedia scaricata
+- 573 chunk totali
+- 21 wiki generate con dati Wikipedia reali
+- Content medio: ~900 char (vs ~300 senza Wikipedia)
+
+### 🎯 Feature — Entity Extraction auto-create
+
+**Scopo:** quando pubblichi un articolo, rilevare le entità citate e collegarle.
+
+**Backend:**
+- `DetectArticleEntities`: crea entità mancanti (`is_published=false`, bozze) e collega tutte all'articolo
+- `EntityExtractor`: prompt semplificato, dedup case-insensitive, regex multiline
+- Modello: `qwen2.5:3b` (rimosso `llama3.1:8b`, timeout Ollama 600s)
+- Timeout job: 1200s (20 min)
+- Action Filament `🔍 Rileva entità (AI)` sull'articolo
+
+**Risultati:**
+- 10 entità create in 98s da articolo ANSA
+- Entità visibili in Admin → Entità come bozze (pubblicabili)
+
+### 🎯 Feature — Wiki Image Fetching
+
+**Scopo:** popolare le wiki con immagini da Wikipedia/Wikimedia Commons.
+
+**Backend:**
+- Migration `add_image_metadata_to_wiki_pages`: 6 campi (`image_source_url`, `image_license`, `image_author`, `image_attribution`, `image_fetched_at`, `image_status`)
+- Job `FetchWikiImage`: cerca su Wikipedia/Commons, scarica thumbnail 800px, salva in `storage/public/wiki/`
+- Comando `wiki:fetch-images --limit=50 --sync --force --id --status`
+- `WikiController`: espone i 5 campi `image_*` in `show()` e `index()`
+
+**Frontend:**
+- Componente `WikiImageAttribution` (varianti: overlay/caption/inline)
+- `WikiCard` con overlay
+- Pagina `[slug]` con caption
+
+**Risultati:**
+- 19/30 wiki con immagine (3.1 MB storage)
+- Attribuzione automatica (autore, licenza, link a Commons)
+
+### 🎯 Feature — Admin UI Wiki/Entità
+
+**EntityResource:**
+- Colonna `Wikipedia` con badge stato (ready/fetching/failed/no_page/skipped/no_content)
+- Filtro `wikipedia_status`
+- Action `📚 Fetch Wikipedia`
+- Bulk action `📚 Fetch Wikipedia (batch)`
+
+**WikiPageResource:**
+- Colonna `Wikipedia` (stato entity collegata)
+- Colonna `Immagine` (image_status)
+- Filtro `image_status`
+- Action `📚 Fetch Wikipedia` + `🖼️ Fetch image` + `🔄 Fetch + Rigenera` + `Rigenera AI` + `Pubblica` + `Vedi sito`
+- Bulk action `📚 Fetch Wikipedia (batch)` + `🖼️ Fetch images (batch)` + `Pubblica tutte`
+
+### 🔗 Feature — Entity ↔ Wiki collegamento
+
+**Backend:**
+- `Entity::wikiPage()` (HasOne, solo published)
+- `Entity::getUrlAttribute()`: preferisce `/wiki/slug` se esiste, altrimenti `/entita/slug`
+- `Entity::getWikiUrlAttribute()`: accessor per URL wiki o `null`
+- `ArticleController::formatArticle()`: espone `wiki_url` nel JSON entità
+
+**Effetto:** link "Giorgia Meloni" su articoli → `/wiki/giorgia-meloni` (con contenuto) invece di `/entita/giorgia-meloni` (vuota).
+
+### 🐛 Bug fix — Ollama anti-loop
+
+**Root cause:** `qwen2.5:3b` andava in `token repeat limit reached` con prompt Wikipedia RAG grandi.
+
+**Fix `OllamaClient`:**
+- `temperature` da 0.3 a 0.6 (più creatività, meno loop)
+- `top_k: 40`
+- `repeat_penalty: 1.15`
+- `repeat_last_n: 128`
+- `num_ctx: 8192` (era 4096 default)
+- `num_predict: 2500` (era 2048)
+
+**Fix `WikipediaFetcherService::chunkAndEmbed`:**
+- Split dei paragrafi > `maxChars` (max chunk 12.029→2.296 char)
+
+**Fix `OllamaEmbeddingService::embed`:**
+- Limite da 8000 a 6000 char
+
+### 🐛 Bug fix — Paginazione `/wiki`
+
+**Root cause:** `WikiHomePage` non leggeva `searchParams.page`, quindi l'API rispondeva sempre con `page=1`.
+
+**Fix:**
+- `WikiHomePage`: `searchParams` come `Promise<{ page?, type? }>`
+- Passato `page` a `getWikiPages()`
+- `buildPageUrl()` che preserva `type` filter
+- Pulsanti `← Prec` / `Succ →`
+- `aria-current="page"` sul link attivo
+
+### 🐛 Bug fix — Wiki generator
+
+- `WikiGenerator`: non sovrascrive `featured_image` e `status` su update
+- `WikiGenerator::pickBestContent()`: rifiuta content < 100 char
+- `tryRepairTruncatedJson()`: gestione JSON troncato (3 strategie)
+- `WikiGenerator::parseResponse()`: regex multiline, pulizia trailing commas
+
+### 📊 Risultati finali
+
+| Cosa | Valore |
+|---|---|
+| Entity con Wikipedia | 21 |
+| Wikipedia chunks | 573 |
+| Wiki generate con Wikipedia RAG | 21 |
+| Wiki con immagine | 19 |
+| Entità create da AI | 10 |
+| Entity collegate a wiki | 30 |
+| Commit pushati oggi | 27+ |
+
+---
+
+## [2026-10-15g] — Fix paginazione `/wiki`
+
+Vedi sezione `[2026-10-15h]` per dettagli.
+
+---
+
+## [2026-10-15f] — Fix Entity ↔ Wiki link
+
+Vedi sezione `[2026-10-15h]` per dettagli.
+
+---
+
+## [2026-10-15e] — Admin UI Wikipedia + Immagine
+
+Vedi sezione `[2026-10-15h]` per dettagli.
+
+---
+
+## [2026-10-15d] — Entity Extraction auto-create
+
+Vedi sezione `[2026-10-15h]` per dettagli.
+
+---
+
+## [2026-10-15c] — Fix Ollama anti-loop
+
+Vedi sezione `[2026-10-15h]` per dettagli.
+
+---
+
+## [2026-10-15b] — Wikipedia RAG
+
+Vedi sezione `[2026-10-15h]` per dettagli.
+
+---
+
+## [2026-10-15a] — Wiki Image Fetching
+
+Vedi sezione `[2026-10-15h]` per dettagli.
+
+---
 ---
 ## [2026-10-15i] — Sessione Wikipedia RAG + Entity Extraction + Wiki Image
 
