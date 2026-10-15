@@ -1239,6 +1239,46 @@ class ArticleResource extends Resource
                         })
                         ->deselectRecordsAfterCompletion(),
 
+
+                    Tables\Actions\BulkAction::make('detect_entities_batch')
+                        ->label('🔍 Rileva entità (AI)')
+                        ->icon('heroicon-o-sparkles')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->modalHeading('Rileva entità per gli articoli selezionati')
+                        ->modalDescription('Verrà dispatchato il job DetectArticleEntities per gli articoli selezionati. Timeout 20 min per job.')
+                        ->modalSubmitActionLabel('Rileva')
+                        ->visible(fn () => Auth::user()->hasRole(['super_admin', 'editor']))
+                        ->form([
+                            Forms\Components\Checkbox::make('force')
+                                ->label('Forza rilevazione anche se già presenti')
+                                ->helperText('Se attivo, rileva anche gli articoli che hanno già entità collegate.')
+                                ->default(false),
+                        ])
+                        ->action(function (array $data, $records) {
+                            $count = 0;
+                            $skipped = 0;
+                            foreach ($records as $record) {
+                                $alreadyDetected = !empty($record->detected_entities['entities'] ?? null);
+                                if ($alreadyDetected && empty($data['force'])) {
+                                    $skipped++;
+                                    continue;
+                                }
+                                \App\Jobs\DetectArticleEntities::dispatch($record, auth()->id());
+                                $count++;
+                            }
+                            $title = $count . ' job accodati';
+                            if ($skipped > 0) {
+                                $title .= ' · ' . $skipped . ' saltati (già rilevati)';
+                            }
+                            Notification::make()
+                                ->title($title)
+                                ->body('Controlla tra 5-20 minuti (dipende dalla coda).')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
                     Tables\Actions\DeleteBulkAction::make()->label('Elimina'),
                 ]),
             ])
