@@ -44,7 +44,7 @@ class DetectArticleEntities implements ShouldQueue
     {
         Log::info('DetectArticleEntities started', ['article_id' => $this->article->id]);
 
-        $models = ['qwen2.5:3b'];
+	$models = [config('services.ollama.model_extraction', 'qwen2.5:3b')];
         $detected = [];
         $successModel = null;
 
