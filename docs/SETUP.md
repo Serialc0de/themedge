@@ -837,3 +837,350 @@ Dopo il setup:
 ---
 
 *Ultima modifica: 14 ottobre 2026*
+
+---
+
+## 🛠️ Setup AI locale (aggiornato 15 ottobre 2026)
+
+### Prerequisiti
+
+- **VPS** con Ubuntu 22.04+ (o 24.04/26.04)
+- **Almeno 8 GB RAM** (per Ollama + Laravel + Next.js)
+- **Almeno 20 GB disco** libero
+- **CPU** 4+ core (Ollama su CPU)
+- **Accesso root** SSH
+
+### 1. Ollama
+
+**Installazione:**
+
+    curl -fsSL https://ollama.com/install.sh | sh
+
+**Avvio:**
+
+    systemctl enable ollama
+    systemctl start ollama
+
+**Verifica:**
+
+    systemctl status ollama --no-pager
+    curl -s http://localhost:11434/api/tags | python3 -m json.tool
+
+**Modelli da scaricare:**
+
+    # LLM veloce per RAG + entity + wiki (obbligatorio)
+    ollama pull qwen2.5:3b
+
+    # LLM qualità top per fact-check (opzionale)
+    ollama pull llama3.1:8b
+
+    # Embedding per RAG (obbligatorio)
+    ollama pull nomic-embed-text
+
+    # Fallback veloce (opzionale)
+    ollama pull qwen2:0.5b
+
+**Verifica modelli:**
+
+    ollama list
+
+Atteso:
+    qwen2.5:3b          1.9 GB
+    nomic-embed-text    275 MB
+    llama3.1:8b         4.9 GB
+
+**Test rapido:**
+
+    ollama run qwen2.5:3b "Rispondi solo: OK"
+    # Ctrl+D per uscire
+
+**Configurazione `.env` Laravel:**
+
+    OLLAMA_URL=http://localhost:11434
+    OLLAMA_MODEL=qwen2.5:3b
+    OLLAMA_MODEL_EXTRACTION=qwen2.5:3b
+    OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+    OLLAMA_TIMEOUT=600
+    OLLAMA_EMBEDDING_TIMEOUT=60
+    FACTCHECK_AI_ENABLED=true
+
+**Cleanup automatico (cron):**
+
+    # Ferma modelli inattivi ogni 30 min
+    */30 * * * * ollama ps | grep -E "Minutes|Hours" | awk '{print $1}' | xargs -I{} ollama stop {} 2>/dev/null
+
+---
+
+### 2. Piper TTS (text-to-speech)
+
+**Installazione:**
+
+    apt install -y python3-pip pipx ffmpeg
+    pipx install piper-tts
+
+**Download voce italiana:**
+
+    mkdir -p /opt/piper/voices
+    cd /opt/piper/voices
+
+    # Voce Paola (it_IT, medium, ~63 MB)
+    wget https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx
+    wget https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx.json
+
+**Verifica:**
+
+    ls -lh /opt/piper/voices/
+    piper --help
+
+**Test:**
+
+    echo "Ciao mondo, questo è un test." | piper \
+      --model /opt/piper/voices/it_IT-paola-medium.onnx \
+      --output_file /tmp/test.wav
+
+    ffmpeg -i /tmp/test.wav -codec:a libmp3lame -b:a 128k /tmp/test.mp3
+    ls -lh /tmp/test.mp3
+
+**Configurazione `.env` Laravel:**
+
+    TTS_ENABLED=true
+    TTS_AUTO_GENERATE=true
+    PIPER_BINARY=/root/.local/bin/piper
+    PIPER_MODEL=/opt/piper/voices/it_IT-paola-medium.onnx
+    PIPER_TIMEOUT=300
+    FFMPEG_BINARY=/usr/bin/ffmpeg
+    FFMPEG_BITRATE=128k
+    FFMPEG_SAMPLE_RATE=22050
+    TTS_STORAGE_PATH=audio
+    TTS_FORMAT=mp3
+
+**Configurazione `config/tts.php`:**
+
+Già presente nel repo, con default corretti.
+
+---
+
+### 3. Meilisearch (full-text search)
+
+**Installazione:**
+
+    curl -L https://install.meilisearch.com | sh
+    mv ./meilisearch /usr/local/bin/
+    chmod +x /usr/local/bin/meilisearch
+
+**Configurazione systemd:**
+
+    cat > /etc/systemd/system/meilisearch.service << 'EOF'
+    [Unit]
+    Description=Meilisearch
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=root
+    ExecStart=/usr/local/bin/meilisearch --master-key /root/.meilisearch_master_key --env production
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+
+**Genera master key:**
+
+    echo "MEILI_MASTER_KEY_$(openssl rand -hex 32)" > /root/.meilisearch_master_key
+    chmod 600 /root/.meilisearch_master_key
+    cat /root/.meilisearch_master_key
+
+**Avvio:**
+
+    systemctl daemon-reload
+    systemctl enable meilisearch
+    systemctl start meilisearch
+    systemctl status meilisearch --no-pager
+
+**Verifica:**
+
+    curl -s http://localhost:7700/health
+    # Atteso: {"status":"available"}
+
+**Configurazione `.env` Laravel:**
+
+    SCOUT_DRIVER=meilisearch
+    MEILISEARCH_HOST=http://localhost:7700
+    MEILISEARCH_KEY=MEILI_MASTER_KEY_...
+
+**Index articoli:**
+
+    cd /www/wwwroot/themedge.com/api
+    php artisan scout:import "App\Models\Article"
+
+---
+
+### 4. Redis
+
+**Installazione:**
+
+    apt install -y redis-server
+
+**Configurazione:**
+
+    # /etc/redis/redis.conf
+    # bind 127.0.0.1
+    # requirepass <password>
+    # maxmemory 256mb
+    # maxmemory-policy allkeys-lru
+
+**Avvio:**
+
+    systemctl enable redis-server
+    systemctl start redis-server
+
+**Verifica:**
+
+    redis-cli ping
+    # Atteso: PONG
+
+---
+
+### 5. Node.js (per Next.js)
+
+**Installazione (via nvm):**
+
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    source ~/.bashrc
+    nvm install 22.23.3
+    nvm use 22.23.3
+
+**Verifica:**
+
+    node -v
+    # Atteso: v22.23.3
+
+---
+
+### 6. PM2 (process manager)
+
+**Installazione:**
+
+    npm install -g pm2
+
+**Avvio processi:**
+
+    cd /www/wwwroot/themedge.com/web
+    export PATH=/www/server/nodejs/v22.23.3/bin:$PATH
+
+    pm2 start npm --name "themedge-web" -- start
+    pm2 save
+    pm2 startup
+    # Segui istruzioni output
+
+**Worker queue:**
+
+    cd /www/wwwroot/themedge.com/api
+    pm2 start "php artisan queue:work --tries=2 --timeout=600 --sleep=3" --name "themedge-queue"
+    pm2 save
+
+**Verifica:**
+
+    pm2 list
+
+Atteso:
+    themedge-web       online
+    themedge-queue     online
+
+---
+
+## 🎯 Verifica setup completo
+
+    # 1. Ollama
+    curl -s http://localhost:11434/api/tags | python3 -m json.tool | head -10
+
+    # 2. Piper
+    piper --help | head -3
+
+    # 3. Meilisearch
+    curl -s http://localhost:7700/health
+
+    # 4. Redis
+    redis-cli ping
+
+    # 5. Node
+    node -v
+
+    # 6. PM2
+    pm2 list
+
+    # 7. Laravel
+    cd /www/wwwroot/themedge.com/api
+    php artisan --version
+    php artisan migrate:status | tail -5
+
+    # 8. Frontend
+    curl -I https://themedge.com
+
+Tutti devono rispondere OK.
+
+---
+
+## 🚨 Troubleshooting setup
+
+### Ollama non parte
+
+    systemctl status ollama --no-pager
+    journalctl -u ollama --since "5 min ago"
+    systemctl restart ollama
+
+### Piper non funziona
+
+    which piper
+    # Se manca:
+    pipx ensurepath
+    source ~/.bashrc
+
+### Meilisearch non risponde
+
+    systemctl status meilisearch --no-pager
+    journalctl -u meilisearch --since "5 min ago"
+
+### Redis NOAUTH
+
+    redis-cli -a <password> ping
+    # Oppure config:
+    cat /www/server/redis/redis.conf | grep requirepass
+
+### Next.js BUILD_ID mancante
+
+    cd /www/wwwroot/themedge.com/web
+    export PATH=/www/server/nodejs/v22.23.3/bin:$PATH
+    rm -rf .next
+    npm run build
+    chown -R www:www .next
+    pm2 restart themedge-web
+
+---
+
+## 📊 Requisiti minimi
+
+| Componente | RAM | CPU | Disco |
+|-----------|-----|-----|-------|
+| Laravel + PHP-FPM | 500 MB | 1 core | 2 GB |
+| Next.js | 200 MB | 1 core | 1 GB |
+| MySQL | 500 MB | 1 core | 2 GB |
+| Redis | 100 MB | 0.5 core | 100 MB |
+| Meilisearch | 500 MB | 1 core | 1 GB |
+| Ollama (qwen2.5:3b) | 2.2 GB | 2 core | 2 GB |
+| Ollama (nomic) | 400 MB | 1 core | 300 MB |
+| Piper | 200 MB | 0.5 core | 500 MB |
+| **TOTALE minimo** | **4.6 GB** | **4 core** | **10 GB** |
+| **TOTALE consigliato** | **8 GB** | **4 core** | **20 GB** |
+
+---
+
+## 🔗 Vedi anche
+
+- `HANDOFF.md` — Regole critiche
+- `docs/OLLAMA.md` — Configurazione Ollama
+- `docs/PHP_FPM.md` — Script PHP-FPM
+- `docs/DEPLOY.md` — Deploy + rollback
+- `docs/TROUBLESHOOTING.md` — Problemi + fix
+- `CHANGELOG.md` — Sezione [2026-10-15i]
